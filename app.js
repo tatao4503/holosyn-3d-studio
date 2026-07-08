@@ -389,7 +389,6 @@ let controls = null;
 // HOLOSYN V9 Pro Variables
 let composer = null;
 let bloomPass = null;
-let speechRec = null;
 let activeModelGroup = null; // Container for the rotating 3D models
 let reticleGroup = null;     // Container for target reticles (v3.4)
 let scanningPlane = null;    // Bounding surface scanner plane (v3.4)
@@ -432,21 +431,11 @@ let environmentGroup = new THREE.Group();
 let envParticles = null;
 let envLines = [];           // Cache for windtunnel line objects
 
-// v3.8 Production Grade — Performance & Accessibility Flags
-let reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+// v3.8 Production Grade — Performance Flags
 let fpsFrameCount = 0;
 let fpsLastTime = performance.now();
 let fpsDisplay = 0;
 let resizeDebounceTimer = null;
-
-// Debounce utility
-function debounce(fn, delay) {
-    let timer;
-    return function(...args) {
-        clearTimeout(timer);
-        timer = setTimeout(() => fn.apply(this, args), delay);
-    };
-}
 
 // v3.8 Preferences Persistence (localStorage)
 function savePreferences() {
@@ -9705,14 +9694,17 @@ function initVoiceRecognition() {
     };
     
     recognition.onerror = (e) => {
-        console.error("Speech recognition error", e);
+        // 'aborted' (user stopped) and 'no-speech' (silence) are expected — stay quiet.
+        const benign = e.error === 'aborted' || e.error === 'no-speech';
         if (e.error === 'not-allowed') {
+            console.warn("Speech recognition: microphone access denied.");
             addConsoleLog(state.language === 'ko' ? "[경고] 마이크 권한이 거부되었습니다. 주소창 설정에서 마이크를 허용해 주세요." : "[WARNING] Microphone access denied. Please allow microphone in settings.", "warning");
             showNotification(
                 state.language === 'ko' ? "마이크 권한 거부됨" : "Mic Access Denied",
                 state.language === 'ko' ? "브라우저 주소창의 마이크 잠금을 해제해 주세요." : "Please enable microphone permission in browser."
             );
-        } else {
+        } else if (!benign) {
+            console.warn("Speech recognition error:", e.error);
             addConsoleLog(state.language === 'ko' ? `[음성인식 경고] 음성 입력 처리 불가: ${e.error}` : `[Speech Warning] Audio processing failed: ${e.error}`, "warning");
         }
         stopVoiceListening();
@@ -9751,7 +9743,7 @@ function initVoiceRecognition() {
     }
     
     function startVoiceListening() {
-        if (!recognition) return;
+        if (!recognition || isVoiceListening) return; // guard against double-start (InvalidStateError)
         try {
             recognition.lang = state.language === 'ko' ? 'ko-KR' : 'en-US';
             recognition.start();
@@ -9768,10 +9760,11 @@ function initVoiceRecognition() {
                 playSynthClick(1380, 0.04);
             }
         } catch (err) {
-            console.error("Speech initiation failed", err);
+            console.warn("Speech recognition could not start:", err.message || err);
+            isVoiceListening = false;
         }
     }
-    
+
     function stopVoiceListening() {
         if (!recognition) return;
         try {
