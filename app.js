@@ -1133,14 +1133,6 @@ function applyLocalFanExperimentCopy() {
         if (label) label.textContent = isIronSuitFanMode() ? 'Exo-Suit' : 'Suit';
     }
 
-    const sampleCard = document.querySelector('[data-sample-preset="exosuit"]');
-    if (sampleCard) {
-        const eyebrow = sampleCard.querySelector('span');
-        const strong = sampleCard.querySelector('strong');
-        if (eyebrow) eyebrow.textContent = isIronSuitFanMode() ? 'Concept Lab' : 'Armor Lab';
-        if (strong) strong.textContent = isIronSuitFanMode() ? 'Build 85' : 'Exo Suit';
-    }
-
     const demoBtn = document.querySelector('[data-demo-preset="suit"] span');
     if (demoBtn) demoBtn.textContent = copy.demoLabel;
 }
@@ -2891,7 +2883,6 @@ function loadPresetModel(presetName) {
         state.partScanIndex = 0;
     }
     updatePrototypeInsight(compoundMesh, presetName);
-    updateSampleGallerySelection(presetName);
     if (presetName === 'custom') {
         updateImportQualityFromModel(compoundMesh, {
             source: document.getElementById('spec-name')?.value || 'Custom import',
@@ -3263,40 +3254,10 @@ function updateImportQualityForSample(presetName) {
     });
 }
 
-function updateSampleGallerySelection(presetName) {
-    document.querySelectorAll('.sample-card').forEach(card => {
-        card.classList.toggle('active', card.getAttribute('data-sample-preset') === presetName);
-    });
-}
-
 function updatePresetButtonSelection(presetName) {
     document.querySelectorAll('.preset-btn').forEach(btn => {
         btn.classList.toggle('active', btn.getAttribute('data-preset') === presetName);
     });
-}
-
-function selectSamplePrototype(presetName) {
-    if (!presetName) return;
-    if (!state.engineBooted) {
-        showNotification(
-            state.language === 'ko' ? '엔진 기동 필요' : 'Boot Required',
-            state.language === 'ko' ? '먼저 HOLOSYN 엔진을 기동한 뒤 샘플을 선택하세요.' : 'Boot HOLOSYN before selecting a sample.'
-        );
-        return;
-    }
-
-    state.imageUploaded = false;
-    uploadedMeshGroup = null;
-    state.activeDemoPreset = null;
-    state.handoffReady.demo = false;
-    updatePresetButtonSelection(presetName);
-    updateSampleGallerySelection(presetName);
-    document.querySelectorAll('.demo-preset-btn').forEach(btn => btn.classList.remove('active'));
-    const statusEl = document.getElementById('demo-preset-status');
-    if (statusEl) statusEl.textContent = 'Manual';
-    loadPresetModel(presetName);
-    playSynthClick(620, 0.08);
-    setWorkflowProgress('structure', ['model']);
 }
 
 function applyStudioEnvironmentPreset(env) {
@@ -3357,7 +3318,6 @@ function applyDemoPreset(presetKey) {
     state.imageUploaded = false;
     uploadedMeshGroup = null;
     updatePresetButtonSelection(scenario.preset);
-    updateSampleGallerySelection(scenario.preset);
     loadPresetModel(scenario.preset);
     setRenderModeByKey(scenario.renderMode);
     applyStudioEnvironmentPreset(scenario.environment);
@@ -4000,7 +3960,6 @@ function applyProjectSnapshot(snapshot) {
         uploadedMeshGroup = null;
         state.customImageParticles = null;
         updatePresetButtonSelection(preset);
-        updateSampleGallerySelection(preset);
         loadPresetModel(preset);
     } else if (preset === 'custom') {
         addConsoleLog(
@@ -4512,9 +4471,6 @@ function runImportQualityAction() {
 }
 
 function initProductizationControls() {
-    document.querySelectorAll('.sample-card').forEach(card => {
-        card.addEventListener('click', () => selectSamplePrototype(card.getAttribute('data-sample-preset')));
-    });
     document.querySelectorAll('.demo-preset-btn').forEach(btn => {
         btn.addEventListener('click', () => applyDemoPreset(btn.getAttribute('data-demo-preset')));
     });
@@ -4548,7 +4504,6 @@ function initProductizationControls() {
     const exportSnapshotBtn = document.getElementById('btn-export-project-snapshot');
     if (exportSnapshotBtn) exportSnapshotBtn.addEventListener('click', exportProjectSnapshot);
     updateImportQualityForSample(state.activePreset);
-    updateSampleGallerySelection(state.activePreset);
     updateProjectSnapshotStatus();
     updateHandoffPackStatus();
     updateBetaReadinessPanel();
@@ -7271,7 +7226,6 @@ function initUIControls() {
             document.querySelectorAll('.demo-preset-btn').forEach(b => b.classList.remove('active'));
             const demoPresetStatus = document.getElementById('demo-preset-status');
             if (demoPresetStatus) demoPresetStatus.textContent = 'Manual';
-            updateSampleGallerySelection(presetName);
             
             loadPresetModel(presetName);
         });
