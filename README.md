@@ -16,7 +16,7 @@
 - **3D Measure** — click two points for a real-world dimension readout
 - **Exploded view · Assembly steps · Timeline director** for staged walkthroughs
 - **Showcase mode** — hide all HUD, product only; Play Show for an auto cinematic pass
-- **Export suite** — GLB, spec JSON, HQ PNG, client brief (Markdown), demo/handoff pack
+- **Export suite** — GLB, spec JSON, HQ PNG, client brief, rehearsal runbook, demo/handoff pack, beta launch/ops packages
 - **Pepper's Ghost** 4-way split for a physical acrylic-pyramid display
 - Beginner / Pro modes · guided tours · mobile touch gestures · i18n (KO/EN)
 
@@ -65,7 +65,7 @@ Run this after editing the app:
 node scripts/smoke-check.mjs
 ```
 
-It checks the core files, key UI hooks, productization panels, final readiness controls, beta readiness controls, timeline module, AI/collaboration safeguards, cache tags, and JavaScript syntax.
+It checks the core files, key UI hooks, import reliability diagnostics, productization panels, final readiness controls, beta launch/ops controls, timeline module, AI/collaboration safeguards, cache tags, and JavaScript syntax.
 
 ## Cold QA
 
@@ -76,7 +76,9 @@ Use this after leaving the project alone for a few days:
 3. Boot the engine, pick one sample, and follow `NEXT ACTION`.
 4. Open `Part Scan`, check the Part Map rail, then apply one Demo Scene Preset.
 5. Save a Project Snapshot and check that Final Readiness reaches `DEMO READY` or better.
-6. Create the one-click Demo Pack, then stop if nothing feels confusing.
+6. Run Beta Launch Pack and confirm GUIDE, IMPORT, PERF, SNAPSHOT, EXPORT, and DOCS.
+7. Run Beta Ops Pack: export the test plan, benchmark, error report, example pack, deploy checklist, and release package.
+8. Export the Rehearsal Runbook or one-click Demo Pack, then stop if nothing feels confusing.
 
 ## File Map
 
@@ -91,13 +93,13 @@ Use this after leaving the project alone for a few days:
 
 1. Click `HOLOSYN 엔진 기동`.
 2. Choose a sample model or drop in your own 3D file.
-3. Check the import quality card for presentation fit, then use its `NEXT ACTION` button if you want the fastest safe path.
+3. Check the import quality card for presentation fit, reliability risk, mapped parts, and the fastest safe `NEXT ACTION`.
 4. Use viewport gestures or `Part Scan` to isolate one component while the rest of the assembly stays translucent.
 5. Apply a Demo Scene Preset such as Investor Pitch or Exploded Tech.
 6. Save a Project Snapshot if you want to restore the same presentation setup later.
 7. Use `Timeline` or `Showcase` for a cleaner audience-facing presentation pass.
 8. Edit the product name or part labels if needed.
-9. Review Beta Preflight, then click `시연 패키지 생성` for the one-click Demo Pack.
+9. Review Beta Preflight, Beta Launch Pack, and Beta Ops Pack, then export the Rehearsal Runbook or click `시연 패키지 생성` for the one-click Demo Pack.
 10. Export PNG, JSON, GLB, Client Brief Markdown, or the Handoff Manifest separately when needed.
 
 ## Main Features
@@ -105,7 +107,7 @@ Use this after leaving the project alone for a few days:
 - 3D model and image import
 - Sample Prototype Gallery for fast demos, including Drone, Ring, EV, Core Cell, and Forge Exo Suit concepts
 - Forge Exo Suit uses a generic cyan/blue armor-lab palette with a luminous chest core and thruster accents
-- Import Quality Gate for mesh count, fit status, exploded-view readiness, and a recommended next action
+- Import Quality Gate for mesh count, fit status, reliability risk, mapped-part status, exploded-view readiness, and a recommended next action
 - Gesture Pilot HUD for swipe momentum, wheel explode control, and touch pinch explode control
 - Imported GLB/OBJ part auto-map for custom Part Scan walkthroughs
 - Clickable Part Map rail for direct component focus during demos
@@ -118,6 +120,8 @@ Use this after leaving the project alone for a few days:
 - Suit Lab preset for powered exosuit concept experiments
 - Project Snapshot save/restore for presentation continuity
 - Beta Preflight panel for WebGL, CDN, storage, model, and snapshot readiness
+- Beta Launch Pack for onboarding availability, import risk, FPS floor, snapshot, export, and docs/package readiness
+- Beta Ops Pack for user-test scripts, performance benchmark, error report, example project pack, deploy checklist, and release package
 - Timeline Keyframe Director for staged prototype presentations
 - Showcase / cinematic camera modes with automatic presentation-focused Part Scan
 - HQ Boost render path with 2.5x DPR cap, bloom tuning, and 1.5x spec card PNG export
@@ -126,6 +130,7 @@ Use this after leaving the project alone for a few days:
 - Collaboration readiness guard for PeerJS/P2P loading failures
 - PNG, JSON, and GLB export
 - Client Brief Markdown export for customer or team sharing
+- Rehearsal Runbook Markdown export for 30-second/3-minute demo practice and risk checks
 - One-click Demo Pack export with client brief, handoff manifest, project snapshot, readiness state, and recommended deliverables
 - Handoff Manifest export with final readiness score, clickable readiness jumps, visible Part Map readiness, clickable next-step guidance, demo setup, quality state, and recommended asset list
 - Mobile-friendly drawer controls
@@ -145,5 +150,5 @@ Multi-part 3D models work best for exploded views and part labels. HOLOSYN reads
 - The AI assistant is optional. Use `SESSION` for temporary demo keys, `SAVE` only for your own device, and `CLEAR` before handoff.
 - Collaboration requires the PeerJS CDN to load. If it is offline, HOLOSYN keeps the local presentation tools available.
 - Exports are handled by the browser download system.
-- For a clean presentation, start with a Demo Scene Preset or `데모 런`, run Final Pass to lock HQ Boost and a fresh snapshot, then create the one-click Demo Pack when Final Readiness reaches Demo Ready or better.
+- For a clean presentation, start with a Demo Scene Preset or `데모 런`, run Final Pass to lock HQ Boost and a fresh snapshot, then export the Rehearsal Runbook or one-click Demo Pack when Final Readiness reaches Demo Ready or better.
 - Project Snapshots store presentation settings and timeline state in this browser. Custom model files are not embedded; drop the file again if a restored custom setup needs its original GLB/OBJ/image.

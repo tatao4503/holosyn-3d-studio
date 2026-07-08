@@ -3,7 +3,7 @@
  * HOLOSYN v3.2 "1-PERSON MAKER PROTOTYPE SUITE" ENGINE
  * Core Javascript - Vanilla ES6 & Three.js Pipeline
  * Optimized presentation tools for makers and hardware developers
- * Spatial AVP overlay, macOS Slide-in notifications, and automated presenter
+ * Spatial frosted overlay, slide-in notifications, and automated presenter
  * Native GLB/GLTF/OBJ loader injections and floating 3D part annotations
  * ==========================================================================
  */
@@ -52,7 +52,7 @@ const translations = {
         welcome_intro: "홀로신은 1인 메이커와 하드웨어 개발자를 위한 프리미엄 3D 시제품 발표 도구입니다. 미팅룸이나 전시 부스에서 제품을 가장 돋보이게 시연해 보세요.",
         intro_feature1_title: "3D 파일 직접 투사",
         intro_feature1_desc: ".glb, .gltf, .obj 파일을 드래그 앤 드롭하여 바로 시제품을 3D 시각화합니다.",
-        intro_feature2_title: "애플 스타일 Showcase",
+        intro_feature2_title: "시네마틱 Showcase",
         intro_feature2_desc: "HUD를 완벽히 숨긴 채 3D 분해도 및 파트 라벨링으로 제품에만 완벽히 집중시킵니다.",
         intro_feature3_title: "프로페셔널 포맷 내보내기",
         intro_feature3_desc: "최적화된 GLB 3D 압축 모델, 스펙 명세 JSON, 고해상도 PNG 캡처를 지원합니다.",
@@ -83,6 +83,12 @@ const translations = {
         env_cyberpunk: "네오 사이버펑크",
         env_cupertino: "큐퍼티노 연구소",
         env_windtunnel: "윈드 터널 실험",
+        studio_lighting: "스튜디오 조명",
+        light_studio: "스튜디오",
+        light_warm: "따뜻함",
+        light_cool: "차가움",
+        light_dramatic: "드라마틱",
+        light_brightness: "밝기",
         insight_title: "시제품 인사이트",
         insight_parts: "구성",
         insight_exploded: "분해도",
@@ -184,7 +190,7 @@ const translations = {
         welcome_intro: "Holosyn is a premium 3D prototype presentation suite for 1-person makers and hardware developers. Present your hardware concepts at exhibition booths and meeting rooms.",
         intro_feature1_title: "Direct 3D Projection",
         intro_feature1_desc: "Drag & drop .glb, .gltf, or .obj files to visualize your hardware concept instantly in 3D.",
-        intro_feature2_title: "Apple-Style Showcase",
+        intro_feature2_title: "Cinematic Showcase",
         intro_feature2_desc: "Completely mute all HUD layers to focus purely on the 3D product with exploded view and spatial labels.",
         intro_feature3_title: "Professional Exports Suite",
         intro_feature3_desc: "Export optimized GLB models, technical spec sheets in JSON format, or high-res PNG viewport snapshots.",
@@ -215,6 +221,12 @@ const translations = {
         env_cyberpunk: "NEO CYBERPUNK",
         env_cupertino: "CUPERTINO LAB",
         env_windtunnel: "WIND TUNNEL",
+        studio_lighting: "STUDIO LIGHTING",
+        light_studio: "Studio",
+        light_warm: "Warm",
+        light_cool: "Cool",
+        light_dramatic: "Dramatic",
+        light_brightness: "BRIGHTNESS",
         insight_title: "PROTOTYPE INSIGHT",
         insight_parts: "PARTS",
         insight_exploded: "EXPLODED",
@@ -281,7 +293,7 @@ const state = {
     uiMode: 'beginner',           // 'beginner' or 'pro' - Beginner is default clean mode
     gyroActive: false,
     language: 'ko',
-    themeColor: '#007aff',         // Apple System Blue as default
+    themeColor: '#007aff',         // Studio blue as default
     themeColorGlow: 'rgba(0, 122, 255, 0.22)',
     activePreset: 'drone',       // drone, ring, car, battery, exosuit, custom
     renderMode: 'wireframe',      // points, wireframe, solid
@@ -301,6 +313,7 @@ const state = {
     customImageParticles: null,   // Will hold coordinates if image uploaded
     customImageTexture: null,     // Holds texture if using solid plane mode
     imageUploaded: false,
+    lighting: { mood: 'studio', brightness: 1.0 },  // studio lighting control (v10.x)
     customImageExtrusion: 0.75,   // Real-time Z-depth volume extrusion scale (v3.9)
     floatHeight: 0.15,            // Target Y float position bias
     studioEnvironment: 'cyberpunk', // cyberpunk, cupertino, windtunnel
@@ -325,6 +338,11 @@ const state = {
         source: 'Built-in samples',
         meshes: '-',
         fit: 'Auto-fit standby',
+        reliabilityType: 'SAMPLE',
+        reliabilityScale: 'READY',
+        reliabilityParts: 'AUTO',
+        reliabilityRisk: 'LOW',
+        reliabilityWarnings: [],
         note: '샘플을 고르거나 파일을 드롭하면 발표 적합도를 즉시 확인합니다.',
         actionKey: 'structure',
         actionText: '샘플 선택 후 구조 보기로 이어가세요.',
@@ -349,6 +367,28 @@ const state = {
         model: false,
         snapshot: false
     },
+    launchReadiness: {
+        guide: false,
+        import: false,
+        performance: false,
+        snapshot: false,
+        export: false,
+        docs: false,
+        score: 0,
+        label: 'CHECK'
+    },
+    betaOps: {
+        test: false,
+        perf: false,
+        errors: false,
+        examples: false,
+        package: false,
+        deploy: false,
+        lastBenchmark: null,
+        lastReportAt: null
+    },
+    diagnosticsLog: [],
+    runtimeErrors: [],
     partScanActive: false,
     partScanIndex: 0,
     // v8.0 Timeline Presenter
@@ -389,6 +429,7 @@ let controls = null;
 // HOLOSYN V9 Pro Variables
 let composer = null;
 let bloomPass = null;
+let sceneLights = null; // { ambient, key, rim, fill, base } for runtime studio lighting control
 let activeModelGroup = null; // Container for the rotating 3D models
 let reticleGroup = null;     // Container for target reticles (v3.4)
 let scanningPlane = null;    // Bounding surface scanner plane (v3.4)
@@ -528,7 +569,7 @@ let lastGlitchTime = 0;
 let glitchActive = false;
 let glitchDuration = 0;
 
-// Animated Scrolling Diagnostic Message Database (Apple style clean logs)
+// Animated Scrolling Diagnostic Message Database (clean studio logs)
 const systemLogTemplates = {
     ko: [
         "[진단] 스튜디오 정밀 하향식 조명 강도 보정 완료.",
@@ -1548,6 +1589,7 @@ function initPartScanControls() {
 // Start the welcome modal boot sequence
 document.addEventListener('DOMContentLoaded', () => {
     loadPreferences(); // v3.8: Restore saved settings from localStorage
+    registerRuntimeErrorCapture();
     applyAnnotationLabelOverrides();
     initLanguageEngine();
     applyLocalFanExperimentCopy();
@@ -1579,7 +1621,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     modal.classList.add('hidden-stage');
                     // Automatically slide in welcome notification toast
                     showNotification(
-                        state.language === 'ko' ? "애플 스튜디오 부팅 성공" : "Apple Studio Boot Successful",
+                        state.language === 'ko' ? "HOLOSYN 스튜디오 부팅 성공" : "HOLOSYN Studio Boot Successful",
                         state.language === 'ko' ? "시제품 3D 발표 스튜디오가 준비되었습니다." : "The 3D prototype presentation studio is ready."
                     );
 
@@ -1758,7 +1800,7 @@ function applyQuickStyle(styleName) {
     switch (styleName) {
         case 'minimal':
             state.renderMode = 'solid';
-            state.themeColor = '#007aff'; // Apple Blue
+            state.themeColor = '#007aff'; // Studio Blue
             state.themeColorGlow = 'rgba(0, 122, 255, 0.22)';
             document.body.className = "theme-blue";
             
@@ -1769,7 +1811,7 @@ function applyQuickStyle(styleName) {
             
         case 'tactical':
             state.renderMode = 'wireframe';
-            state.themeColor = '#8e8e93'; // Apple Silver
+            state.themeColor = '#8e8e93'; // Studio Silver
             state.themeColorGlow = 'rgba(229, 229, 234, 0.22)';
             document.body.className = "theme-silver";
             
@@ -1780,7 +1822,7 @@ function applyQuickStyle(styleName) {
             
         case 'matrix':
             state.renderMode = 'points';
-            state.themeColor = '#af52de'; // Apple Purple (as green is pro only, matrix becomes premium purple!)
+            state.themeColor = '#af52de'; // Studio Purple
             state.themeColorGlow = 'rgba(175, 82, 222, 0.22)';
             document.body.className = "theme-purple";
             
@@ -1831,7 +1873,7 @@ function applyQuickStyle(styleName) {
 }
 
 // ==========================================================================
-// 2. WEB AUDIO API SYNTHESIZER ENGINE (Apple Acoustic-Style Sound design)
+// 2. WEB AUDIO API SYNTHESIZER ENGINE (HOLOSYN acoustic sound design)
 // ==========================================================================
 function initAudioEngine() {
     try {
@@ -1920,7 +1962,7 @@ function toggleSound() {
         state.isSoundOn = true;
         if (soundSwitch) soundSwitch.checked = true;
         startAmbientHum();
-        playAppleChime();
+        playHolosynChime();
         showNotification(
             state.language === 'ko' ? "오디오 출력 활성화" : "Audio Output Activated",
             state.language === 'ko' ? "실시간 입체 신디사이저 사운드 기능이 켜졌습니다." : "Real-time spatial synthesizers are now running."
@@ -1929,7 +1971,7 @@ function toggleSound() {
 }
 
 // Minimalist smooth chime sound (E major chords, soft bell tone)
-function playAppleChime() {
+function playHolosynChime() {
     if (!audioCtx || !state.isSoundOn) return;
     
     const chords = [329.63, 415.30, 493.88, 659.25]; // E major chords
@@ -2076,7 +2118,7 @@ function playAiComplete() {
     });
 }
 
-// Manual Glitch white noise burst (softened for Apple aesthetics)
+// Manual glitch white noise burst softened for the HOLOSYN studio aesthetic.
 function playGlitchNoise() {
     if (!audioCtx || !state.isSoundOn) return;
     
@@ -2134,7 +2176,7 @@ function showNotification(title, message) {
     }
     
     // Play arpeggiated bell chime
-    playAppleChime();
+    playHolosynChime();
     
     // Auto fade out and remove after 4 seconds
     setTimeout(() => {
@@ -2418,7 +2460,7 @@ function initThreeEngine() {
         addConsoleLog(`[GESTURE] Orbit momentum captured at ${state.rotationSpeed.toFixed(1)}x.`, 'info');
     });
     
-    // Apple Studio Downlight Lighting (High metalness specular highlights setup)
+    // HOLOSYN studio downlight lighting (high metalness specular highlights setup).
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.35);
     scene.add(ambientLight);
     
@@ -2435,7 +2477,17 @@ function initThreeEngine() {
     const fillLight = new THREE.DirectionalLight(0xffffff, 0.45);
     fillLight.position.set(5, 4, 5);
     scene.add(fillLight);
-    
+
+    // Expose lights + their neutral base intensities for runtime studio lighting control
+    sceneLights = {
+        ambient: ambientLight,
+        key: studioDownlight,
+        rim: warmRimLight,
+        fill: fillLight,
+        base: { ambient: 0.35, key: 2.2, rim: 0.6, fill: 0.45 }
+    };
+    applyLighting(state.lighting.mood, state.lighting.brightness);
+
     const customGrid = new THREE.GridHelper(10, 16, 0xffffff, 0xffffff);
     customGrid.position.y = -1.5;
     customGrid.material.transparent = true;
@@ -3042,12 +3094,22 @@ function formatFileSize(bytes = 0) {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function getImportFileTypeLabel(fileOrMeta = {}) {
+    const name = fileOrMeta.name || fileOrMeta.source || '';
+    const ext = fileOrMeta.extension || (typeof name === 'string' && name.includes('.') ? name.split('.').pop() : '');
+    if (fileOrMeta.type === 'image' || fileOrMeta.type?.startsWith?.('image/')) return 'IMAGE';
+    if (fileOrMeta.type === 'sample') return 'SAMPLE';
+    return ext ? ext.toUpperCase() : '3D';
+}
+
 function getModelQualityStats(modelGroup) {
     const stats = {
         meshes: 0,
         explodedParts: 0,
         vertices: 0,
-        maxDimension: 0
+        maxDimension: 0,
+        dimensions: { x: 0, y: 0, z: 0 },
+        hasGeometry: false
     };
     if (!modelGroup) return stats;
 
@@ -3056,6 +3118,7 @@ function getModelQualityStats(modelGroup) {
             stats.meshes++;
             if (child.geometry?.attributes?.position) {
                 stats.vertices += child.geometry.attributes.position.count;
+                stats.hasGeometry = true;
             }
         }
         if (child.userData && child.userData.explodedOffset) {
@@ -3068,8 +3131,44 @@ function getModelQualityStats(modelGroup) {
         const size = new THREE.Vector3();
         box.getSize(size);
         stats.maxDimension = Math.max(size.x, size.y, size.z);
+        stats.dimensions = { x: size.x, y: size.y, z: size.z };
     }
     return stats;
+}
+
+function getImportReliabilityReport(modelGroup, meta = {}, stats = getModelQualityStats(modelGroup)) {
+    const isImage = meta.type === 'image';
+    const customPartCount = meta.customPartCount ?? (state.activePreset === 'custom' ? getPartScanList('custom').length : 0);
+    const fileSizeMb = Number.isFinite(meta.fileSize) ? meta.fileSize / (1024 * 1024) : 0;
+    const typeLabel = getImportFileTypeLabel(meta);
+    const scaleLabel = stats.maxDimension > 0
+        ? `${stats.maxDimension.toFixed(2)}u`
+        : (isImage ? '2D->3D' : 'AUTO');
+    const partsLabel = isImage
+        ? `${state.customImageParticles?.length?.toLocaleString() || 0} pts`
+        : (customPartCount > 0 ? `${customPartCount} mapped` : `${stats.meshes || 0} mesh`);
+    const warnings = [];
+
+    if (!isImage && stats.meshes === 0) warnings.push('NO_MESH');
+    if (!isImage && customPartCount <= 1) warnings.push('SINGLE_PART');
+    if (stats.vertices > 180000) warnings.push('HEAVY_VERTICES');
+    if (fileSizeMb > 60) warnings.push('LARGE_FILE');
+    if (stats.maxDimension > 6) warnings.push('AUTO_SCALED');
+
+    let risk = 'LOW';
+    if (warnings.includes('NO_MESH') || warnings.includes('HEAVY_VERTICES') || fileSizeMb > 120) {
+        risk = 'HIGH';
+    } else if (warnings.length > 0 || isImage) {
+        risk = 'MED';
+    }
+
+    return {
+        typeLabel,
+        scaleLabel,
+        partsLabel,
+        risk,
+        warnings
+    };
 }
 
 function getImportQualityActionDefaults(actionKey, overrides = {}) {
@@ -3138,6 +3237,10 @@ function setImportQualityCard(nextQuality) {
     const sourceEl = document.getElementById('import-quality-source');
     const meshesEl = document.getElementById('import-quality-meshes');
     const fitEl = document.getElementById('import-quality-fit');
+    const reliabilityTypeEl = document.getElementById('import-reliability-type');
+    const reliabilityScaleEl = document.getElementById('import-reliability-scale');
+    const reliabilityPartsEl = document.getElementById('import-reliability-parts');
+    const reliabilityRiskEl = document.getElementById('import-reliability-risk');
     const noteEl = document.getElementById('import-quality-note');
     const actionTextEl = document.getElementById('import-quality-action-text');
     const actionBtn = document.getElementById('btn-import-quality-action');
@@ -3148,6 +3251,13 @@ function setImportQualityCard(nextQuality) {
     if (sourceEl) sourceEl.textContent = state.importQuality.source || '-';
     if (meshesEl) meshesEl.textContent = state.importQuality.meshes || '-';
     if (fitEl) fitEl.textContent = state.importQuality.fit || '-';
+    if (reliabilityTypeEl) reliabilityTypeEl.textContent = state.importQuality.reliabilityType || '-';
+    if (reliabilityScaleEl) reliabilityScaleEl.textContent = state.importQuality.reliabilityScale || '-';
+    if (reliabilityPartsEl) reliabilityPartsEl.textContent = state.importQuality.reliabilityParts || '-';
+    if (reliabilityRiskEl) {
+        reliabilityRiskEl.textContent = state.importQuality.reliabilityRisk || 'LOW';
+        reliabilityRiskEl.dataset.risk = state.importQuality.reliabilityRisk || 'LOW';
+    }
     if (noteEl) noteEl.textContent = state.importQuality.note || '';
     if (actionTextEl) actionTextEl.textContent = state.importQuality.actionText || '';
     if (actionLabelEl) actionLabelEl.textContent = state.importQuality.actionLabel || (state.language === 'ko' ? '실행' : 'Run');
@@ -3166,6 +3276,11 @@ function setImportQualityPending(file) {
         source,
         meshes: '-',
         fit: state.language === 'ko' ? 'Parsing' : 'Parsing',
+        reliabilityType: file ? getImportFileTypeLabel(file) : 'FILE',
+        reliabilityScale: 'PENDING',
+        reliabilityParts: '-',
+        reliabilityRisk: 'CHECK',
+        reliabilityWarnings: [],
         note: state.language === 'ko'
             ? '파일 구조를 읽고 발표 적합도를 계산하는 중입니다.'
             : 'Parsing the file and checking presentation readiness.',
@@ -3184,6 +3299,11 @@ function setImportQualityError(file, message) {
         source: file ? file.name : 'Unsupported file',
         meshes: '-',
         fit: 'Blocked',
+        reliabilityType: file ? getImportFileTypeLabel(file) : 'FILE',
+        reliabilityScale: 'BLOCKED',
+        reliabilityParts: '-',
+        reliabilityRisk: 'HIGH',
+        reliabilityWarnings: ['PARSE_ERROR'],
         note: message || (state.language === 'ko' ? '지원되지 않는 파일입니다.' : 'Unsupported file.'),
         ...getImportQualityActionDefaults('model')
     });
@@ -3193,6 +3313,7 @@ function updateImportQualityFromModel(modelGroup, meta = {}) {
     const stats = getModelQualityStats(modelGroup);
     const isImage = meta.type === 'image';
     const customPartCount = meta.customPartCount ?? (state.activePreset === 'custom' ? getPartScanList('custom').length : 0);
+    const reliability = getImportReliabilityReport(modelGroup, { ...meta, customPartCount }, stats);
     const isLimited = isImage || stats.explodedParts <= 1 || (state.activePreset === 'custom' && customPartCount <= 1);
     const status = isLimited ? 'limited' : 'good';
     const statusLabel = isLimited ? (state.language === 'ko' ? 'LIMITED' : 'LIMITED') : 'READY';
@@ -3222,6 +3343,11 @@ function updateImportQualityFromModel(modelGroup, meta = {}) {
         source: meta.source || document.getElementById('spec-name')?.value || 'Custom import',
         meshes: meshesText,
         fit: fitText,
+        reliabilityType: reliability.typeLabel,
+        reliabilityScale: reliability.scaleLabel,
+        reliabilityParts: reliability.partsLabel,
+        reliabilityRisk: reliability.risk,
+        reliabilityWarnings: reliability.warnings,
         note,
         ...getImportQualityModelAction(isLimited)
     });
@@ -3238,6 +3364,11 @@ function updateImportQualityForSample(presetName) {
         source: sample.source,
         meshes: sample.meshes,
         fit: sample.fit,
+        reliabilityType: 'SAMPLE',
+        reliabilityScale: 'READY',
+        reliabilityParts: canPartScan ? `${(partAnnotations[presetName] || []).length} mapped` : 'SINGLE',
+        reliabilityRisk: canPartScan ? 'LOW' : 'MED',
+        reliabilityWarnings: canPartScan ? [] : ['SINGLE_PART'],
         note: state.language === 'ko' ? sample.noteKo : sample.noteEn,
         ...action
     });
@@ -3256,6 +3387,48 @@ function applyStudioEnvironmentPreset(env) {
         btn.classList.toggle('active', btn.getAttribute('data-env') === env);
     });
     if (environmentGroup) updateStudioEnvironment();
+}
+
+// ===== Studio Lighting (v10.x) =====
+// Mood = intensity multipliers on each light's neutral base + key/rim colors.
+const LIGHTING_MOODS = {
+    studio:   { ambient: 1.0,  key: 1.0,  rim: 1.0,  fill: 1.0,  keyColor: 0xffffff, rimColor: 0x007aff },
+    warm:     { ambient: 0.9,  key: 1.15, rim: 0.7,  fill: 1.0,  keyColor: 0xffe6bf, rimColor: 0xff8a3d },
+    cool:     { ambient: 0.9,  key: 1.0,  rim: 1.15, fill: 0.9,  keyColor: 0xd6e6ff, rimColor: 0x1e6bff },
+    dramatic: { ambient: 0.3,  key: 1.55, rim: 1.35, fill: 0.25, keyColor: 0xffffff, rimColor: 0x0a84ff }
+};
+
+function applyLighting(mood = state.lighting.mood, brightness = state.lighting.brightness) {
+    if (!sceneLights) return;
+    const m = LIGHTING_MOODS[mood] || LIGHTING_MOODS.studio;
+    const b = (typeof brightness === 'number' && !isNaN(brightness)) ? brightness : 1.0;
+    const base = sceneLights.base;
+    sceneLights.ambient.intensity = base.ambient * m.ambient * b;
+    sceneLights.key.intensity     = base.key     * m.key     * b;
+    sceneLights.rim.intensity     = base.rim     * m.rim     * b;
+    sceneLights.fill.intensity    = base.fill    * m.fill    * b;
+    sceneLights.key.color.setHex(m.keyColor);
+    sceneLights.rim.color.setHex(m.rimColor);
+    state.lighting.mood = mood;
+    state.lighting.brightness = b;
+}
+
+function initLightingControls() {
+    document.querySelectorAll('.light-mode-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            document.querySelectorAll('.light-mode-btn').forEach(b => b.classList.remove('active'));
+            e.currentTarget.classList.add('active');
+            applyLighting(e.currentTarget.getAttribute('data-light'), state.lighting.brightness);
+            playSynthClick(560, 0.06);
+        });
+    });
+    const slider = document.getElementById('tuner-light-brightness');
+    const readout = document.getElementById('readout-light-brightness');
+    if (slider) slider.addEventListener('input', () => {
+        const v = parseFloat(slider.value);
+        if (readout) readout.textContent = v.toFixed(1);
+        applyLighting(state.lighting.mood, v);
+    });
 }
 
 function buildScenarioKeyframes(scenario) {
@@ -3412,11 +3585,11 @@ function getHandoffNextAction() {
             actionKey: 'export',
             text: partCount > 0
                 ? (isKo
-                    ? `Part Map ${partCount}개가 준비되었습니다. Demo Pack이나 Manifest로 마감하세요.`
-                    : `${partCount} Part Map components are ready. Close with a Demo Pack or Manifest.`)
+                    ? `Part Map ${partCount}개가 준비되었습니다. Runbook, Demo Pack, Manifest로 마감하세요.`
+                    : `${partCount} Part Map components are ready. Close with a Runbook, Demo Pack, or Manifest.`)
                 : (isKo
-                    ? '단일 셸 모델입니다. Demo Pack이나 Manifest로 마감하면 됩니다.'
-                    : 'This is a single-shell model. Close with a Demo Pack or Manifest.')
+                    ? '단일 셸 모델입니다. Runbook, Demo Pack, Manifest로 마감하면 됩니다.'
+                    : 'This is a single-shell model. Close with a Runbook, Demo Pack, or Manifest.')
         };
     }
 
@@ -3489,7 +3662,7 @@ function runHandoffChecklistAction(actionKey) {
         if (panel) panel.scrollIntoView({ block: 'center', behavior: 'smooth' });
         showNotification(
             state.language === 'ko' ? '내보내기 준비' : 'Export Ready',
-            state.language === 'ko' ? 'Demo Pack, Manifest, PNG, GLB 중 필요한 산출물을 저장하세요.' : 'Save the needed Demo Pack, Manifest, PNG, or GLB deliverable.'
+            state.language === 'ko' ? 'Runbook, Demo Pack, Manifest, PNG, GLB 중 필요한 산출물을 저장하세요.' : 'Save the needed Runbook, Demo Pack, Manifest, PNG, or GLB deliverable.'
         );
     }
 }
@@ -3642,8 +3815,8 @@ function getFinalPassSummary() {
         : (coreReady ? 'READY TO LOCK' : 'STANDBY');
     const detail = locked
         ? (checks.export
-            ? 'Final pass saved. Demo Pack or Manifest has been exported.'
-            : 'Final pass saved. Export Demo Pack, Manifest, or HQ PNG next.')
+            ? 'Final pass saved. A runbook, Demo Pack, or Manifest has been exported.'
+            : 'Final pass saved. Export Runbook, Demo Pack, Manifest, or HQ PNG next.')
         : (coreReady
             ? 'HQ Boost and snapshot are ready. Run Final Pass to lock the demo state.'
             : 'Boot a model, keep HQ Boost on, and save a project snapshot before final export.');
@@ -3729,8 +3902,8 @@ function runFinalPass() {
         state.language === 'ko' ? 'Final Pass 완료' : 'Final Pass Locked',
         snapshot
             ? (state.language === 'ko'
-                ? 'HQ Boost와 프로젝트 스냅샷을 잠갔습니다. 이제 Demo Pack, Manifest, PNG 중 필요한 산출물을 저장하세요.'
-                : 'HQ Boost and project snapshot are locked. Export Demo Pack, Manifest, or PNG when ready.')
+                ? 'HQ Boost와 프로젝트 스냅샷을 잠갔습니다. 이제 Runbook, Demo Pack, Manifest, PNG 중 필요한 산출물을 저장하세요.'
+                : 'HQ Boost and project snapshot are locked. Export Runbook, Demo Pack, Manifest, or PNG when ready.')
             : (state.language === 'ko'
                 ? 'HQ Boost는 잠겼지만 스냅샷 저장소를 사용할 수 없습니다. 브라우저 저장 권한을 확인하세요.'
                 : 'HQ Boost is locked, but snapshot storage is unavailable. Check browser storage access.')
@@ -3791,6 +3964,599 @@ function updateFinalReadinessScore() {
     labelEl.textContent = summary.label;
     detailEl.textContent = `${summary.handoffReady} / ${summary.handoffTotal} handoff · ${summary.betaReady} / ${summary.betaTotal} preflight${summary.partMapTotal > 0 ? ` · ${summary.partMapTotal} parts` : ''}`;
     updateFinalPassPanel();
+    updateLaunchReadinessPanel();
+}
+
+function getTourSignalState() {
+    try {
+        const storage = getBrowserStorage();
+        return storage?.getItem('holosyn_tour_completed_v1') || storage?.getItem('holosyn_tour_signal_v1') || '';
+    } catch (error) {
+        return '';
+    }
+}
+
+function setLaunchCheckState(id, isReady) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.classList.toggle('pass', !!isReady);
+    el.classList.toggle('warn', !isReady);
+}
+
+function getLaunchReadinessSummary() {
+    const guideAvailable = typeof window !== 'undefined'
+        && !!window.TutorialManager
+        && !!document.getElementById('btn-help-tour')
+        && !!document.getElementById('tutorial-card');
+    const importReady = state.importQuality.status !== 'error' && state.importQuality.reliabilityRisk !== 'HIGH';
+    const performanceReady = fpsDisplay >= 30;
+    const snapshotReady = !!getStoredProjectSnapshot();
+    const exportReady = !!state.handoffReady.export;
+    const docsReady = typeof buildClientBriefMarkdown === 'function'
+        && typeof buildRehearsalRunbookMarkdown === 'function'
+        && typeof buildDemoPackData === 'function'
+        && typeof buildHandoffManifestData === 'function';
+    const checks = {
+        guide: guideAvailable,
+        import: importReady,
+        performance: performanceReady,
+        snapshot: snapshotReady,
+        export: exportReady,
+        docs: docsReady
+    };
+    const readyCount = Object.values(checks).filter(Boolean).length;
+    const total = Object.keys(checks).length;
+    const score = Math.round((readyCount / total) * 100);
+    const missing = Object.entries(checks)
+        .filter(([, ready]) => !ready)
+        .map(([key]) => key);
+    let label = 'CHECK';
+    if (readyCount === total) label = 'READY';
+    else if (readyCount >= total - 1) label = 'NEAR READY';
+    else if (readyCount >= 3) label = 'BETA CHECK';
+
+    return {
+        checks,
+        readyCount,
+        total,
+        score,
+        label,
+        missing,
+        tourSignal: getTourSignalState(),
+        fps: fpsDisplay,
+        importRisk: state.importQuality.reliabilityRisk || 'LOW',
+        snapshotAt: getStoredProjectSnapshot()?.savedAt || null
+    };
+}
+
+function getLaunchReadinessDetail(summary = getLaunchReadinessSummary()) {
+    const ko = state.language === 'ko';
+    if (summary.readyCount === summary.total) {
+        return ko
+            ? `공유 준비 완료 · ${summary.score}% · FPS ${summary.fps || '--'}`
+            : `Ready to share · ${summary.score}% · FPS ${summary.fps || '--'}`;
+    }
+
+    const labels = {
+        guide: ko ? '가이드 투어 확인' : 'guide tour',
+        import: ko ? `임포트 위험도 ${summary.importRisk}` : `import risk ${summary.importRisk}`,
+        performance: ko ? `성능 샘플 FPS ${summary.fps || '--'}` : `performance sample FPS ${summary.fps || '--'}`,
+        snapshot: ko ? '프로젝트 스냅샷' : 'project snapshot',
+        export: ko ? 'Runbook/Demo Pack/Manifest 산출물' : 'Runbook/Demo Pack/Manifest export',
+        docs: ko ? '문서/팩 생성기' : 'docs/package builders'
+    };
+    const next = summary.missing.slice(0, 2).map(key => labels[key] || key).join(', ');
+    return ko
+        ? `${summary.readyCount} / ${summary.total} 준비 · 다음: ${next}`
+        : `${summary.readyCount} / ${summary.total} ready · Next: ${next}`;
+}
+
+function updateLaunchReadinessPanel() {
+    const panel = document.getElementById('launch-readiness-panel');
+    const statusEl = document.getElementById('launch-readiness-status');
+    const detailEl = document.getElementById('launch-readiness-detail');
+    const fillEl = document.getElementById('launch-readiness-fill');
+    if (!panel || !statusEl || !detailEl) return;
+
+    const summary = getLaunchReadinessSummary();
+    state.launchReadiness = {
+        ...summary.checks,
+        score: summary.score,
+        label: summary.label,
+        missing: summary.missing
+    };
+
+    setLaunchCheckState('launch-check-guide', summary.checks.guide);
+    setLaunchCheckState('launch-check-import', summary.checks.import);
+    setLaunchCheckState('launch-check-performance', summary.checks.performance);
+    setLaunchCheckState('launch-check-snapshot', summary.checks.snapshot);
+    setLaunchCheckState('launch-check-export', summary.checks.export);
+    setLaunchCheckState('launch-check-docs', summary.checks.docs);
+
+    panel.classList.toggle('ready', summary.readyCount === summary.total);
+    panel.classList.toggle('blocked', summary.readyCount < summary.total);
+    statusEl.textContent = `${summary.readyCount} / ${summary.total} ${summary.label}`;
+    detailEl.textContent = getLaunchReadinessDetail(summary);
+    if (fillEl) fillEl.style.width = `${summary.score}%`;
+    updateBetaOpsPanel();
+}
+
+function runLaunchReadinessCheck() {
+    const before = getLaunchReadinessSummary();
+    if (!before.checks.snapshot && before.checks.import && state.betaReadiness.storage && activeModelGroup) {
+        saveProjectSnapshot({ silent: true });
+    }
+
+    updateBetaReadinessPanel();
+    const summary = getLaunchReadinessSummary();
+    updateLaunchReadinessPanel();
+
+    const firstMissing = summary.missing[0];
+    const targetByMissing = {
+        guide: document.getElementById('btn-help-tour'),
+        import: document.getElementById('import-quality-card'),
+        performance: document.getElementById('btn-quality-boost') || document.getElementById('fps-counter'),
+        snapshot: document.getElementById('project-snapshot-panel'),
+        export: document.getElementById('demo-pack-panel') || document.getElementById('rehearsal-pack-panel'),
+        docs: document.getElementById('client-brief-panel')
+    };
+    const target = targetByMissing[firstMissing] || document.getElementById('launch-readiness-panel');
+    pulseWorkflowTarget(target);
+    if (target && typeof target.scrollIntoView === 'function') target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+
+    if (summary.readyCount === summary.total) {
+        showNotification(
+            state.language === 'ko' ? 'Beta Launch Pack 준비 완료' : 'Beta Launch Pack Ready',
+            state.language === 'ko' ? '가이드, 임포트, 성능, 스냅샷, 산출물, 문서 흐름이 모두 준비되었습니다.' : 'Guide, import, performance, snapshot, exports, and package docs are ready.'
+        );
+        addConsoleLog(`[LAUNCH] Beta launch pack passed at ${summary.score}%.`, 'success');
+        return;
+    }
+
+    showNotification(
+        state.language === 'ko' ? 'Beta Launch Pack 점검' : 'Beta Launch Check',
+        getLaunchReadinessDetail(summary)
+    );
+    addConsoleLog(`[LAUNCH] ${summary.readyCount}/${summary.total} ready. Missing: ${summary.missing.join(', ') || 'none'}.`, 'warning');
+}
+
+function setBetaOpsCheckState(id, isReady) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.classList.toggle('pass', !!isReady);
+    el.classList.toggle('warn', !isReady);
+}
+
+function getDiagnosticsLogSnapshot(limit = 80) {
+    const fromState = Array.isArray(state.diagnosticsLog) ? state.diagnosticsLog.slice(-limit) : [];
+    if (fromState.length > 0) return fromState;
+    return Array.from(document.querySelectorAll('#console-logs .log-line'))
+        .slice(-limit)
+        .map(line => ({
+            at: new Date().toISOString(),
+            type: line.className.includes('text-error') ? 'error' : line.className.includes('text-warning') ? 'warning' : 'info',
+            message: line.textContent || ''
+        }));
+}
+
+function getRuntimeErrorSnapshot(limit = 40) {
+    return Array.isArray(state.runtimeErrors) ? state.runtimeErrors.slice(-limit) : [];
+}
+
+function getBetaOpsSummary() {
+    const benchmark = state.betaOps.lastBenchmark;
+    const runtimeErrors = getRuntimeErrorSnapshot();
+    const checks = {
+        test: !!state.betaOps.test,
+        perf: !!benchmark && benchmark.averageFps >= 30,
+        errors: !!state.betaOps.errors && runtimeErrors.length === 0,
+        examples: !!state.betaOps.examples,
+        package: !!state.betaOps.package,
+        deploy: !!state.betaOps.deploy
+    };
+    const readyCount = Object.values(checks).filter(Boolean).length;
+    const total = Object.keys(checks).length;
+    const score = Math.round((readyCount / total) * 100);
+    const missing = Object.entries(checks)
+        .filter(([, ready]) => !ready)
+        .map(([key]) => key);
+    let label = 'OPS TODO';
+    if (readyCount === total) label = 'OPS READY';
+    else if (readyCount >= total - 1) label = 'ALMOST';
+    else if (readyCount >= 3) label = 'IN PROGRESS';
+
+    return {
+        checks,
+        readyCount,
+        total,
+        score,
+        label,
+        missing,
+        benchmark,
+        runtimeErrorCount: runtimeErrors.length,
+        lastReportAt: state.betaOps.lastReportAt
+    };
+}
+
+function getBetaOpsDetail(summary = getBetaOpsSummary()) {
+    const ko = state.language === 'ko';
+    if (summary.readyCount === summary.total) {
+        return ko
+            ? `운영 패키지 준비 완료 · ${summary.score}% · 에러 ${summary.runtimeErrorCount}건`
+            : `Ops package ready · ${summary.score}% · ${summary.runtimeErrorCount} runtime errors`;
+    }
+
+    const labels = {
+        test: ko ? '베타 테스트 플랜' : 'beta test plan',
+        perf: ko ? `성능 벤치 ${summary.benchmark?.averageFps || '--'} FPS` : `performance benchmark ${summary.benchmark?.averageFps || '--'} FPS`,
+        errors: ko ? `에러 리포트/무에러 상태` : 'error report / zero-error state',
+        examples: ko ? '예제 프로젝트팩' : 'example project pack',
+        package: ko ? '릴리즈 패키지' : 'release package',
+        deploy: ko ? '정적 배포 체크리스트' : 'static deploy checklist'
+    };
+    const next = summary.missing.slice(0, 2).map(key => labels[key] || key).join(', ');
+    return ko
+        ? `${summary.readyCount} / ${summary.total} 준비 · 다음: ${next}`
+        : `${summary.readyCount} / ${summary.total} ready · Next: ${next}`;
+}
+
+function updateBetaOpsPanel() {
+    const panel = document.getElementById('beta-ops-panel');
+    const statusEl = document.getElementById('beta-ops-status');
+    const detailEl = document.getElementById('beta-ops-detail');
+    if (!panel || !statusEl || !detailEl) return;
+
+    const summary = getBetaOpsSummary();
+    setBetaOpsCheckState('ops-check-test', summary.checks.test);
+    setBetaOpsCheckState('ops-check-perf', summary.checks.perf);
+    setBetaOpsCheckState('ops-check-errors', summary.checks.errors);
+    setBetaOpsCheckState('ops-check-examples', summary.checks.examples);
+    setBetaOpsCheckState('ops-check-package', summary.checks.package);
+    setBetaOpsCheckState('ops-check-deploy', summary.checks.deploy);
+
+    panel.classList.toggle('ready', summary.readyCount === summary.total);
+    panel.classList.toggle('pending', summary.readyCount < summary.total);
+    statusEl.textContent = `${summary.readyCount} / ${summary.total} ${summary.label}`;
+    detailEl.textContent = getBetaOpsDetail(summary);
+}
+
+function getBetaOpsEnvironment() {
+    return {
+        url: typeof window !== 'undefined' ? window.location.href : 'local',
+        userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
+        language: state.language,
+        uiMode: state.uiMode,
+        viewport: typeof window !== 'undefined' ? `${window.innerWidth}x${window.innerHeight}` : 'unknown',
+        devicePixelRatio: typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1,
+        renderPixelRatioCap: getRenderPixelRatioCap(),
+        visualQualityBoost: state.visualQualityBoost,
+        webgl: state.betaReadiness.webgl,
+        cdn: state.betaReadiness.cdn,
+        storage: state.betaReadiness.storage
+    };
+}
+
+function buildBetaTestPlanMarkdown() {
+    const productName = getProductName();
+    const finalReadiness = getFinalReadinessSummary();
+    const launch = getLaunchReadinessSummary();
+    return `# HOLOSYN Beta Test Plan: ${productName}
+
+Generated: ${new Date().toLocaleString()}
+
+## Goal
+Validate that a new user can load a prototype, understand the product story, run a short presentation, and export a handoff package without help.
+
+## Current Readiness
+- Final Readiness: ${finalReadiness.score}% - ${finalReadiness.label}
+- Beta Launch Pack: ${launch.readyCount}/${launch.total} - ${launch.label}
+- Import Risk: ${state.importQuality.reliabilityRisk || 'LOW'}
+- Active Sample: ${state.activePreset}
+
+## 15-Minute Test Script
+1. Open HOLOSYN and boot the engine.
+2. Pick one sample and follow NEXT ACTION.
+3. Run Part Scan through two components.
+4. Apply one Demo Scene Preset.
+5. Save a Project Snapshot.
+6. Run Final Pass and Beta Launch Check.
+7. Export Rehearsal Runbook or Demo Pack.
+
+## Observer Notes
+- Did the tester understand what HOLOSYN is within 30 seconds?
+- Did any label, button, or panel feel unclear?
+- Did FPS stay comfortably above 30 after boot?
+- Did export/download behavior work in the tester's browser?
+- What was the first moment that felt impressive?
+- What was the first moment that felt confusing?
+
+## Pass Criteria
+- Tester completes the flow without direct coaching.
+- No runtime errors appear in the Error Report.
+- Performance Benchmark averages 30 FPS or better.
+- Rehearsal Runbook, Demo Pack, or Handoff Manifest is exported.
+`;
+}
+
+function exportBetaTestPlan() {
+    const productName = getProductName();
+    state.betaOps.test = true;
+    state.betaOps.lastReportAt = new Date().toISOString();
+    triggerDownload(
+        buildBetaTestPlanMarkdown(),
+        'text/markdown;charset=utf-8',
+        `${getExportBaseName(productName)}_holosyn_beta_test_plan.md`
+    );
+    updateBetaOpsPanel();
+    showNotification(
+        state.language === 'ko' ? '베타 테스트 플랜 생성' : 'Beta Test Plan Saved',
+        state.language === 'ko' ? '15분 실사용 검증 스크립트를 Markdown으로 저장했습니다.' : 'Saved the 15-minute user test script as Markdown.'
+    );
+    addConsoleLog(`[OPS] Beta test plan exported for ${productName}.`, 'success');
+}
+
+function runPerformanceBenchmark() {
+    const start = performance.now();
+    const frames = [];
+    const duration = 2400;
+    const statusEl = document.getElementById('beta-ops-status');
+    if (statusEl) statusEl.textContent = 'BENCHMARK';
+    showNotification(
+        state.language === 'ko' ? '성능 벤치 시작' : 'Benchmark Started',
+        state.language === 'ko' ? '약 2.4초 동안 렌더 프레임을 샘플링합니다.' : 'Sampling render frames for about 2.4 seconds.'
+    );
+
+    const sample = (now) => {
+        frames.push(now);
+        if (now - start < duration) {
+            requestAnimationFrame(sample);
+            return;
+        }
+
+        const elapsedSeconds = Math.max(0.1, (now - start) / 1000);
+        const intervals = frames.slice(1).map((time, index) => time - frames[index]).filter(Boolean);
+        const averageFps = Math.round(frames.length / elapsedSeconds);
+        const worstFrameMs = intervals.length > 0 ? Math.round(Math.max(...intervals)) : 0;
+        const result = {
+            measuredAt: new Date().toISOString(),
+            frames: frames.length,
+            elapsedSeconds: Number(elapsedSeconds.toFixed(2)),
+            averageFps,
+            worstFrameMs,
+            pass: averageFps >= 30,
+            activePreset: state.activePreset,
+            renderMode: state.renderMode,
+            visualQualityBoost: state.visualQualityBoost
+        };
+
+        state.betaOps.lastBenchmark = result;
+        state.betaOps.perf = result.pass;
+        updateBetaOpsPanel();
+        updateLaunchReadinessPanel();
+        showNotification(
+            result.pass
+                ? (state.language === 'ko' ? '성능 벤치 통과' : 'Benchmark Passed')
+                : (state.language === 'ko' ? '성능 벤치 주의' : 'Benchmark Needs Attention'),
+            `AVG ${result.averageFps} FPS · Worst frame ${result.worstFrameMs}ms`
+        );
+        addConsoleLog(`[OPS] Performance benchmark ${result.pass ? 'passed' : 'warn'}: ${result.averageFps} FPS avg, ${result.worstFrameMs}ms worst frame.`, result.pass ? 'success' : 'warning');
+    };
+
+    requestAnimationFrame(sample);
+}
+
+function buildErrorReportData() {
+    return {
+        holosynPackage: 'error-report-v1',
+        exportedAt: new Date().toISOString(),
+        product: getProductName(),
+        environment: getBetaOpsEnvironment(),
+        runtimeErrors: getRuntimeErrorSnapshot(),
+        diagnosticsLog: getDiagnosticsLogSnapshot(),
+        readiness: {
+            final: getFinalReadinessSummary(),
+            launch: getLaunchReadinessSummary(),
+            ops: getBetaOpsSummary()
+        }
+    };
+}
+
+function exportErrorReport() {
+    const productName = getProductName();
+    state.betaOps.errors = true;
+    state.betaOps.lastReportAt = new Date().toISOString();
+    const report = buildErrorReportData();
+    triggerDownload(
+        JSON.stringify(report, null, 2),
+        'application/json',
+        `${getExportBaseName(productName)}_holosyn_error_report.json`
+    );
+    updateBetaOpsPanel();
+    showNotification(
+        state.language === 'ko' ? '에러 리포트 생성' : 'Error Report Saved',
+        report.runtimeErrors.length === 0
+            ? (state.language === 'ko' ? '현재 런타임 에러 없이 진단 로그를 저장했습니다.' : 'Saved diagnostics with no runtime errors captured.')
+            : (state.language === 'ko' ? `${report.runtimeErrors.length}개 런타임 에러를 포함해 저장했습니다.` : `Saved ${report.runtimeErrors.length} captured runtime errors.`)
+    );
+    addConsoleLog(`[OPS] Error report exported with ${report.runtimeErrors.length} runtime error(s).`, report.runtimeErrors.length === 0 ? 'success' : 'warning');
+}
+
+function buildExamplePackData() {
+    const samples = Object.entries(samplePrototypeCatalog).map(([key, sample]) => ({
+        id: key,
+        label: sample.label,
+        source: sample.source,
+        meshes: sample.meshes,
+        fit: sample.fit,
+        recommendedDemoPreset: Object.entries(demoPresetScenarios).find(([, scenario]) => scenario.preset === key)?.[0] || 'manual',
+        partMapCount: (partAnnotations[key] || []).length
+    }));
+    return {
+        holosynPackage: 'example-pack-v1',
+        exportedAt: new Date().toISOString(),
+        samples,
+        demoPresets: Object.entries(demoPresetScenarios).map(([key, scenario]) => ({
+            id: key,
+            label: scenario.label,
+            preset: scenario.preset,
+            renderMode: scenario.renderMode,
+            environment: scenario.environment,
+            keyframes: scenario.keyframes.length
+        })),
+        suggestedFirstRun: ['drone', 'stand', 'exosuit'],
+        notes: [
+            'Use built-in examples for beta onboarding before asking testers to import custom files.',
+            'For imported models, prefer multi-part GLB/OBJ files with readable mesh names.'
+        ]
+    };
+}
+
+function exportExamplePack() {
+    const productName = getProductName();
+    state.betaOps.examples = true;
+    state.betaOps.lastReportAt = new Date().toISOString();
+    triggerDownload(
+        JSON.stringify(buildExamplePackData(), null, 2),
+        'application/json',
+        `${getExportBaseName(productName)}_holosyn_example_pack.json`
+    );
+    updateBetaOpsPanel();
+    showNotification(
+        state.language === 'ko' ? '예제팩 생성' : 'Example Pack Saved',
+        state.language === 'ko' ? '샘플 모델과 데모 프리셋 목록을 JSON으로 저장했습니다.' : 'Saved sample models and demo preset metadata as JSON.'
+    );
+    addConsoleLog(`[OPS] Example pack exported for ${productName}.`, 'success');
+}
+
+function buildDeploymentChecklistMarkdown() {
+    const productName = getProductName();
+    return `# HOLOSYN Static Deployment Checklist: ${productName}
+
+Generated: ${new Date().toLocaleString()}
+
+## Required Files
+- index.html
+- index.css
+- app.js
+- scripts/holosyn-timeline.js
+- scripts/holosyn-pro-managers.js
+- README.md
+- DEMO_SCRIPT.md
+- HOLOSYN 실행.command
+
+## Pre-Deploy Gates
+- Run: node scripts/smoke-check.mjs
+- Open a local server, not raw file://, for final QA.
+- Boot the engine and verify WebGL/CDN/storage in Beta Preflight.
+- Run Performance Benchmark and confirm 30 FPS or better.
+- Export Error Report and confirm zero runtime errors.
+- Export Rehearsal Runbook or Demo Pack for reviewer handoff.
+
+## Hosting Notes
+- This is a static app; any HTTPS static host can serve it.
+- Keep CDN access available for Three.js, Lucide, and fonts unless vendored locally.
+- Custom user files are not uploaded by HOLOSYN; imported files stay in the browser session.
+- Project Snapshots store presentation state, not embedded custom 3D model binaries.
+`;
+}
+
+function exportDeploymentChecklist() {
+    const productName = getProductName();
+    state.betaOps.deploy = true;
+    state.betaOps.lastReportAt = new Date().toISOString();
+    triggerDownload(
+        buildDeploymentChecklistMarkdown(),
+        'text/markdown;charset=utf-8',
+        `${getExportBaseName(productName)}_holosyn_deploy_checklist.md`
+    );
+    updateBetaOpsPanel();
+    showNotification(
+        state.language === 'ko' ? '배포 체크리스트 생성' : 'Deploy Checklist Saved',
+        state.language === 'ko' ? '정적 배포 전 확인 항목을 Markdown으로 저장했습니다.' : 'Saved the static deployment checklist as Markdown.'
+    );
+    addConsoleLog(`[OPS] Deployment checklist exported for ${productName}.`, 'success');
+}
+
+function buildBetaReleasePackageData() {
+    const productName = getProductName();
+    const snapshot = getStoredProjectSnapshot() || buildProjectSnapshot();
+    return {
+        holosynPackage: 'beta-release-package-v1',
+        exportedAt: new Date().toISOString(),
+        product: {
+            name: productName,
+            category: document.getElementById('spec-category')?.value || 'PROTO'
+        },
+        readiness: {
+            final: getFinalReadinessSummary(),
+            launch: getLaunchReadinessSummary(),
+            ops: getBetaOpsSummary(),
+            betaPreflight: state.betaReadiness,
+            importQuality: state.importQuality
+        },
+        reports: {
+            betaTestPlanMarkdown: buildBetaTestPlanMarkdown(),
+            deploymentChecklistMarkdown: buildDeploymentChecklistMarkdown(),
+            errorReport: buildErrorReportData(),
+            examplePack: buildExamplePackData()
+        },
+        projectSnapshot: snapshot,
+        handoffManifest: buildHandoffManifestData(snapshot),
+        demoPack: buildDemoPackData(snapshot),
+        recommendedFiles: getRecommendedHandoffFiles(productName)
+    };
+}
+
+function exportBetaReleasePackage() {
+    const productName = getProductName();
+    state.betaOps.package = true;
+    state.betaOps.lastReportAt = new Date().toISOString();
+    const releasePackage = buildBetaReleasePackageData();
+    triggerDownload(
+        JSON.stringify(releasePackage, null, 2),
+        'application/json',
+        `${getExportBaseName(productName)}_holosyn_beta_release_package.json`
+    );
+    updateBetaOpsPanel();
+    showNotification(
+        state.language === 'ko' ? '베타 릴리즈 패키지 생성' : 'Beta Release Package Saved',
+        state.language === 'ko' ? '테스트, 에러, 예제, 배포, 스냅샷 자료를 하나로 묶었습니다.' : 'Bundled test, error, example, deploy, and snapshot materials.'
+    );
+    addConsoleLog(`[OPS] Beta release package exported for ${productName}.`, 'success');
+}
+
+function registerRuntimeErrorCapture() {
+    if (typeof window === 'undefined' || window.__holosynErrorCaptureRegistered) return;
+    window.__holosynErrorCaptureRegistered = true;
+    const pushError = (entry) => {
+        state.runtimeErrors.push({
+            at: new Date().toISOString(),
+            ...entry
+        });
+        while (state.runtimeErrors.length > 50) state.runtimeErrors.shift();
+        updateBetaOpsPanel();
+    };
+    window.addEventListener('error', (event) => {
+        pushError({
+            type: 'error',
+            message: event.message || 'Runtime error',
+            source: event.filename || '',
+            line: event.lineno || 0,
+            column: event.colno || 0
+        });
+    });
+    window.addEventListener('unhandledrejection', (event) => {
+        pushError({
+            type: 'unhandledrejection',
+            message: event.reason?.message || String(event.reason || 'Unhandled promise rejection')
+        });
+    });
+}
+
+if (typeof window !== 'undefined') {
+    window.updateLaunchReadinessPanel = updateLaunchReadinessPanel;
+    window.getLaunchReadinessSummary = getLaunchReadinessSummary;
+    window.getBetaOpsSummary = getBetaOpsSummary;
 }
 
 // Current product name from the spec form (fallback to a neutral default).
@@ -3890,6 +4656,8 @@ function buildProjectSnapshot() {
             lockedAt: state.finalPass.lockedAt,
             summary: getFinalPassSummary()
         },
+        launchReadiness: getLaunchReadinessSummary(),
+        betaOps: getBetaOpsSummary(),
         annotations: partAnnotations[state.activePreset] || []
     };
 }
@@ -4067,6 +4835,7 @@ function getRecommendedHandoffFiles(productName) {
         `${baseName}_specsheet.json`,
         `${state.activePreset}_prototype.glb`,
         `${baseName}_holosyn_client_brief.md`,
+        `${baseName}_holosyn_rehearsal_runbook.md`,
         `${baseName}_holosyn_project_snapshot.json`,
         `${baseName}_holosyn_handoff_manifest.json`,
         `${baseName}_holosyn_demo_pack.json`,
@@ -4185,6 +4954,10 @@ Generated: ${new Date().toLocaleString()}
 - Source: ${quality.source || '-'}
 - Meshes: ${quality.meshes || '-'}
 - Fit: ${quality.fit || '-'}
+- Type: ${quality.reliabilityType || '-'}
+- Scale: ${quality.reliabilityScale || '-'}
+- Parts: ${quality.reliabilityParts || '-'}
+- Risk: ${quality.reliabilityRisk || 'LOW'}
 - Note: ${quality.note || '-'}
 
 ## ${labels.spec}
@@ -4218,6 +4991,101 @@ ${getRecommendedHandoffFiles(productName).slice(0, 6).map(file => `- ${file}`).j
 `;
 }
 
+function getRehearsalRiskList() {
+    const finalReadiness = getFinalReadinessSummary();
+    const finalPass = getFinalPassSummary();
+    const quality = state.importQuality || {};
+    const risks = [];
+
+    if (finalReadiness.score < 75) {
+        risks.push(state.language === 'ko'
+            ? `Final Readiness ${finalReadiness.score}% - 데모 프리셋, 타임라인, 산출물 준비를 먼저 맞추세요.`
+            : `Final Readiness ${finalReadiness.score}% - prepare the demo preset, timeline, and exports first.`);
+    }
+    if (quality.reliabilityRisk === 'HIGH') {
+        risks.push(state.language === 'ko'
+            ? 'Import Risk HIGH - 모델 파일을 다시 확인하거나 가벼운 샘플로 리허설하세요.'
+            : 'Import Risk HIGH - verify the model file or rehearse with a lighter sample.');
+    } else if (quality.reliabilityRisk === 'MED') {
+        risks.push(state.language === 'ko'
+            ? 'Import Risk MED - 파트 분해가 제한될 수 있으니 Showcase 흐름을 백업으로 준비하세요.'
+            : 'Import Risk MED - part separation may be limited, so keep Showcase as a backup flow.');
+    }
+    if (!finalPass.checks.snapshot) {
+        risks.push(state.language === 'ko'
+            ? 'Project Snapshot 없음 - 같은 세팅을 복원할 수 있게 스냅샷을 저장하세요.'
+            : 'No Project Snapshot - save one so the setup can be restored.');
+    }
+    if (!finalPass.checks.export) {
+        risks.push(state.language === 'ko'
+            ? 'Export 미완료 - Runbook, Demo Pack, Manifest, PNG 중 하나 이상을 저장하세요.'
+            : 'Export not complete - save at least one Runbook, Demo Pack, Manifest, or PNG.');
+    }
+    if (state.timelineKeyframes.length < 2) {
+        risks.push(state.language === 'ko'
+            ? '타임라인 키프레임 부족 - 3분 발표에는 최소 2개 장면을 준비하세요.'
+            : 'Timeline needs keyframes - prepare at least two scenes for the 3-minute version.');
+    }
+
+    return risks.length > 0
+        ? risks
+        : [state.language === 'ko'
+            ? '핵심 리스크 없음 - 30초 버전으로 한 번만 더 리허설하면 됩니다.'
+            : 'No core risks - one more 30-second rehearsal is enough.'];
+}
+
+function buildRehearsalRunbookMarkdown() {
+    const specs = getProductSpecState();
+    const productName = specs.name || 'Holosyn Prototype';
+    const finalReadiness = getFinalReadinessSummary();
+    const finalPass = getFinalPassSummary();
+    const quality = state.importQuality || {};
+    const risks = getRehearsalRiskList();
+    const partMap = buildPartMapSummary(6);
+    const scenario = state.activeDemoPreset && demoPresetScenarios[state.activeDemoPreset]
+        ? demoPresetScenarios[state.activeDemoPreset]
+        : null;
+    const riskMarkdown = risks.map(item => `- ${item}`).join('\n');
+    const partsMarkdown = partMap.parts.length > 0
+        ? partMap.parts.map(item => `${item.index}. ${item.title} - ${item.description}`).join('\n')
+        : '- No mapped components yet.';
+
+    return `# HOLOSYN Rehearsal Runbook: ${productName}
+
+Generated: ${new Date().toLocaleString()}
+
+## Current Readiness
+- Final Readiness: ${finalReadiness.score}% - ${finalReadiness.label}
+- Final Pass: ${finalPass.label}
+- Import Risk: ${quality.reliabilityRisk || 'LOW'} (${quality.reliabilityType || 'SAMPLE'} / ${quality.reliabilityParts || '-'})
+- Demo Flow: ${scenario?.label || state.activeDemoPreset || 'Manual'}
+- Part Map: ${partMap.total} components${partMap.exported < partMap.total ? ` / ${partMap.exported} listed` : ''}
+
+## 30-Second Run
+1. Boot HOLOSYN and confirm the product name.
+2. Confirm Import Quality and follow NEXT ACTION.
+3. Show one Structure or Part Scan moment.
+4. Trigger Showcase or Demo Run.
+5. Run Final Pass and export Demo Pack or Rehearsal Runbook.
+
+## 3-Minute Run
+1. Model - load the sample or imported prototype and explain the use case.
+2. Structure - open exploded view, then Part Scan through two key components.
+3. Present - apply the chosen Demo Scene Preset and replay Timeline or Showcase.
+4. Final Pass - confirm HQ Boost, Project Snapshot, and Export readiness.
+5. Handoff - save Demo Pack, Client Brief, Handoff Manifest, or PNG as needed.
+
+## Risk Check
+${riskMarkdown}
+
+## Component Talking Points
+${partsMarkdown}
+
+## Recommended Files
+${getRecommendedHandoffFiles(productName).slice(0, 7).map(file => `- ${file}`).join('\n')}
+`;
+}
+
 function exportClientBriefMarkdown() {
     const productName = getProductName();
     markHandoffExportReady();
@@ -4238,10 +5106,32 @@ function exportClientBriefMarkdown() {
     addConsoleLog(`[BRIEF] Client-ready Markdown brief exported for ${productName}.`, 'success');
 }
 
+function exportRehearsalPack() {
+    const productName = getProductName();
+    markHandoffExportReady();
+    const markdown = buildRehearsalRunbookMarkdown();
+    triggerDownload(
+        markdown,
+        'text/markdown;charset=utf-8',
+        `${getExportBaseName(productName)}_holosyn_rehearsal_runbook.md`
+    );
+    const statusEl = document.getElementById('rehearsal-pack-status');
+    if (statusEl) {
+        statusEl.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+    showNotification(
+        state.language === 'ko' ? '리허설 런북 생성' : 'Rehearsal Runbook Saved',
+        state.language === 'ko' ? '30초/3분 발표 루틴과 리스크 체크를 Markdown으로 저장했습니다.' : 'Saved the 30-second and 3-minute rehearsal runbook as Markdown.'
+    );
+    addConsoleLog(`[REHEARSAL] Runbook exported for ${productName}.`, 'success');
+}
+
 if (typeof window !== 'undefined') {
     window.HolosynClientBrief = {
         build: buildClientBriefMarkdown,
-        exportMarkdown: exportClientBriefMarkdown
+        exportMarkdown: exportClientBriefMarkdown,
+        buildRehearsalRunbook: buildRehearsalRunbookMarkdown,
+        exportRehearsalRunbook: exportRehearsalPack
     };
 }
 
@@ -4275,6 +5165,12 @@ function buildHandoffManifestData(savedSnapshot = getStoredProjectSnapshot()) {
             specCardExportScale: getSpecCardExportScale(),
             finalPass: getFinalPassSummary()
         },
+        rehearsal: {
+            runbookRecommended: true,
+            risks: getRehearsalRiskList()
+        },
+        launchReadiness: getLaunchReadinessSummary(),
+        betaOps: getBetaOpsSummary(),
         recommendedFiles: getRecommendedHandoffFiles(productName),
         projectSnapshot: {
             available: !!savedSnapshot,
@@ -4289,6 +5185,7 @@ function buildDemoPackData(snapshot = null) {
     const projectSnapshot = snapshot || getStoredProjectSnapshot() || buildProjectSnapshot();
     const handoffManifest = buildHandoffManifestData(projectSnapshot);
     const briefMarkdown = buildClientBriefMarkdown();
+    const rehearsalRunbookMarkdown = buildRehearsalRunbookMarkdown();
     const lang = state.language === 'ko' ? 'ko' : 'en';
     const quickStart = lang === 'ko'
         ? [
@@ -4312,12 +5209,14 @@ function buildDemoPackData(snapshot = null) {
         quickStart,
         contents: {
             clientBriefMarkdown: briefMarkdown,
+            rehearsalRunbookMarkdown,
             handoffManifest,
             projectSnapshot
         },
         recommendedFiles: {
             includedInThisPack: [
                 `${getExportBaseName(productName)}_holosyn_client_brief.md`,
+                `${getExportBaseName(productName)}_holosyn_rehearsal_runbook.md`,
                 `${getExportBaseName(productName)}_holosyn_handoff_manifest.json`,
                 `${getExportBaseName(productName)}_holosyn_project_snapshot.json`
             ],
@@ -4333,7 +5232,9 @@ function buildDemoPackData(snapshot = null) {
             handoff: state.handoffReady,
             beta: state.betaReadiness,
             importQuality: state.importQuality,
-            finalPass: getFinalPassSummary()
+            finalPass: getFinalPassSummary(),
+            launch: getLaunchReadinessSummary(),
+            ops: getBetaOpsSummary()
         }
     };
 }
@@ -4485,6 +5386,38 @@ function initProductizationControls() {
     if (demoPackBtn) {
         demoPackBtn.addEventListener('click', exportDemoPack);
     }
+    const rehearsalPackBtn = document.getElementById('btn-export-rehearsal-pack');
+    if (rehearsalPackBtn) {
+        rehearsalPackBtn.addEventListener('click', exportRehearsalPack);
+    }
+    const launchCheckBtn = document.getElementById('btn-run-launch-check');
+    if (launchCheckBtn) {
+        launchCheckBtn.addEventListener('click', runLaunchReadinessCheck);
+    }
+    const betaTestPlanBtn = document.getElementById('btn-export-beta-test-plan');
+    if (betaTestPlanBtn) {
+        betaTestPlanBtn.addEventListener('click', exportBetaTestPlan);
+    }
+    const performanceBenchmarkBtn = document.getElementById('btn-run-performance-benchmark');
+    if (performanceBenchmarkBtn) {
+        performanceBenchmarkBtn.addEventListener('click', runPerformanceBenchmark);
+    }
+    const errorReportBtn = document.getElementById('btn-export-error-report');
+    if (errorReportBtn) {
+        errorReportBtn.addEventListener('click', exportErrorReport);
+    }
+    const examplePackBtn = document.getElementById('btn-export-example-pack');
+    if (examplePackBtn) {
+        examplePackBtn.addEventListener('click', exportExamplePack);
+    }
+    const deployChecklistBtn = document.getElementById('btn-export-deploy-checklist');
+    if (deployChecklistBtn) {
+        deployChecklistBtn.addEventListener('click', exportDeploymentChecklist);
+    }
+    const releasePackageBtn = document.getElementById('btn-export-release-package');
+    if (releasePackageBtn) {
+        releasePackageBtn.addEventListener('click', exportBetaReleasePackage);
+    }
     const finalPassPanelBtn = document.getElementById('btn-run-final-pass');
     if (finalPassPanelBtn) {
         finalPassPanelBtn.addEventListener('click', runFinalPass);
@@ -4507,6 +5440,8 @@ function initProductizationControls() {
     updateHandoffPackStatus();
     updateBetaReadinessPanel();
     updateFinalPassPanel();
+    updateLaunchReadinessPanel();
+    updateBetaOpsPanel();
 }
 
 let demoFlowTimers = [];
@@ -4732,7 +5667,7 @@ function runSmoothDemoFlow() {
         pulseWorkflowTarget(document.getElementById('demo-pack-panel') || document.querySelector('.export-buttons-grid'));
         showNotification(
             state.language === 'ko' ? "흐름 완료" : "Flow Complete",
-            state.language === 'ko' ? "이제 시연 패키지 버튼으로 공유용 묶음을 저장하면 됩니다." : "The handoff is ready. Save a one-click demo pack when needed."
+            state.language === 'ko' ? "이제 리허설 런북이나 시연 패키지로 공유용 묶음을 저장하면 됩니다." : "The handoff is ready. Save a rehearsal runbook or one-click demo pack when needed."
         );
     });
 
@@ -5238,7 +6173,7 @@ function processCustomUpload(file, merge = false) {
                     uploadedMeshGroup = gltf.scene;
                 }
                 
-                // Set standard metallic materials nicely to fit Apple Studio
+                // Set standard metallic materials nicely to fit the HOLOSYN studio.
                 applyWorkspaceMaterialsToLoadedMesh(uploadedMeshGroup);
                 
                 state.imageUploaded = false; // Disable image mode, enable 3D mode
@@ -5253,7 +6188,9 @@ function processCustomUpload(file, merge = false) {
                 loadPresetModel('custom');
                 updateImportQualityFromModel(uploadedMeshGroup, {
                     source: `${cleanName} · ${formatFileSize(file.size)}`,
-                    type: '3d'
+                    type: '3d',
+                    extension: ext,
+                    fileSize: file.size
                 });
 
                 // Count meshes for diagnostic logging
@@ -5316,7 +6253,9 @@ function processCustomUpload(file, merge = false) {
                 loadPresetModel('custom');
                 updateImportQualityFromModel(uploadedMeshGroup, {
                     source: `${cleanName} · ${formatFileSize(file.size)}`,
-                    type: '3d'
+                    type: '3d',
+                    extension: ext,
+                    fileSize: file.size
                 });
                 
                 showNotification(
@@ -5522,6 +6461,8 @@ function processCustomImage(file) {
             updateImportQualityFromModel(activeModelGroup?.children?.[0] || null, {
                 source: `${file.name.replace(/\.[^/.]+$/, "")} · ${formatFileSize(file.size)}`,
                 type: 'image',
+                extension: file.name.split('.').pop(),
+                fileSize: file.size,
                 note: state.language === 'ko'
                     ? '이미지 기반 포인트/볼륨 투사로 PNG 캡처와 콘셉트 보드 시연에 적합합니다.'
                     : 'Image projection is best for PNG capture and concept-board demos.'
@@ -7033,13 +7974,13 @@ function initUIControls() {
                 document.body.classList.add('spatial-active');
                 showNotification(
                     state.language === 'ko' ? "공간 컴퓨팅 패스스루 활성" : "Spatial Computing Pass-through Enabled",
-                    state.language === 'ko' ? "Apple Vision Pro 스타일의 입체 pass-through 배경이 활성화되었습니다." : "AVP spatial frosted blur bubbles background layer is now fully active."
+                    state.language === 'ko' ? "공간형 프로스트 배경 레이어가 활성화되었습니다." : "Spatial frosted background layer is now fully active."
                 );
             } else {
                 document.body.classList.remove('spatial-active');
                 showNotification(
                     state.language === 'ko' ? "공간 컴퓨팅 패스스루 해제" : "Spatial Computing Muted",
-                    state.language === 'ko' ? "입체 공간 컴퓨팅 투명 배경 모드를 종료합니다." : "AVP spatial frosted blur background returned to default dark studio."
+                    state.language === 'ko' ? "입체 공간 컴퓨팅 투명 배경 모드를 종료합니다." : "Spatial frosted blur background returned to default dark studio."
                 );
             }
         });
@@ -7425,7 +8366,7 @@ function initUIControls() {
         updateQualityBoostUi();
     }
 
-    // 7.5. CINEMATIC CAMERA DOCK BTNS (Apple camera panning)
+    // 7.5. CINEMATIC CAMERA DOCK BTNS (studio camera panning)
     document.querySelectorAll('.camera-dock-btn[data-view]').forEach(btn => {
         btn.addEventListener('click', (e) => {
             const targetView = e.currentTarget.getAttribute('data-view');
@@ -7768,6 +8709,12 @@ function addConsoleLog(message, type = "info") {
     const ts = `[${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}]`;
     
     line.innerText = `${ts} ${message}`;
+    state.diagnosticsLog.push({
+        at: now.toISOString(),
+        type,
+        message
+    });
+    while (state.diagnosticsLog.length > 120) state.diagnosticsLog.shift();
     scroller.appendChild(line);
     scroller.scrollTop = scroller.scrollHeight;
     
@@ -9242,7 +10189,8 @@ document.addEventListener('DOMContentLoaded', () => {
         initArchiveSystem();      // v5.0
         initPowerCoreEasterEgg(); // v9.0 — secret personal-fun mode (Konami code)
         initStandControlsUi();    // v10.0 — ST,AND fold + lineup controls
-        
+        initLightingControls();   // v10.x — studio lighting moods + brightness
+
         // v7.0 Premium visual elements (Fluid aurora & interactive glass tilts)
         initDynamicFluidAurora();
         initInteractiveTiltCards();
@@ -9513,6 +10461,7 @@ function updateFpsCounter() {
             DOM.fpsCounter.textContent = `${fpsDisplay} FPS`;
             DOM.fpsCounter.style.color = fpsDisplay >= 50 ? 'var(--green)' : fpsDisplay >= 30 ? 'var(--orange)' : 'var(--crimson)';
         }
+        updateLaunchReadinessPanel();
     }
 }
 

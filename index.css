@@ -3,7 +3,7 @@
    ========================================================================== */
 
 :root {
-    /* Premium Apple System Colors */
+    /* Premium HOLOSYN system colors */
     --blue: #007aff;
     --blue-glow: rgba(0, 122, 255, 0.22);
     --green: #34c759;
@@ -70,7 +70,7 @@ body {
 }
 
 /* ==========================================================================
-   AMBIENT BACKGROUND STYLINGS (Apple Studio Radial Light)
+   AMBIENT BACKGROUND STYLINGS (HOLOSYN studio radial light)
    ========================================================================== */
 .hud-vignette {
     position: absolute;
@@ -643,6 +643,8 @@ body::before {
 .demo-presets-panel,
 .handoff-pack-panel,
 .beta-readiness-panel,
+.launch-readiness-panel,
+.beta-ops-panel,
 .project-snapshot-panel {
     margin-top: 12px;
     padding: 10px;
@@ -655,6 +657,8 @@ body::before {
 .demo-presets-header,
 .handoff-pack-header,
 .beta-readiness-header,
+.launch-readiness-header,
+.beta-ops-header,
 .project-snapshot-header {
     display: flex;
     align-items: center;
@@ -671,19 +675,28 @@ body::before {
 .demo-presets-header strong,
 .handoff-pack-header strong,
 .beta-readiness-header strong,
+.launch-readiness-header strong,
+.beta-ops-header strong,
 .project-snapshot-header strong {
     color: var(--theme-color);
     font-size: 9px;
     white-space: nowrap;
 }
 
-.import-quality-grid {
+.import-quality-grid,
+.import-reliability-grid {
     display: grid;
     grid-template-columns: 1.2fr 0.8fr 1fr;
     gap: 6px;
 }
 
-.import-quality-grid div {
+.import-reliability-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    margin-top: 6px;
+}
+
+.import-quality-grid div,
+.import-reliability-grid div {
     min-width: 0;
     padding: 7px 8px;
     border-radius: 7px;
@@ -691,8 +704,11 @@ body::before {
 }
 
 .import-quality-grid span,
+.import-reliability-grid span,
 .handoff-checklist span,
-.beta-checklist span {
+.beta-checklist span,
+.launch-checklist span,
+.beta-ops-checklist span {
     display: block;
     font-family: var(--font-mono);
     font-size: 8px;
@@ -700,7 +716,8 @@ body::before {
     letter-spacing: 0.5px;
 }
 
-.import-quality-grid strong {
+.import-quality-grid strong,
+.import-reliability-grid strong {
     display: block;
     margin-top: 3px;
     color: var(--text-primary);
@@ -708,6 +725,24 @@ body::before {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+.import-reliability-grid strong {
+    font-size: 9px;
+    color: var(--theme-color);
+}
+
+.import-reliability-grid strong[data-risk="LOW"] {
+    color: var(--green);
+}
+
+.import-reliability-grid strong[data-risk="MED"],
+.import-reliability-grid strong[data-risk="CHECK"] {
+    color: #ffcc00;
+}
+
+.import-reliability-grid strong[data-risk="HIGH"] {
+    color: var(--red);
 }
 
 #import-quality-note {
@@ -1726,6 +1761,7 @@ body::before {
 }
 
 .demo-pack-panel,
+.rehearsal-pack-panel,
 .handoff-pack-panel,
 .client-brief-panel {
     display: flex;
@@ -1740,11 +1776,19 @@ body::before {
     border: 1px solid rgba(0, 122, 255, 0.14);
 }
 
+.rehearsal-pack-panel {
+    padding: 8px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.035);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
 .client-brief-panel {
     padding-top: 2px;
 }
 
 .demo-pack-header,
+.rehearsal-pack-header,
 .client-brief-header {
     display: flex;
     align-items: center;
@@ -1757,12 +1801,14 @@ body::before {
 }
 
 .demo-pack-header strong,
+.rehearsal-pack-header strong,
 .client-brief-header strong {
     color: var(--theme-color);
     font-size: 10px;
 }
 
 .demo-pack-copy,
+.rehearsal-pack-copy,
 .client-brief-copy {
     margin: 0;
     color: var(--text-muted);
@@ -2049,6 +2095,152 @@ body::before {
     border-color: rgba(255, 149, 0, 0.28);
     background: rgba(255, 149, 0, 0.08);
     color: var(--orange);
+}
+
+.launch-readiness-panel {
+    border-color: rgba(94, 92, 230, 0.16);
+    background: linear-gradient(135deg, rgba(94, 92, 230, 0.055), rgba(255, 255, 255, 0.035));
+}
+
+.beta-ops-panel {
+    border-color: rgba(100, 210, 255, 0.16);
+    background: linear-gradient(135deg, rgba(100, 210, 255, 0.05), rgba(255, 255, 255, 0.03));
+}
+
+.beta-ops-panel.ready {
+    border-color: rgba(48, 209, 88, 0.28);
+    background: linear-gradient(135deg, rgba(48, 209, 88, 0.075), rgba(100, 210, 255, 0.055));
+}
+
+.beta-ops-panel.pending {
+    border-color: rgba(255, 204, 0, 0.2);
+    background: rgba(255, 204, 0, 0.045);
+}
+
+.beta-ops-checklist {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 5px;
+    margin: 7px 0;
+}
+
+.beta-ops-checklist span {
+    min-height: 24px;
+    padding: 5px 4px;
+    border-radius: 7px;
+    border: 1px solid rgba(255, 255, 255, 0.055);
+    background: rgba(255, 255, 255, 0.035);
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+
+.beta-ops-checklist span.pass {
+    border-color: rgba(48, 209, 88, 0.28);
+    background: rgba(48, 209, 88, 0.08);
+    color: var(--green);
+}
+
+.beta-ops-checklist span.warn {
+    border-color: rgba(255, 149, 0, 0.28);
+    background: rgba(255, 149, 0, 0.08);
+    color: var(--orange);
+}
+
+#beta-ops-detail {
+    display: block;
+    margin: 7px 0;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: 8px;
+    line-height: 1.45;
+}
+
+.beta-ops-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+}
+
+.beta-ops-actions .hud-btn {
+    min-height: 32px;
+    padding: 7px 6px;
+    font-size: 9px;
+}
+
+.beta-ops-actions .hud-btn span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.launch-readiness-panel.ready {
+    border-color: rgba(48, 209, 88, 0.28);
+    background: linear-gradient(135deg, rgba(48, 209, 88, 0.08), rgba(0, 122, 255, 0.055));
+}
+
+.launch-readiness-panel.blocked {
+    border-color: rgba(255, 149, 0, 0.22);
+    background: rgba(255, 149, 0, 0.055);
+}
+
+.launch-checklist {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 5px;
+    margin: 7px 0;
+}
+
+.launch-checklist span {
+    min-height: 24px;
+    padding: 5px 4px;
+    border-radius: 7px;
+    border: 1px solid rgba(255, 255, 255, 0.055);
+    background: rgba(255, 255, 255, 0.035);
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+
+.launch-checklist span.pass {
+    border-color: rgba(48, 209, 88, 0.28);
+    background: rgba(48, 209, 88, 0.08);
+    color: var(--green);
+}
+
+.launch-checklist span.warn {
+    border-color: rgba(255, 149, 0, 0.28);
+    background: rgba(255, 149, 0, 0.08);
+    color: var(--orange);
+}
+
+.launch-readiness-meter {
+    height: 5px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.07);
+}
+
+.launch-readiness-meter span {
+    display: block;
+    width: 0%;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, var(--theme-color), var(--green));
+    transition: width 240ms ease;
+}
+
+#launch-readiness-detail {
+    display: block;
+    margin: 7px 0;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: 8px;
+    line-height: 1.45;
 }
 
 .project-snapshot-actions {
@@ -3454,6 +3646,11 @@ body::before {
     grid-template-columns: repeat(3, 1fr);
     gap: 6px;
     margin-top: 10px;
+}
+
+/* 4 lighting moods lay out as a clean 2×2 (no orphaned 4th button) */
+.light-mode-selector {
+    grid-template-columns: repeat(2, 1fr);
 }
 
 .env-mode-btn {

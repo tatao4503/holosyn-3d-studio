@@ -35,6 +35,10 @@ const htmlSelectors = [
   'import-quality-source',
   'import-quality-meshes',
   'import-quality-fit',
+  'import-reliability-type',
+  'import-reliability-scale',
+  'import-reliability-parts',
+  'import-reliability-risk',
   'import-quality-note',
   'import-quality-next-action',
   'import-quality-action-text',
@@ -44,6 +48,9 @@ const htmlSelectors = [
   'demo-pack-panel',
   'demo-pack-status',
   'btn-export-demo-pack',
+  'rehearsal-pack-panel',
+  'rehearsal-pack-status',
+  'btn-export-rehearsal-pack',
   'btn-export-handoff-pack',
   'client-brief-panel',
   'client-brief-status',
@@ -76,6 +83,32 @@ const htmlSelectors = [
   'beta-check-storage',
   'beta-check-model',
   'beta-check-snapshot',
+  'launch-readiness-panel',
+  'launch-readiness-status',
+  'launch-check-guide',
+  'launch-check-import',
+  'launch-check-performance',
+  'launch-check-snapshot',
+  'launch-check-export',
+  'launch-check-docs',
+  'launch-readiness-fill',
+  'launch-readiness-detail',
+  'btn-run-launch-check',
+  'beta-ops-panel',
+  'beta-ops-status',
+  'ops-check-test',
+  'ops-check-perf',
+  'ops-check-errors',
+  'ops-check-examples',
+  'ops-check-package',
+  'ops-check-deploy',
+  'beta-ops-detail',
+  'btn-export-beta-test-plan',
+  'btn-run-performance-benchmark',
+  'btn-export-error-report',
+  'btn-export-example-pack',
+  'btn-export-deploy-checklist',
+  'btn-export-release-package',
   'project-snapshot-panel',
   'project-snapshot-status',
   'btn-save-project-snapshot',
@@ -111,10 +144,16 @@ const appNeedles = [
   'function exportDemoPack',
   'function buildClientBriefMarkdown',
   'function exportClientBriefMarkdown',
+  'function buildRehearsalRunbookMarkdown',
+  'function exportRehearsalPack',
+  'rehearsalRunbookMarkdown',
+  'function getRehearsalRiskList',
   'function buildPartMapSummary',
   'window.HolosynClientBrief',
   'function getImportQualityActionDefaults',
+  'function getImportReliabilityReport',
   'function updateImportQualityFromModel',
+  'reliabilityRisk',
   'function runImportQualityAction',
   'function updateHandoffPackStatus',
   'function updateHandoffPartMapStatus',
@@ -124,6 +163,20 @@ const appNeedles = [
   'box.dataset.handoffAction',
   'function getFinalReadinessSummary',
   'function updateFinalReadinessScore',
+  'function getLaunchReadinessSummary',
+  'function updateLaunchReadinessPanel',
+  'function runLaunchReadinessCheck',
+  'launchReadiness: getLaunchReadinessSummary()',
+  'function getBetaOpsSummary',
+  'function updateBetaOpsPanel',
+  'function buildBetaTestPlanMarkdown',
+  'function runPerformanceBenchmark',
+  'function buildErrorReportData',
+  'function buildExamplePackData',
+  'function buildDeploymentChecklistMarkdown',
+  'function buildBetaReleasePackageData',
+  'betaOps: getBetaOpsSummary()',
+  'window.getBetaOpsSummary = getBetaOpsSummary',
   'const finalReadiness = getFinalReadinessSummary()',
   'final: handoffManifest.finalReadiness',
   'function getFinalPassSummary',
@@ -207,6 +260,7 @@ const managerNeedles = [
   'const AiAssistantManager',
   'readStorage(scope, key)',
   'updateKeyStatus()',
+  'markTourSignal(value)',
   'dismissPrompt()',
   'window.CollabManager = CollabManager',
   'window.AiAssistantManager = AiAssistantManager',
@@ -220,12 +274,15 @@ const cssNeedles = [
   '.ai-key-status.session',
   '#viewport-annotation-hint',
   '.import-quality-card',
+  '.import-reliability-grid',
   '.import-quality-next-action',
   '.import-quality-action-copy',
   '.import-quality-action-btn',
   '.demo-presets-panel',
   '.demo-pack-panel',
   '.demo-pack-copy',
+  '.rehearsal-pack-panel',
+  '.rehearsal-pack-copy',
   '.handoff-pack-panel',
   '.client-brief-panel',
   '.client-brief-copy',
@@ -239,6 +296,14 @@ const cssNeedles = [
   '.final-readiness-detail',
   '.beta-readiness-panel',
   '.beta-checklist span.pass',
+  '.launch-readiness-panel',
+  '.launch-readiness-panel.ready',
+  '.launch-checklist span.pass',
+  '.launch-readiness-meter',
+  '.beta-ops-panel',
+  '.beta-ops-panel.ready',
+  '.beta-ops-checklist span.pass',
+  '.beta-ops-actions',
   '.project-snapshot-panel',
   '.project-snapshot-actions',
   '.part-scan-panel.active',
@@ -320,10 +385,10 @@ async function main() {
     assert(html.includes(`id="${id}"`), `Missing #${id} in index.html`);
   }
   assert(html.includes('data-action="timeline"'), 'Missing mobile timeline action');
-  assert(html.includes('index.css?v=20260708-cleanup-v5'), 'CSS cache version is stale');
-  assert(html.includes('app.js?v=20260708-cleanup-v5'), 'Core JS cache version is stale');
-  assert(html.includes('scripts/holosyn-timeline.js?v=20260708-cleanup-v5'), 'Timeline script tag is missing or stale');
-  assert(html.includes('scripts/holosyn-pro-managers.js?v=20260708-cleanup-v5'), 'Pro managers script tag is missing or stale');
+  assert(html.includes('index.css?v=20260708-ops-pack'), 'CSS cache version is stale');
+  assert(html.includes('app.js?v=20260708-ops-pack'), 'Core JS cache version is stale');
+  assert(html.includes('scripts/holosyn-timeline.js?v=20260708-ops-pack'), 'Timeline script tag is missing or stale');
+  assert(html.includes('scripts/holosyn-pro-managers.js?v=20260708-ops-pack'), 'Pro managers script tag is missing or stale');
   assert(html.includes('id="handoff-next-action" class="handoff-next-action" type="button"'), 'Handoff next action should be clickable');
   assert(html.includes('id="final-readiness-panel" class="final-readiness-panel setup"'), 'Final readiness panel is missing');
   assert(html.includes('data-handoff-action="model"'), 'Handoff model jump action is missing');
@@ -332,9 +397,12 @@ async function main() {
   assert(html.includes('data-handoff-action="export"'), 'Handoff export jump action is missing');
   assert(html.includes('class="demo-presets-panel"'), 'Demo presets panel is missing');
   assert(html.includes('class="demo-pack-panel"'), 'Demo pack panel is missing');
+  assert(html.includes('class="rehearsal-pack-panel"'), 'Rehearsal pack panel is missing');
   assert(html.includes('class="handoff-pack-panel"'), 'Handoff pack panel is missing');
   assert(html.includes('class="client-brief-panel"'), 'Client brief panel is missing');
   assert(html.includes('class="beta-readiness-panel"'), 'Beta readiness panel is missing');
+  assert(html.includes('class="launch-readiness-panel"'), 'Launch readiness panel is missing');
+  assert(html.includes('class="beta-ops-panel"'), 'Beta ops panel is missing');
   assert(html.includes('class="project-snapshot-panel"'), 'Project snapshot panel is missing');
   assert(html.includes('data-preset="exosuit"'), 'Exo Suit preset button is missing');
   assert(html.includes('data-demo-preset="suit"'), 'Suit Lab demo preset is missing');

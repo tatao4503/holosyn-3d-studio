@@ -1377,6 +1377,20 @@ const TutorialManager = {
     scrollListener: null,
     activeSteps: null,   // set at start() based on UI mode
 
+    markTourSignal(value) {
+        try {
+            window.localStorage?.setItem('holosyn_tour_signal_v1', value);
+            if (value === 'completed') {
+                window.localStorage?.setItem('holosyn_tour_completed_v1', new Date().toISOString());
+            }
+        } catch (error) {
+            // Local storage may be blocked in restricted browser contexts.
+        }
+        if (typeof window.updateLaunchReadinessPanel === 'function') {
+            window.updateLaunchReadinessPanel();
+        }
+    },
+
     // ----- BEGINNER tour: core workflow, stays in beginner mode -----
     beginnerSteps: [
         {
@@ -1540,6 +1554,7 @@ const TutorialManager = {
         if (promptModal) {
             promptModal.style.display = 'none';
         }
+        this.markTourSignal('prompt-skipped');
         showNotification(
             state.language === 'ko' ? "가이드 건너뜀" : "Guide Skipped",
             state.language === 'ko' ? "상단 메뉴 및 사이드바에서 모든 기능을 자유롭게 사용해 보세요." : "Feel free to explore all features using the menus and sidebars."
@@ -1718,6 +1733,7 @@ const TutorialManager = {
 
     skip() {
         this.cleanup();
+        this.markTourSignal('tour-ended');
         
         // Restore saved UI Mode
         if (state.uiMode !== this.savedUiMode) {
@@ -1733,6 +1749,7 @@ const TutorialManager = {
 
     finish() {
         this.cleanup();
+        this.markTourSignal('completed');
         
         // Restore saved UI Mode
         if (state.uiMode !== this.savedUiMode) {

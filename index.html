@@ -32,13 +32,13 @@
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <!-- Stylesheet -->
-    <link rel="stylesheet" href="index.css?v=20260708-cleanup-v5">
+    <link rel="stylesheet" href="index.css?v=20260708-ops-pack">
 </head>
 <body class="theme-blue">
     <!-- Ambient Vignette Background -->
     <div class="hud-vignette"></div>
 
-    <!-- Apple Vision Pro Spatial blurred environment maps simulated via CSS background blur bubbles -->
+    <!-- HOLOSYN spatial blurred environment maps simulated via CSS background blur bubbles -->
     <div class="spatial-glass-blur-layer">
         <span class="bubble bubble-1"></span>
         <span class="bubble bubble-2"></span>
@@ -141,6 +141,12 @@
                         <div><span>SOURCE</span><strong id="import-quality-source">Built-in samples</strong></div>
                         <div><span>MESHES</span><strong id="import-quality-meshes">-</strong></div>
                         <div><span>FIT</span><strong id="import-quality-fit">Auto-fit standby</strong></div>
+                    </div>
+                    <div class="import-reliability-grid" aria-label="Import reliability diagnostics">
+                        <div><span>TYPE</span><strong id="import-reliability-type">SAMPLE</strong></div>
+                        <div><span>SCALE</span><strong id="import-reliability-scale">READY</strong></div>
+                        <div><span>PARTS</span><strong id="import-reliability-parts">AUTO</strong></div>
+                        <div><span>RISK</span><strong id="import-reliability-risk">LOW</strong></div>
                     </div>
                     <p id="import-quality-note">샘플을 고르거나 파일을 드롭하면 발표 적합도를 즉시 확인합니다.</p>
                     <div id="import-quality-next-action" class="import-quality-next-action" aria-live="polite">
@@ -357,7 +363,7 @@
                 </div>
             </div>
 
-            <!-- 6. Apple Color Palette (Beginner show - 3 colors, Pro - 5 colors via classes) -->
+            <!-- 6. Studio Color Palette (Beginner show - 3 colors, Pro - 5 colors via classes) -->
             <div class="panel-section beginner-show">
                 <h2 class="section-title"><i data-lucide="palette"></i> <span data-i18n="wavelength">WAVE WAVELENGTH (COLOR)</span></h2>
                 <div class="colors-grid">
@@ -371,7 +377,7 @@
                 </div>
             </div>
 
-            <!-- 7. Apple Studio iOS settings Panel (Pro-only section v3.2) -->
+            <!-- 7. HOLOSYN Studio settings panel (Pro-only section v3.2) -->
             <div class="panel-section pro-only-section">
                 <h2 class="section-title"><i data-lucide="toggle-left"></i> <span>STUDIO SETTINGS</span></h2>
                 <div class="ios-switch-list">
@@ -492,7 +498,7 @@
                 </button>
             </div>
 
-            <!-- Apple-style presentation title overlay (Showcase Keynote only) -->
+            <!-- Cinematic presentation title overlay (Showcase Keynote only) -->
             <div id="presentation-titles" class="hidden-stage">
                 <span id="presentation-mode-status">PRESENTATION MODE · PART SCAN READY</span>
                 <h1 id="pres-product-name">AeroDrone Scout-V</h1>
@@ -611,7 +617,7 @@
                 <div class="laser-beam-cone"></div>
             </div>
 
-            <!-- Floating Viewport Cinematic Camera Preset Bar (Apple-style floating dock with Magnification) -->
+            <!-- Floating Viewport Cinematic Camera Preset Bar (cinematic floating dock with magnification) -->
             <div id="camera-cinematic-dock">
                 <button class="camera-dock-btn active-dock" data-view="orbit" title="자동 궤도 순회 / Cinematic Auto Orbit">
                     <i data-lucide="rotate-3d"></i>
@@ -717,6 +723,30 @@
                 </div>
             </div>
 
+            <!-- Studio Lighting (v10.x) -->
+            <div class="panel-section beginner-show">
+                <h2 class="section-title"><i data-lucide="sun"></i> <span data-i18n="studio_lighting">스튜디오 조명</span></h2>
+                <div class="env-mode-selector light-mode-selector">
+                    <button class="env-mode-btn light-mode-btn active" data-light="studio" title="중립 스튜디오 조명">
+                        <i data-lucide="lightbulb"></i> <span data-i18n="light_studio">스튜디오</span>
+                    </button>
+                    <button class="env-mode-btn light-mode-btn" data-light="warm" title="따뜻한 키라이트">
+                        <i data-lucide="flame"></i> <span data-i18n="light_warm">따뜻함</span>
+                    </button>
+                    <button class="env-mode-btn light-mode-btn" data-light="cool" title="차가운 톤">
+                        <i data-lucide="snowflake"></i> <span data-i18n="light_cool">차가움</span>
+                    </button>
+                    <button class="env-mode-btn light-mode-btn" data-light="dramatic" title="고대비 드라마틱 조명">
+                        <i data-lucide="contrast"></i> <span data-i18n="light_dramatic">드라마틱</span>
+                    </button>
+                </div>
+                <div class="tuner-row" style="margin-top: 10px;">
+                    <label for="tuner-light-brightness" data-i18n="light_brightness">BRIGHTNESS</label>
+                    <input type="range" id="tuner-light-brightness" min="0.3" max="2" step="0.05" value="1">
+                    <span class="value-readout" id="readout-light-brightness">1.0</span>
+                </div>
+            </div>
+
             <div class="panel-section spec-editor-section">
                 <h2 class="section-title"><i data-lucide="sliders"></i> <span data-i18n="telemetry_specs">TELEMETRY SPECIFICATIONS</span></h2>
                 <div class="spec-form">
@@ -816,6 +846,17 @@
                         <span>시연 패키지 생성</span>
                     </button>
                 </div>
+                <div class="rehearsal-pack-panel" id="rehearsal-pack-panel">
+                    <div class="rehearsal-pack-header">
+                        <span>REHEARSAL PACK</span>
+                        <strong id="rehearsal-pack-status">SCRIPT</strong>
+                    </div>
+                    <p class="rehearsal-pack-copy">30초/3분 발표 루틴과 리스크 체크를 Markdown으로 저장합니다.</p>
+                    <button class="hud-btn outline-btn export-btn" id="btn-export-rehearsal-pack" type="button" title="리허설 런북 Markdown 생성">
+                        <i data-lucide="clipboard-check"></i>
+                        <span>리허설 런북</span>
+                    </button>
+                </div>
                 <div class="handoff-pack-panel">
                     <div class="handoff-pack-header">
                         <span>HANDOFF PACK</span>
@@ -887,6 +928,69 @@
                         <span id="beta-check-storage">STORAGE</span>
                         <span id="beta-check-model">MODEL</span>
                         <span id="beta-check-snapshot">SNAPSHOT</span>
+                    </div>
+                </div>
+                <div class="launch-readiness-panel" id="launch-readiness-panel">
+                    <div class="launch-readiness-header">
+                        <span>BETA LAUNCH PACK</span>
+                        <strong id="launch-readiness-status">0 / 6</strong>
+                    </div>
+                    <div class="launch-checklist">
+                        <span id="launch-check-guide">GUIDE</span>
+                        <span id="launch-check-import">IMPORT</span>
+                        <span id="launch-check-performance">PERF</span>
+                        <span id="launch-check-snapshot">SNAPSHOT</span>
+                        <span id="launch-check-export">EXPORT</span>
+                        <span id="launch-check-docs">DOCS</span>
+                    </div>
+                    <div class="launch-readiness-meter" aria-hidden="true">
+                        <span id="launch-readiness-fill"></span>
+                    </div>
+                    <small id="launch-readiness-detail">Run a beta launch check before sharing the build.</small>
+                    <button class="hud-btn outline-btn export-btn" id="btn-run-launch-check" type="button" title="베타 공유 전 최종 점검">
+                        <i data-lucide="shield-check"></i>
+                        <span>베타 런치 체크</span>
+                    </button>
+                </div>
+                <div class="beta-ops-panel" id="beta-ops-panel">
+                    <div class="beta-ops-header">
+                        <span>BETA OPS PACK</span>
+                        <strong id="beta-ops-status">0 / 6</strong>
+                    </div>
+                    <div class="beta-ops-checklist">
+                        <span id="ops-check-test">TEST</span>
+                        <span id="ops-check-perf">PERF</span>
+                        <span id="ops-check-errors">ERRORS</span>
+                        <span id="ops-check-examples">EXAMPLES</span>
+                        <span id="ops-check-package">PACKAGE</span>
+                        <span id="ops-check-deploy">DEPLOY</span>
+                    </div>
+                    <small id="beta-ops-detail">Export a beta test plan, benchmark report, examples, and release package before public sharing.</small>
+                    <div class="beta-ops-actions">
+                        <button class="hud-btn outline-btn export-btn" id="btn-export-beta-test-plan" type="button" title="베타 테스트 플랜 Markdown 생성">
+                            <i data-lucide="clipboard-list"></i>
+                            <span>테스트 플랜</span>
+                        </button>
+                        <button class="hud-btn outline-btn export-btn" id="btn-run-performance-benchmark" type="button" title="짧은 FPS/렌더 성능 벤치마크 실행">
+                            <i data-lucide="gauge"></i>
+                            <span>성능 벤치</span>
+                        </button>
+                        <button class="hud-btn outline-btn export-btn" id="btn-export-error-report" type="button" title="콘솔/런타임 에러 리포트 JSON 생성">
+                            <i data-lucide="bug"></i>
+                            <span>에러 리포트</span>
+                        </button>
+                        <button class="hud-btn outline-btn export-btn" id="btn-export-example-pack" type="button" title="샘플 프로젝트 예제팩 JSON 생성">
+                            <i data-lucide="gallery-horizontal"></i>
+                            <span>예제팩</span>
+                        </button>
+                        <button class="hud-btn outline-btn export-btn" id="btn-export-deploy-checklist" type="button" title="정적 배포 체크리스트 Markdown 생성">
+                            <i data-lucide="rocket"></i>
+                            <span>배포 체크</span>
+                        </button>
+                        <button class="hud-btn glow-btn export-btn" id="btn-export-release-package" type="button" title="베타 릴리즈 패키지 JSON 생성">
+                            <i data-lucide="archive"></i>
+                            <span>릴리즈 패키지</span>
+                        </button>
                     </div>
                 </div>
                 <div class="project-snapshot-panel" id="project-snapshot-panel">
@@ -1037,7 +1141,7 @@
                     <div class="onboarding-card">
                         <i data-lucide="presentation" class="card-icon"></i>
                         <div class="card-info">
-                            <h4 data-i18n="intro_feature2_title">애플 스타일 Showcase</h4>
+                            <h4 data-i18n="intro_feature2_title">시네마틱 Showcase</h4>
                             <p data-i18n="intro_feature2_desc">HUD를 완벽히 숨긴 채 3D 분해도 및 파트 라벨링으로 제품에만 완벽히 집중시킵니다.</p>
                         </div>
                     </div>
@@ -1358,9 +1462,9 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/BokehPass.js"></script>
 
     <!-- Main Script -->
-    <script src="app.js?v=20260708-cleanup-v5"></script>
-    <script src="scripts/holosyn-timeline.js?v=20260708-cleanup-v5"></script>
-    <script src="scripts/holosyn-pro-managers.js?v=20260708-cleanup-v5"></script>
+    <script src="app.js?v=20260708-ops-pack"></script>
+    <script src="scripts/holosyn-timeline.js?v=20260708-ops-pack"></script>
+    <script src="scripts/holosyn-pro-managers.js?v=20260708-ops-pack"></script>
     <script>
         // Init Lucide Icons
         lucide.createIcons();
