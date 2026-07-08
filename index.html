@@ -1,0 +1,1369 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HOLOSYN — 3D 시제품 공간 발표 스튜디오</title>
+    <meta name="description" content="브라우저에서 3D 시제품을 입체로 띄우고, 분해도·치수 측정·발표 모드로 보여주고, GLB·PNG로 내보내는 공간 발표 스튜디오. Import, exploded view, measure, showcase, export — all in the browser.">
+    <meta name="theme-color" content="#0a84ff">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+
+    <!-- Open Graph (link previews) -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="HOLOSYN — 3D 시제품 공간 발표 스튜디오">
+    <meta property="og:description" content="3D 시제품을 입체로 띄우고 분해도·치수 측정·발표 모드로 보여주는 브라우저 발표 스튜디오.">
+    <!-- og:image is relative; after deploy you may swap in the absolute URL for strict crawlers -->
+    <meta property="og:image" content="og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+
+    <!-- Twitter card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="HOLOSYN — 3D 시제품 공간 발표 스튜디오">
+    <meta name="twitter:description" content="3D 시제품을 입체로 띄우고 분해도·치수 측정·발표 모드로 보여주는 브라우저 발표 스튜디오.">
+    <meta name="twitter:image" content="og-image.png">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Stylesheet -->
+    <link rel="stylesheet" href="index.css?v=20260707-final-pass">
+</head>
+<body class="theme-blue">
+    <!-- Ambient Vignette Background -->
+    <div class="hud-vignette"></div>
+
+    <!-- Apple Vision Pro Spatial blurred environment maps simulated via CSS background blur bubbles -->
+    <div class="spatial-glass-blur-layer">
+        <span class="bubble bubble-1"></span>
+        <span class="bubble bubble-2"></span>
+        <span class="bubble bubble-3"></span>
+    </div>
+
+    <!-- macOS Slide-in Notification Toast Container (Top-Right of screen) -->
+    <div id="mac-toast-container"></div>
+
+    <div id="app-container" class="hud-grid-layout ui-beginner" role="application">
+        <!-- HEADER PANEL -->
+        <header id="hud-header" class="glass-panel" role="banner" aria-label="Main Header">
+            <div class="header-left">
+                <button id="btn-mobile-menu" aria-label="메뉴 열기" title="메뉴">
+                    <i data-lucide="menu"></i>
+                </button>
+                <!-- macOS Window Control Dot Mockups -->
+                <div class="mac-window-dots">
+                    <span class="dot close"></span>
+                    <span class="dot minimize"></span>
+                    <span class="dot expand"></span>
+                </div>
+                <div class="logo-group">
+                    <i data-lucide="sparkles" class="glow-icon"></i>
+                    <h1 class="logo-text">HOLOSYN</h1>
+                </div>
+                <div class="system-status-indicator">
+                    <span class="pulse-dot"></span>
+                    <span class="status-label" id="lbl-status" data-i18n="system_status">SYS_STATUS: ACTIVE</span>
+                </div>
+            </div>
+            <div class="header-center">
+                <span class="telemetry-bar" id="telemetry-bar-text">GRID ALIGNMENT: 0.002mm | BEAM PROFILE: ACTIVE | SYS_LIDAR: RUNNING</span>
+            </div>
+            <div class="header-right">
+                <!-- macOS-style Segmented Control for Beginner / Pro modes -->
+                <div class="mac-segmented-control">
+                    <button id="btn-mode-beginner" class="segment-btn active" data-mode="beginner">
+                        <i data-lucide="compass"></i>
+                        <span data-i18n="mode_beginner">비기너</span>
+                    </button>
+                    <button id="btn-mode-pro" class="segment-btn" data-mode="pro">
+                        <i data-lucide="sliders"></i>
+                        <span data-i18n="mode_pro">프로</span>
+                    </button>
+                </div>
+                <!-- AI Voice command controller mic button (v5.0) -->
+                <button id="btn-voice-command" class="hud-btn icon-btn" title="음성 명령 / Voice Commander" style="display: none; border-color: var(--theme-color-glow, rgba(0, 122, 255, 0.22)); color: var(--theme-color);">
+                    <i data-lucide="mic"></i>
+                </button>
+                <!-- Voice Command Help Button (v5.0) -->
+                <button id="btn-voice-help" class="hud-btn icon-btn" title="음성 명령 안내 / Voice Command Guide" style="display: none; font-size: 11px; font-weight: bold; border-color: var(--theme-color-glow, rgba(0, 122, 255, 0.22)); color: var(--theme-color); margin-left: 4px;">
+                    ?
+                </button>
+                <!-- i18n Language Toggle Switch -->
+                <button id="btn-lang-toggle" class="hud-btn icon-btn" title="언어 전환 / Switch Language">
+                    <i data-lucide="globe"></i>
+                    <span id="lang-label">한국어</span>
+                </button>
+                <!-- Guide Tour re-trigger (mode-aware: Beginner vs Pro) -->
+                <button id="btn-help-tour" class="hud-btn icon-btn" title="가이드 투어 / Guide Tour (현재 모드 기준)">
+                    <i data-lucide="graduation-cap"></i>
+                </button>
+                <!-- Keynote SHOWCASE Presentation Mode Button -->
+                <button id="btn-showcase-toggle" class="hud-btn outline-btn" title="발표 모드 / Showcase Mode">
+                    <i data-lucide="presentation"></i>
+                    <span data-i18n="showcase_mode">SHOWCASE</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- LEFT CONTROL PANEL (Hologram Tuners) -->
+        <aside id="hud-left-panel" class="glass-panel hud-sidebar" role="complementary" aria-label="Studio Controls">
+            <div class="mac-panel-header">
+                <!-- macOS Window control dot inside sidebar card for extreme native look! -->
+                <div class="mac-window-dots mini-dots">
+                    <span class="dot close"></span>
+                    <span class="dot minimize"></span>
+                    <span class="dot expand"></span>
+                </div>
+                <span class="card-indicator">STUDIO_CONTROLS</span>
+            </div>
+            
+            <!-- 1. Custom 3D & Image Injection Dropzone + Presets Tray (Merged v3.6) -->
+            <div class="panel-section beginner-show">
+                <h2 class="section-title"><i data-lucide="upload-cloud"></i> <span data-i18n="custom_injection">3D 모델 & 이미지 임포트</span></h2>
+                <div id="drop-zone" class="upload-area">
+                    <i data-lucide="box" class="upload-icon"></i>
+                    <p class="upload-text" data-i18n="dropzone_text">3D 파일 (.glb, .gltf, .obj) 여러 개를 한 번에 드롭하여 조립</p>
+                    <label for="image-upload" class="upload-label" data-i18n="upload_btn">내 컴퓨터에서 열기</label>
+                    <input type="file" id="image-upload" accept=".glb,.gltf,.obj,image/*" style="display: none;">
+                    <p class="upload-subtext" data-i18n="upload_sub">시제품 드롭 투사 자동 가공 지원</p>
+                </div>
+                <div id="import-quality-card" class="import-quality-card import-empty">
+                    <div class="import-quality-header">
+                        <span class="quality-label">IMPORT QUALITY</span>
+                        <strong id="import-quality-status">READY</strong>
+                    </div>
+                    <div class="import-quality-grid">
+                        <div><span>SOURCE</span><strong id="import-quality-source">Built-in samples</strong></div>
+                        <div><span>MESHES</span><strong id="import-quality-meshes">-</strong></div>
+                        <div><span>FIT</span><strong id="import-quality-fit">Auto-fit standby</strong></div>
+                    </div>
+                    <p id="import-quality-note">샘플을 고르거나 파일을 드롭하면 발표 적합도를 즉시 확인합니다.</p>
+                    <div id="import-quality-next-action" class="import-quality-next-action" aria-live="polite">
+                        <div class="import-quality-action-copy">
+                            <span class="import-quality-action-eyebrow">NEXT ACTION</span>
+                            <strong id="import-quality-action-text">샘플 선택 후 구조 보기로 이어가세요.</strong>
+                        </div>
+                        <button id="btn-import-quality-action" class="import-quality-action-btn" type="button" data-import-action="structure">
+                            <i data-lucide="arrow-right-circle"></i>
+                            <span id="import-quality-action-button-label">실행</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="presets-label-row" style="margin-top: 14px; margin-bottom: 6px; font-size: 11px; opacity: 0.65; font-family: var(--font-mono); letter-spacing: 0.5px;" data-i18n="presets_title">샘플 모델로 시도하기</div>
+                <div class="presets-grid mini-presets">
+                    <button class="preset-btn" data-preset="stand" title="Display Stand — 자립 명패 시제품">
+                        <i data-lucide="store"></i>
+                        <span>Stand</span>
+                    </button>
+                    <button class="preset-btn active" data-preset="drone" title="AeroDrone Scout-V">
+                        <i data-lucide="drone"></i>
+                        <span>Drone</span>
+                    </button>
+                    <button class="preset-btn" data-preset="ring" title="Nexus Quantum Ring">
+                        <i data-lucide="circle"></i>
+                        <span>Ring</span>
+                    </button>
+                    <button class="preset-btn" data-preset="car" title="HyperCar EV-Concept">
+                        <i data-lucide="car"></i>
+                        <span>Car</span>
+                    </button>
+                    <button class="preset-btn" data-preset="battery" title="Chronos Battery Cell">
+                        <i data-lucide="battery-charging"></i>
+                        <span>Core</span>
+                    </button>
+                    <button class="preset-btn" data-preset="exosuit" title="Forge Exo-Suit">
+                        <i data-lucide="shield"></i>
+                        <span>Exo-Suit</span>
+                    </button>
+                </div>
+                <div class="demo-presets-panel" id="demo-presets-panel">
+                    <div class="demo-presets-header">
+                        <span>DEMO SCENE PRESETS</span>
+                        <strong id="demo-preset-status">Manual</strong>
+                    </div>
+                    <div class="demo-presets-grid">
+                        <button class="demo-preset-btn" data-demo-preset="investor" type="button">
+                            <i data-lucide="presentation"></i>
+                            <span>Investor</span>
+                        </button>
+                        <button class="demo-preset-btn" data-demo-preset="exploded" type="button">
+                            <i data-lucide="layers"></i>
+                            <span>Exploded</span>
+                        </button>
+                        <button class="demo-preset-btn" data-demo-preset="retail" type="button">
+                            <i data-lucide="sparkles"></i>
+                            <span>Retail</span>
+                        </button>
+                        <button class="demo-preset-btn" data-demo-preset="tech" type="button">
+                            <i data-lucide="scan-line"></i>
+                            <span>Tech</span>
+                        </button>
+                        <button class="demo-preset-btn" data-demo-preset="suit" type="button">
+                            <i data-lucide="shield"></i>
+                            <span>Exo-Suit Lab</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div id="prototype-insight-card" class="prototype-insight-card">
+                    <div class="insight-card-header">
+                        <div class="insight-title-group">
+                            <i data-lucide="badge-check"></i>
+                            <div>
+                                <span data-i18n="insight_title">시제품 인사이트</span>
+                                <strong id="insight-product-name">AeroDrone Scout-V</strong>
+                            </div>
+                        </div>
+                        <div class="insight-actions">
+                            <span id="insight-status-pill" class="insight-status-pill">READY</span>
+                            <button id="btn-reset-annotations" class="insight-icon-btn" title="파트 라벨 초기화">
+                                <i data-lucide="rotate-ccw"></i>
+                                <span data-i18n="annotation_reset">라벨 초기화</span>
+                            </button>
+                            <button id="btn-part-scan-card" class="insight-icon-btn part-scan-card-btn" type="button" aria-pressed="false" title="부품 스캔 / Part Scan">
+                                <i data-lucide="focus"></i>
+                                <span>Part Scan</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="insight-metrics-grid">
+                        <div class="insight-metric">
+                            <span data-i18n="insight_parts">구성</span>
+                            <strong id="insight-part-count">7 parts</strong>
+                        </div>
+                        <div class="insight-metric">
+                            <span data-i18n="insight_exploded">분해도</span>
+                            <strong id="insight-exploded-status">가능</strong>
+                        </div>
+                        <div class="insight-metric">
+                            <span data-i18n="insight_export">내보내기</span>
+                            <strong id="insight-export-status">PNG · JSON · GLB</strong>
+                        </div>
+                    </div>
+                    <p id="insight-presenter-note">분해도 50%와 Top view를 함께 쓰면 구조 설명이 가장 선명합니다.</p>
+                </div>
+            </div>
+
+            <!-- 2. Exploded View slider & snapping controls (Demoted to Pro only v3.6) -->
+            <div class="panel-section">
+                <h2 class="section-title"><i data-lucide="wrench"></i> <span data-i18n="exploded_view">EXPLODED VIEW</span></h2>
+                <div class="tuner-row">
+                    <label for="tuner-exploded" data-i18n="exploded_desc">내부 구조 분해 조립 수준</label>
+                    <input type="range" id="tuner-exploded" min="0" max="1" step="0.01" value="0">
+                    <span class="value-readout" id="readout-exploded">0%</span>
+                </div>
+                <!-- Exploded snap step buttons -->
+                <div class="exploded-snaps-grid">
+                    <button class="hud-btn outline-btn snap-btn active" id="btn-snap-0">0%</button>
+                    <button class="hud-btn outline-btn snap-btn" id="btn-snap-50">50%</button>
+                    <button class="hud-btn outline-btn snap-btn" id="btn-snap-100">100%</button>
+                </div>
+            </div>
+            
+            <!-- 3. Robotic Assembly Steps (v3.6) -->
+            <div class="panel-section beginner-show">
+                <h2 class="section-title"><i data-lucide="layers"></i> <span data-i18n="assembly_steps">로봇 조립 시퀀스 가이드</span></h2>
+                <div class="assembly-steps-grid">
+                    <button class="hud-btn outline-btn assembly-btn active" data-step="0">ALL UNLOAD</button>
+                    <button class="hud-btn outline-btn assembly-btn" data-step="1">STEP 1</button>
+                    <button class="hud-btn outline-btn assembly-btn" data-step="2">STEP 2</button>
+                    <button class="hud-btn outline-btn assembly-btn" data-step="3">STEP 3</button>
+                    <button class="hud-btn outline-btn assembly-btn" data-step="4">STEP 4</button>
+                </div>
+            </div>
+
+            <!-- 3b. ST,AND-only control: fold state + product lineup (v10.0) -->
+            <div class="panel-section beginner-show" id="stand-control-section" style="display: none;">
+                <h2 class="section-title"><i data-lucide="store"></i> <span>ST,AND 시연 컨트롤</span></h2>
+                <div class="stand-fold-label" style="font-size:10px;opacity:0.6;font-family:var(--font-mono);margin-bottom:5px;">FOLD STATE — 접힘 / 펼침</div>
+                <div class="assembly-steps-grid">
+                    <button class="hud-btn outline-btn stand-fold-btn active" data-fold="open">펼침 (자립)</button>
+                    <button class="hud-btn outline-btn stand-fold-btn" data-fold="closed">접힘 (보관 4mm)</button>
+                </div>
+                <div class="stand-fold-label" style="font-size:10px;opacity:0.6;font-family:var(--font-mono);margin:9px 0 5px;">LINEUP — 제품 라인업</div>
+                <div class="assembly-steps-grid">
+                    <button class="hud-btn outline-btn stand-line-btn active" data-line="basic" title="표준 PP — 불투명">BASIC</button>
+                    <button class="hud-btn outline-btn stand-line-btn" data-line="clear" title="프리미엄 아크릴 — 투명">CLEAR</button>
+                    <button class="hud-btn outline-btn stand-line-btn" data-line="custom" title="브랜드 맞춤형 — 컬러">CUSTOM</button>
+                </div>
+            </div>
+
+            <!-- 4. AI Auto-Scan Panel (v3.6) -->
+            <div class="panel-section beginner-show">
+                <h2 class="section-title"><i data-lucide="clipboard-check" class="glow-icon"></i> <span data-i18n="ai_diagnostics">AI SYSTEM DIAGNOSTICS</span></h2>
+                <button id="btn-ai-scan" class="hud-btn warning-btn border-flash" style="width: 100%;">
+                    <i data-lucide="scan"></i> <span data-i18n="ai_scan_btn">시제품 체크 실행</span>
+                </button>
+            </div>
+
+            <!-- 4. Quick Styles presets (Beginner show) -->
+            <div class="panel-section beginner-show" id="beginner-quick-styles">
+                <h2 class="section-title"><i data-lucide="sparkles"></i> <span data-i18n="quick_styles">QUICK STYLES</span></h2>
+                <div class="quick-styles-grid">
+                    <button class="style-btn" data-style="minimal" title="단색 부드러운 스튜디오 연출">
+                        <i data-lucide="paint-bucket"></i>
+                        <span data-i18n="style_minimal">미니멀 블루</span>
+                    </button>
+                    <button class="style-btn active-style" data-style="tactical" title="와이어프레임 구조 도식화 연출">
+                        <i data-lucide="grid"></i>
+                        <span data-i18n="style_tactical">택티컬 실버</span>
+                    </button>
+                    <button class="style-btn" data-style="matrix" title="포인트 클라우드 입체 글리치 연출">
+                        <i data-lucide="scan"></i>
+                        <span data-i18n="style_matrix">매트릭스 그린</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 5. Complex Parameters (Pro show) -->
+            <div class="panel-section pro-only-section">
+                <h2 class="section-title"><i data-lucide="sliders-horizontal"></i> <span data-i18n="tuning_title">HOLOGRAM TUNING</span></h2>
+                <div class="tuning-group">
+                    <div class="tuner-row">
+                        <label for="tuner-intensity" data-i18n="glow_intensity">GLOW INTENSITY</label>
+                        <input type="range" id="tuner-intensity" min="0.5" max="3" step="0.1" value="1.5">
+                        <span class="value-readout" id="readout-intensity">1.5</span>
+                    </div>
+                    <div class="tuner-row">
+                        <label for="tuner-rot-speed" data-i18n="rot_speed">ROTATION SPEED</label>
+                        <input type="range" id="tuner-rot-speed" min="0" max="3" step="0.1" value="1.0">
+                        <span class="value-readout" id="readout-rot-speed">1.0</span>
+                    </div>
+                    <div class="tuner-row">
+                        <label for="tuner-flicker" data-i18n="scanline_density">SCANLINE DENSITY</label>
+                        <input type="range" id="tuner-flicker" min="0.2" max="2" step="0.1" value="1.0">
+                        <span class="value-readout" id="readout-flicker">1.0</span>
+                    </div>
+                    <div class="tuner-row">
+                        <label for="tuner-glitch" data-i18n="glitch_freq">GLITCH FREQUENCY</label>
+                        <input type="range" id="tuner-glitch" min="0" max="100" step="5" value="15">
+                        <span class="value-readout" id="readout-glitch">15%</span>
+                    </div>
+                    <div class="tuner-row">
+                        <label for="tuner-scale" data-i18n="scale">PROJECTION SCALE</label>
+                        <input type="range" id="tuner-scale" min="0.5" max="1.8" step="0.1" value="1.0">
+                        <span class="value-readout" id="readout-scale">1.0</span>
+                    </div>
+                    <div class="tuner-row" id="tuner-extrusion-row" style="display: none;">
+                        <label for="tuner-extrusion">3D EXTRUSION DEPTH (3D 돌출 깊이)</label>
+                        <input type="range" id="tuner-extrusion" min="0.1" max="2.5" step="0.05" value="0.75">
+                        <span class="value-readout" id="readout-extrusion">0.75</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 6. Apple Color Palette (Beginner show - 3 colors, Pro - 5 colors via classes) -->
+            <div class="panel-section beginner-show">
+                <h2 class="section-title"><i data-lucide="palette"></i> <span data-i18n="wavelength">WAVE WAVELENGTH (COLOR)</span></h2>
+                <div class="colors-grid">
+                    <button class="color-select-btn active-color" data-color="blue" style="--c: var(--blue);"></button>
+                    <button class="color-select-btn" data-color="silver" style="--c: var(--silver);"></button>
+                    <button class="color-select-btn" data-color="purple" style="--c: var(--purple);"></button>
+                    <button class="color-select-btn" data-color="crimson" style="--c: var(--crimson);" title="딥 크림슨 레드 / Crimson Red"></button>
+                    <button class="color-select-btn" data-color="gold" style="--c: var(--gold);" title="아우라 골드 / Aura Gold"></button>
+                    <button class="color-select-btn pro-only-row" data-color="green" style="--c: var(--green);"></button>
+                    <button class="color-select-btn pro-only-row" data-color="orange" style="--c: var(--orange);"></button>
+                </div>
+            </div>
+
+            <!-- 7. Apple Studio iOS settings Panel (Pro-only section v3.2) -->
+            <div class="panel-section pro-only-section">
+                <h2 class="section-title"><i data-lucide="toggle-left"></i> <span>STUDIO SETTINGS</span></h2>
+                <div class="ios-switch-list">
+                    <div class="switch-row">
+                        <span class="switch-label">SOUND EFFECTS (사운드 효과)</span>
+                        <label class="ios-switch">
+                            <input type="checkbox" id="switch-sound">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div class="switch-row">
+                        <span class="switch-label">AUTO ROTATE (자동 궤도 회전)</span>
+                        <label class="ios-switch">
+                            <input type="checkbox" id="switch-rotate" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div class="switch-row">
+                        <span class="switch-label">SPATIAL COMPUTER (공간 모드)</span>
+                        <label class="ios-switch">
+                            <input type="checkbox" id="switch-spatial">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div class="switch-row">
+                        <span class="switch-label">TARGET RETICLES (타겟팅 레티클)</span>
+                        <label class="ios-switch">
+                            <input type="checkbox" id="switch-reticles" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div class="switch-row pro-only-row">
+                        <span class="switch-label">CINEMATIC DoF (피사계 심도)</span>
+                        <label class="ios-switch">
+                            <input type="checkbox" id="switch-dof">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div class="switch-row pro-only-row">
+                        <span class="switch-label">PYRAMID REFLECTION (4면 피라미드)</span>
+                        <label class="ios-switch">
+                            <input type="checkbox" id="switch-pyramid">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div class="switch-row" id="gyro-switch-row" style="display: none;">
+                        <span class="switch-label" data-i18n="switch_gyro">GYRO CAMERA (자이로 카메라)</span>
+                        <label class="ios-switch">
+                            <input type="checkbox" id="switch-gyro">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 8. Glitch button moved to Pro only sidebar section (New v3.2) -->
+            <div class="panel-section pro-only-section">
+                <button id="btn-force-glitch" class="hud-btn warning-btn border-flash" style="width: 100%;">
+                    <i data-lucide="alert-triangle"></i> <span data-i18n="trigger_glitch">TRIGGER SYSTEM GLITCH</span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- CENTRAL VISUAL STAGE -->
+        <main id="hud-center-stage" class="glass-panel stage-container" role="main" aria-label="3D Viewport">
+            <!-- Sleek macOS Corner Decals -->
+            <div class="hud-corners">
+                <span class="corner top-left"></span>
+                <span class="corner top-right"></span>
+                <span class="corner bottom-left"></span>
+                <span class="corner bottom-right"></span>
+            </div>
+
+            <div class="telemetry-hud-overlay">
+                <!-- Interactive AI Voice Command listening indicator (v5.0) -->
+                <div id="voice-listening-indicator" style="display: none; position: absolute; top: 20px; left: 50%; transform: translateX(-50%); z-index: 100; align-items: center; gap: 8px; background: var(--theme-color-glow, rgba(0, 122, 255, 0.15)); border: 1px solid var(--theme-color); padding: 6px 12px; border-radius: 20px; box-shadow: 0 0 15px var(--theme-color-glow); font-family: var(--font-mono); font-size: 10px; color: var(--theme-color);">
+                    <div class="audio-wave">
+                        <div class="wave-bar"></div>
+                        <div class="wave-bar"></div>
+                        <div class="wave-bar"></div>
+                        <div class="wave-bar"></div>
+                    </div>
+                    <span data-i18n="voice_listening">J.A.R.V.I.S. LISTENING...</span>
+                </div>
+                <div class="telemetry-box top-left-box">
+                    <div class="hud-title">AZIMUTH: <span id="tele-azimuth">0°</span></div>
+                    <div class="hud-title">ELEVATION: <span id="tele-elevation">15°</span></div>
+                </div>
+                <div class="telemetry-box top-right-box">
+                    <div class="hud-title">ZOOM: <span id="tele-zoom">100%</span></div>
+                    <div class="hud-title">RENDER_MODE: <span id="tele-render">WIREFRAME</span></div>
+                </div>
+                <div class="telemetry-box bottom-left-box">
+                    <div class="hud-title">READY: <span id="tele-signal">99.8%</span></div>
+                    <div class="hud-title">ALIGN: <span class="blink-fast">OK</span></div>
+                </div>
+                <!-- Interactive Mini Radar Canvas -->
+                <div class="radar-box">
+                    <canvas id="radar-canvas" width="80" height="80"></canvas>
+                    <span class="radar-label">GRID</span>
+                </div>
+
+                <!-- Multi-Viewer Collaboration Trigger Button (v8.0 Absolute) -->
+                <button id="btn-collab-toggle" title="링크 공유 협업 / Share & Collaborate">
+                    <i data-lucide="users"></i>
+                    <span data-i18n="collab_share">COLLABORATE</span>
+                </button>
+
+                <!-- AI Assistant Floating Trigger Button (v8.0 Absolute) -->
+                <button id="btn-ai-chat-toggle" title="AI 어시스턴트 / AI Assistant">
+                    <i data-lucide="bot"></i>
+                    <span data-i18n="ai_assistant">AI ASSISTANT</span>
+                </button>
+
+                <!-- Open Archive toggle button (Floating trigger next to pedestal) (v8.0 Absolute) -->
+                <button id="btn-toggle-archive-drawer" class="hud-btn outline-btn" style="position: absolute; bottom: 175px; right: 24px; z-index: 30; border-radius: 20px; font-weight: bold; box-shadow: 0 4px 12px rgba(0,0,0,0.25); display: none;" title="시제품 보관함 서랍 열기">
+                    <i data-lucide="archive"></i> <span data-i18n="open_archive_drawer">보관함 아카이브</span>
+                </button>
+            </div>
+
+            <!-- Apple-style presentation title overlay (Showcase Keynote only) -->
+            <div id="presentation-titles" class="hidden-stage">
+                <span id="presentation-mode-status">PRESENTATION MODE · PART SCAN READY</span>
+                <h1 id="pres-product-name">AeroDrone Scout-V</h1>
+                <p id="pres-product-sub">PROTOTYPE // UAV DEVELOPMENT</p>
+            </div>
+
+            <div id="flow-coach" class="flow-coach" aria-label="Prototype workflow">
+                <div class="flow-steps" role="list">
+                    <button class="flow-step active" data-flow-step="model" type="button">
+                        <span>1</span>
+                        <strong data-i18n="flow_model">모델</strong>
+                    </button>
+                    <button class="flow-step" data-flow-step="structure" type="button">
+                        <span>2</span>
+                        <strong data-i18n="flow_structure">구조</strong>
+                    </button>
+                    <button class="flow-step" data-flow-step="present" type="button">
+                        <span>3</span>
+                        <strong data-i18n="flow_present">발표</strong>
+                    </button>
+                    <button class="flow-step" data-flow-step="export" type="button">
+                        <span>4</span>
+                        <strong data-i18n="flow_export">내보내기</strong>
+                    </button>
+                </div>
+                <button id="btn-demo-run" class="flow-demo-btn" type="button" title="자동 발표 흐름 실행">
+                    <i data-lucide="wand-sparkles"></i>
+                    <span data-i18n="flow_demo">데모 런</span>
+                </button>
+                <button id="btn-final-pass" class="flow-final-btn" type="button" title="최종 데모 상태 점검">
+                    <i data-lucide="badge-check"></i>
+                    <span>FINAL PASS</span>
+                </button>
+            </div>
+
+            <!-- Three.js Stage Container -->
+            <div id="hologram-viewport"></div>
+            <!-- Floating Viewport Tooltip Help Badge (v6.0) -->
+            <div id="viewport-annotation-hint" style="position: absolute; top: 20px; right: 20px; background: rgba(12, 14, 18, 0.7); border: 1px solid rgba(255, 255, 255, 0.08); padding: 6px 12px; border-radius: 12px; font-family: var(--font-mono); font-size: 9px; color: var(--text-muted); display: flex; align-items: center; gap: 6px; pointer-events: none; z-index: 10; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+                <span class="pulse-dot" style="background-color: var(--theme-color); width: 5px; height: 5px; margin: 0; box-shadow: 0 0 6px var(--theme-color);"></span>
+                <span>DOUBLE CLICK viewport to place 3D callout pins // 더블 클릭하여 3D 주석 배치</span>
+            </div>
+            <div id="gesture-pilot-panel" class="gesture-pilot-panel" aria-live="polite">
+                <div class="gesture-pilot-header">
+                    <span>GESTURE PILOT</span>
+                    <strong id="gesture-pilot-mode">ORBIT READY</strong>
+                </div>
+                <div class="gesture-pilot-meter" aria-hidden="true">
+                    <span id="gesture-pilot-fill"></span>
+                </div>
+                <div class="gesture-pilot-readouts">
+                    <span><i data-lucide="rotate-3d"></i><strong id="gesture-pilot-spin">1.0x</strong></span>
+                    <span><i data-lucide="scan-line"></i><strong id="gesture-pilot-explode">0%</strong></span>
+                </div>
+            </div>
+            <!-- Floating Part Annotations Overlays (New v3.2) -->
+            <div id="annotations-container"></div>
+
+            <!-- Component Focus / Part Scan overlay -->
+            <div id="part-scan-panel" class="part-scan-panel" aria-live="polite">
+                <div class="part-scan-header">
+                    <span>PART SCAN</span>
+                    <strong id="part-scan-counter">0 / 0</strong>
+                </div>
+                <h3 id="part-scan-title">Component Focus</h3>
+                <p id="part-scan-desc">Select a separated component to isolate its role in the prototype.</p>
+                <div id="part-scan-map" class="part-scan-map" aria-label="Part Scan map">
+                    <div class="part-scan-map-header">
+                        <span>PART MAP</span>
+                        <strong id="part-scan-map-count">0</strong>
+                    </div>
+                    <div id="part-scan-map-track" class="part-scan-map-track"></div>
+                </div>
+                <div class="part-scan-actions">
+                    <button id="btn-part-scan-prev" class="hud-btn outline-btn" type="button" title="이전 부품 / Previous part">
+                        <i data-lucide="chevron-left"></i>
+                    </button>
+                    <button id="btn-part-scan-next" class="hud-btn glow-btn" type="button" title="다음 부품 / Next part">
+                        <i data-lucide="chevron-right"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Viewport float Drawing Tools & Calipers (v3.7) -->
+            <div id="viewport-drawing-tools">
+                <button id="btn-draw-pencil" class="hud-btn outline-btn icon-btn" title="3D 공간 스케치 활성화 (Shift+드래그로도 가능)">
+                    <i data-lucide="pencil"></i>
+                    <span data-i18n="draw_pencil">3D 스케치</span>
+                </button>
+                <button id="btn-draw-caliper" class="hud-btn outline-btn icon-btn" title="실시간 3D 자 표기 치수 측정 (모델 표면 클릭)">
+                    <i data-lucide="ruler"></i>
+                    <span data-i18n="draw_caliper">3D 측정</span>
+                </button>
+                <button id="btn-draw-clear" class="hud-btn outline-btn icon-btn" title="그린 스케치 및 측정 지우기" style="display: none;">
+                    <i data-lucide="trash-2"></i>
+                </button>
+            </div>
+
+            <!-- AI Scan Progress HUD Overlay (v3.6) -->
+            <div id="ai-scan-overlay" class="hidden-stage">
+                <div class="ai-progress-box glass-panel border-flash">
+                    <div class="ai-title-row">
+                        <span class="ai-status blink-fast"><i data-lucide="clipboard-check"></i> PROTOTYPE CHECK</span>
+                        <span id="ai-percentage">0%</span>
+                    </div>
+                    <div class="ai-progress-bar-container">
+                        <div class="ai-progress-bar-fill" id="ai-progress-fill" style="width: 0%;"></div>
+                    </div>
+                    <div class="ai-subtext" id="ai-scan-subtext">ANALYZING MOLECULAR STRUCTURE...</div>
+                </div>
+            </div>
+
+            <!-- Sleek Aluminum display stand base mockup -->
+            <div class="projection-grid-base">
+                <div class="apple-pedestal"></div>
+                <div class="laser-beam-cone"></div>
+            </div>
+
+            <!-- Floating Viewport Cinematic Camera Preset Bar (Apple-style floating dock with Magnification) -->
+            <div id="camera-cinematic-dock">
+                <button class="camera-dock-btn active-dock" data-view="orbit" title="자동 궤도 순회 / Cinematic Auto Orbit">
+                    <i data-lucide="rotate-3d"></i>
+                    <span>Orbit</span>
+                </button>
+                <button class="camera-dock-btn" data-view="front" title="정면 보기 / Front Studio View">
+                    <i data-lucide="focus"></i>
+                    <span>Front</span>
+                </button>
+                <button class="camera-dock-btn" data-view="top" title="탑뷰 도식화 / Top Technical View">
+                    <i data-lucide="box"></i>
+                    <span>Top</span>
+                </button>
+                <button class="camera-dock-btn" data-view="macro" title="거치대 정밀 접사 / Macro Detail Focus">
+                    <i data-lucide="zoom-in"></i>
+                    <span>Macro</span>
+                </button>
+                <!-- Play Show Cinematic auto presentation trigger button (New v3.0) -->
+                <button class="camera-dock-btn warning-dock" id="btn-play-showcase" title="자동 시네마틱 제품 발표 / Auto Keynote Showcase">
+                    <i data-lucide="play"></i>
+                    <span>Play Show</span>
+                </button>
+                <!-- Play Cinematic Director sequence (v3.5) -->
+                <button class="camera-dock-btn warning-dock" id="btn-play-director" title="시네마틱 발표 시퀀스 자동 연출 / Cinematic Sequence Director">
+                    <i data-lucide="clapperboard"></i>
+                    <span>Director</span>
+                </button>
+                <!-- Timeline Keyframe Editor (v8.0) -->
+                <button class="camera-dock-btn timeline-dock-btn" id="btn-toggle-timeline" title="타임라인 키프레임 편집 / Timeline Keyframe Editor">
+                    <i data-lucide="film"></i>
+                    <span>Timeline</span>
+                </button>
+            </div>
+
+            <!-- Timeline Presenter Subtitle Overlay (Phase E) -->
+            <div id="timeline-subtitle-overlay" class="timeline-subtitle-card" style="display: none;">
+                <p id="timeline-subtitle-text"></p>
+            </div>
+        </main>
+
+        <!-- RIGHT SPECIFICATIONS PANEL -->
+        <aside id="hud-right-panel" class="glass-panel hud-sidebar" role="complementary" aria-label="Render Settings">
+            <div class="mac-panel-header">
+                <div class="mac-window-dots mini-dots">
+                    <span class="dot close"></span>
+                    <span class="dot minimize"></span>
+                    <span class="dot expand"></span>
+                </div>
+                <span class="card-indicator">SPECIFICATION_SHEET</span>
+            </div>
+
+            <div class="panel-section">
+                <h2 class="section-title"><i data-lucide="cpu"></i> <span data-i18n="render_schematic">RENDER SCHEMATIC</span></h2>
+                <div class="render-mode-selector">
+                    <button class="render-mode-btn" data-mode="points">
+                        <i data-lucide="scatter-chart"></i> <span data-i18n="point_cloud">POINT CLOUD</span>
+                    </button>
+                    <button class="render-mode-btn active" data-mode="wireframe">
+                        <i data-lucide="layout"></i> <span data-i18n="wireframe">WIREFRAME</span>
+                    </button>
+                    <button class="render-mode-btn" data-mode="solid">
+                        <i data-lucide="box"></i> <span data-i18n="faceted_solid">FACETED SOLID</span>
+                    </button>
+                    <button class="render-mode-btn" data-mode="thermal" title="열에너지 방출 열화상 시뮬레이터">
+                        <i data-lucide="flame"></i> <span data-i18n="thermal_infrared">열감지 열화상</span>
+                    </button>
+                    <button class="render-mode-btn" data-mode="xray" title="내부 구조 투과 시각화 시뮬레이터">
+                        <i data-lucide="eye"></i> <span data-i18n="xray_shell">엑스레이 투과</span>
+                    </button>
+                </div>
+                <button id="btn-quality-boost" class="quality-boost-btn active" type="button" aria-pressed="true" title="고해상도 렌더링과 스펙 카드 출력 강화">
+                    <i data-lucide="sparkles"></i>
+                    <span>HQ BOOST</span>
+                    <strong id="quality-boost-status">2.5x DPR · 1.5x PNG</strong>
+                </button>
+                <!-- Thermal heat source reset button (v6.0) -->
+                <div id="thermal-control-panel" style="display: none; margin-top: 10px; padding: 10px; border-radius: 8px; background: rgba(255, 59, 48, 0.06); border: 1px solid rgba(255, 59, 48, 0.15); flex-direction: column; gap: 6px; animation: glow-pulse 3s infinite ease-in-out;">
+                    <span style="font-family: var(--font-mono); font-size: 9px; color: #ff3b30; font-weight: 700; letter-spacing: 0.5px; display: flex; align-items: center; gap: 4px;"><i data-lucide="flame" style="width: 10px; height: 10px;"></i> THERMAL INJECTION ANALYZER</span>
+                    <span style="font-family: var(--font-ui); font-size: 10px; color: var(--text-muted);">모델 표면을 클릭하여 발열점(Heat Point)을 주입하세요. (최대 3개)</span>
+                    <button id="btn-reset-heatpoints" class="hud-btn warning-btn" style="min-height: 28px; padding: 4px 8px; font-size: 10px; width: 100%; border-color: rgba(255, 59, 48, 0.3); color: #ff3b30; font-weight: bold; background: rgba(255, 59, 48, 0.04); display: flex; align-items: center; justify-content: center; gap: 4px;">
+                        <i data-lucide="rotate-ccw" style="width: 12px; height: 12px;"></i> <span>발열점 초기화 (RESET HEAT)</span>
+                    </button>
+                </div>
+                <button id="btn-part-scan" class="hud-btn outline-btn part-scan-toggle" type="button" title="부품 하나씩 분리해서 설명 / Component Focus Scan">
+                    <i data-lucide="focus"></i>
+                    <span>PART SCAN</span>
+                </button>
+            </div>
+
+            <!-- Studio Environment Presets (v3.7) -->
+            <div class="panel-section beginner-show">
+                <h2 class="section-title"><i data-lucide="globe"></i> <span data-i18n="studio_environment">스튜디오 공간 환경</span></h2>
+                <div class="env-mode-selector">
+                    <button class="env-mode-btn active" data-env="cyberpunk" title="네온 입자 SF 연구실 분위기">
+                        <i data-lucide="terminal"></i> <span data-i18n="env_cyberpunk">네오 사이버펑크</span>
+                    </button>
+                    <button class="env-mode-btn" data-env="cupertino" title="알루미늄 모던 스튜디오 분위기">
+                        <i data-lucide="aperture"></i> <span data-i18n="env_cupertino">큐퍼티노 연구소</span>
+                    </button>
+                    <button class="env-mode-btn" data-env="windtunnel" title="공기 역학 흐름 풍동 실험 환경">
+                        <i data-lucide="wind"></i> <span data-i18n="env_windtunnel">윈드 터널 실험</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="panel-section spec-editor-section">
+                <h2 class="section-title"><i data-lucide="sliders"></i> <span data-i18n="telemetry_specs">TELEMETRY SPECIFICATIONS</span></h2>
+                <div class="spec-form">
+                    <div class="form-row">
+                        <label for="spec-name" data-i18n="product_name">PRODUCT NAME</label>
+                        <input type="text" id="spec-name" value="AeroDrone Scout-V">
+                    </div>
+                    <div class="form-row">
+                        <label for="spec-category" data-i18n="classification">CLASSIFICATION</label>
+                        <input type="text" id="spec-category" value="PROTOTYPE // UAV">
+                    </div>
+                    
+                    <div class="interactive-spec-slider-box">
+                        <div class="tuner-row">
+                            <label for="spec-param-weight" data-i18n="mass">MASS (KG)</label>
+                            <input type="range" id="spec-param-weight" min="1" max="150" value="12">
+                            <span class="value-readout" id="readout-weight">12 kg</span>
+                        </div>
+                        <div class="tuner-row">
+                            <label for="spec-param-power" data-i18n="power">POWER SYSTEM (W)</label>
+                            <input type="range" id="spec-param-power" min="50" max="2500" value="850">
+                            <span class="value-readout" id="readout-power">850 W</span>
+                        </div>
+                        <div class="tuner-row">
+                            <label for="spec-param-thermal" data-i18n="laser_freq">SCAN DETAIL</label>
+                            <input type="range" id="spec-param-thermal" min="1" max="100" value="78">
+                            <span class="value-readout" id="readout-thermal">78%</span>
+                        </div>
+                    </div>
+                    
+                    <div class="spec-action-buttons" style="margin-top: 15px; display: flex; flex-direction: column; gap: 8px;">
+                        <button id="btn-save-archive" class="hud-btn glow-btn" style="width: 100%;">
+                            <i data-lucide="folder-heart"></i> <span data-i18n="save_archive">보관함에 시제품 저장</span>
+                        </button>
+                        <button id="btn-trigger-shockwave" class="hud-btn warning-btn" style="width: 100%; border-color: rgba(255, 115, 0, 0.4); color: #ff7300; font-weight: bold;">
+                            <i data-lucide="zap"></i> <span data-i18n="trigger_shockwave">TRIGGER QUANTUM SHOCKWAVE</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel-section spec-readout-section">
+                <h2 class="section-title"><i data-lucide="binary"></i> <span data-i18n="telemetry_reads">PROJECTION TELEMETRY READS</span></h2>
+                <div class="spec-table-container">
+                    <table class="spec-table">
+                        <tbody>
+                            <tr>
+                                <td data-i18n="unit_id">UNIT IDENTIFIER</td>
+                                <td id="tbl-unit-id" class="tech-highlight">AERO-V-089A</td>
+                            </tr>
+                            <tr>
+                                <td data-i18n="unit_volume">UNIT VOLUME</td>
+                                <td id="tbl-volume">0.45 m³</td>
+                            </tr>
+                            <tr>
+                                <td data-i18n="stability_factor">STABILITY FACTOR</td>
+                                <td id="tbl-stability" class="color-text">99.84%</td>
+                            </tr>
+                            <tr>
+                                <td data-i18n="energy_discharge">ENERGY DISCHARGE</td>
+                                <td id="tbl-discharge">2.4 kWh</td>
+                            </tr>
+                            <tr>
+                                <td data-i18n="emission_angle">EMISSION ANGLE</td>
+                                <td id="tbl-emission">32.4°</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Export Suite Panel (New v3.1) -->
+            <div class="panel-section">
+                <h2 class="section-title"><i data-lucide="download"></i> <span data-i18n="export_suite">EXPORT SUITE</span></h2>
+                <div class="export-buttons-grid">
+                    <button class="hud-btn outline-btn export-btn" id="btn-export-3d" title="3D GLTF 모델 내보내기 / Export 3D Model GLTF">
+                        <i data-lucide="box"></i>
+                        <span data-i18n="export_3d">GLB 다운로드 (.glb)</span>
+                    </button>
+                    <button class="hud-btn outline-btn export-btn" id="btn-export-spec" title="기기 사양 명세서 JSON 내보내기 / Export Specs JSON">
+                        <i data-lucide="file-json"></i>
+                        <span data-i18n="export_spec">사양 JSON 다운로드</span>
+                    </button>
+                    <button class="hud-btn outline-btn export-btn" id="btn-export-photo" title="스튜디오 캡처 PNG 내보내기 / Capture Viewport PNG">
+                        <i data-lucide="camera"></i>
+                        <span data-i18n="export_photo">PNG 캡처</span>
+                    </button>
+                </div>
+                <div class="demo-pack-panel" id="demo-pack-panel">
+                    <div class="demo-pack-header">
+                        <span>ONE-CLICK DEMO PACK</span>
+                        <strong id="demo-pack-status">READY</strong>
+                    </div>
+                    <p class="demo-pack-copy">브리프·스냅샷·핸드오프 매니페스트를 하나의 전달 패키지로 저장합니다.</p>
+                    <button class="hud-btn glow-btn export-btn" id="btn-export-demo-pack" type="button" title="시연 패키지 JSON 생성">
+                        <i data-lucide="package-open"></i>
+                        <span>시연 패키지 생성</span>
+                    </button>
+                </div>
+                <div class="handoff-pack-panel">
+                    <div class="handoff-pack-header">
+                        <span>HANDOFF PACK</span>
+                        <strong id="handoff-pack-status">2 / 4 READY</strong>
+                    </div>
+                    <div class="handoff-checklist">
+                        <button id="handoff-check-model" class="done" type="button" data-handoff-action="model" title="모델 선택 영역으로 이동">MODEL</button>
+                        <button id="handoff-check-demo" type="button" data-handoff-action="demo" title="데모 프리셋으로 이동">DEMO</button>
+                        <button id="handoff-check-timeline" type="button" data-handoff-action="timeline" title="타임라인 패널 열기">TIMELINE</button>
+                        <button id="handoff-check-export" type="button" data-handoff-action="export" title="내보내기 영역으로 이동">EXPORT</button>
+                    </div>
+                    <div id="handoff-part-map-summary" class="handoff-part-map-summary">
+                        <span>PART MAP</span>
+                        <strong id="handoff-part-map-count">0 COMPONENTS</strong>
+                    </div>
+                    <button id="handoff-next-action" class="handoff-next-action" type="button" data-handoff-action="model" aria-live="polite" title="현재 추천 단계로 이동">
+                        <span>NEXT HANDOFF STEP</span>
+                        <strong id="handoff-next-action-text">Load a prototype to begin handoff prep.</strong>
+                    </button>
+                    <div id="final-readiness-panel" class="final-readiness-panel setup" aria-live="polite">
+                        <div class="final-readiness-head">
+                            <span>FINAL READINESS</span>
+                            <strong id="final-readiness-score">0%</strong>
+                        </div>
+                        <p id="final-readiness-label">SETUP</p>
+                        <small id="final-readiness-detail">0 / 4 handoff · 0 / 5 preflight</small>
+                    </div>
+                    <div id="final-pass-panel" class="final-pass-panel standby" aria-live="polite">
+                        <div class="final-pass-header">
+                            <span>SHOWTIME PASS</span>
+                            <strong id="final-pass-status">STANDBY</strong>
+                        </div>
+                        <div class="final-pass-checks">
+                            <span id="final-pass-check-model">MODEL</span>
+                            <span id="final-pass-check-hq">HQ</span>
+                            <span id="final-pass-check-snapshot">SNAPSHOT</span>
+                            <span id="final-pass-check-export">EXPORT</span>
+                        </div>
+                        <small id="final-pass-detail">Run Final Pass before the last PNG or demo pack.</small>
+                    </div>
+                    <button class="hud-btn outline-btn export-btn" id="btn-run-final-pass" type="button" title="HQ·스냅샷·내보내기 흐름 점검">
+                        <i data-lucide="badge-check"></i>
+                        <span>FINAL PASS</span>
+                    </button>
+                    <button class="hud-btn glow-btn export-btn" id="btn-export-handoff-pack" type="button" title="시연 인계용 매니페스트 생성">
+                        <i data-lucide="package-check"></i>
+                        <span>핸드오프 매니페스트</span>
+                    </button>
+                </div>
+                <div class="client-brief-panel" id="client-brief-panel">
+                    <div class="client-brief-header">
+                        <span>CLIENT BRIEF</span>
+                        <strong id="client-brief-status">MARKDOWN</strong>
+                    </div>
+                    <p class="client-brief-copy">현재 시연 세팅을 고객·팀 공유용 요약 문서로 저장합니다.</p>
+                    <button class="hud-btn outline-btn export-btn" id="btn-export-client-brief" type="button" title="고객 공유용 Markdown 브리프 생성">
+                        <i data-lucide="file-text"></i>
+                        <span>고객 브리프 Markdown</span>
+                    </button>
+                </div>
+                <div class="beta-readiness-panel" id="beta-readiness-panel">
+                    <div class="beta-readiness-header">
+                        <span>BETA PREFLIGHT</span>
+                        <strong id="beta-readiness-status">CHECKING</strong>
+                    </div>
+                    <div class="beta-checklist">
+                        <span id="beta-check-webgl">WEBGL</span>
+                        <span id="beta-check-cdn">CORE CDN</span>
+                        <span id="beta-check-storage">STORAGE</span>
+                        <span id="beta-check-model">MODEL</span>
+                        <span id="beta-check-snapshot">SNAPSHOT</span>
+                    </div>
+                </div>
+                <div class="project-snapshot-panel" id="project-snapshot-panel">
+                    <div class="project-snapshot-header">
+                        <span>PROJECT SNAPSHOT</span>
+                        <strong id="project-snapshot-status">NO SNAPSHOT</strong>
+                    </div>
+                    <div class="project-snapshot-actions">
+                        <button class="hud-btn outline-btn snapshot-btn" id="btn-save-project-snapshot" type="button" title="현재 발표 세팅 저장">
+                            <i data-lucide="save"></i>
+                            <span>저장</span>
+                        </button>
+                        <button class="hud-btn outline-btn snapshot-btn" id="btn-restore-project-snapshot" type="button" title="저장된 발표 세팅 복원">
+                            <i data-lucide="rotate-ccw"></i>
+                            <span>복원</span>
+                        </button>
+                        <button class="hud-btn outline-btn snapshot-btn" id="btn-export-project-snapshot" type="button" title="발표 세팅 JSON 내보내기">
+                            <i data-lucide="file-output"></i>
+                            <span>JSON</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- BOTTOM DIAGNOSTICS CONSOLE -->
+        <footer id="hud-bottom-panel" class="glass-panel console-container" role="contentinfo" aria-label="System Diagnostics">
+            <div class="console-header">
+                <span class="console-title"><i data-lucide="terminal"></i> <span data-i18n="diagnostics_title">SYSTEM DIAGNOSTICS FEEDS</span></span>
+                <span class="console-metrics">BUFFER: 100% | FEED_RATE: REALTIME | ENVIRONMENT: STUDIO <span id="fps-counter" style="margin-left: 8px; font-weight: 600;"></span></span>
+            </div>
+            <div class="console-scroller" id="console-logs">
+                <div class="log-line text-info">[SYS] INITIALIZING HOLOSYN MATRIX UNIT...</div>
+                <div class="log-line text-info">[SYS] LOADING PROTOTYPE PRESENTATION STUDIO... [SUCCESS]</div>
+                <div class="log-line text-success">[SYS] SYSTEM READY. MODEL VIEWPORT AND EXPORT TOOLS ONLINE.</div>
+                <div class="log-line text-warning">[SYS] STANDBY. AWAITING PRODUCT INJECTION COMMAND.</div>
+            </div>
+        </footer>
+    </div>
+
+    <!-- PEPPER'S GHOST 4-WAY FULLSCREEN OVERLAY -->
+    <div id="pyramid-overlay" class="hidden-stage">
+        <button id="btn-pyramid-exit" class="hud-btn warning-btn">
+            <i data-lucide="x"></i> <span data-i18n="exit_pyramid">EXIT PYRAMID MODE</span>
+        </button>
+
+        <!-- Neon Alignment Calibration Reticles (v4.0) -->
+        <div id="pyramid-calibration-grid" class="calibration-reticle">
+            <div class="axis-x"></div>
+            <div class="axis-y"></div>
+            <div class="circle outer"></div>
+            <div class="circle inner"></div>
+            <div class="calib-label">PLACE PYRAMID CENTER HERE // 피라미드 중심 조준점</div>
+        </div>
+        
+        <!-- Interactive Visual Instructions -->
+        <div class="pyramid-instructions">
+            <h3 data-i18n="pyramid_title">PEPPER'S GHOST 3D REFLECTION PROJECTOR</h3>
+            <p data-i18n="pyramid_desc1">1. 전시 부스나 미팅룸 실내 조명을 끈 후, 모니터/패널 위에 아크릴 반사 피라미드를 올려 놓으십시오.</p>
+            <p data-i18n="pyramid_desc2">2. 장치의 4분면 입체 투사 빔이 아크릴 내에 맺혀 오프라인 공간 360° 입체 시제품 시연이 즉시 가능해집니다.</p>
+        </div>
+
+        <!-- 4 Projection Canvas Symmetrical Viewports -->
+        <div class="pyramid-stage-grid">
+            <div class="pyramid-viewport-quad top-quad">
+                <div id="canvas-quad-top" class="quad-canvas-wrapper"></div>
+            </div>
+            <div class="pyramid-viewport-quad bottom-quad">
+                <div id="canvas-quad-bottom" class="quad-canvas-wrapper"></div>
+            </div>
+            <div class="pyramid-viewport-quad left-quad">
+                <div id="canvas-quad-left" class="quad-canvas-wrapper"></div>
+            </div>
+            <div class="pyramid-viewport-quad right-quad">
+                <div id="canvas-quad-right" class="quad-canvas-wrapper"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Voice Command Help Modal (v5.0) -->
+    <div id="voice-help-modal" class="modal-backdrop" style="display: none; z-index: 2010;" role="dialog" aria-modal="true" aria-label="Voice Command Guide">
+        <div class="modal-content glass-panel border-flash" style="max-width: 480px; text-align: left; padding: 25px;">
+            <div class="modal-header" style="align-items: flex-start; margin-bottom: 15px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <i data-lucide="help-circle" class="glow-icon" style="color: var(--theme-color); width: 22px; height: 22px;"></i>
+                    <h2 style="font-family: var(--font-ui); font-size: 16px; font-weight: 700; color: var(--text-primary); margin: 0;" data-i18n="voice_guide_title">VOICE COMMAND GUIDE // 음성 명령 제어 안내</h2>
+                </div>
+                <div style="font-family: var(--font-mono); font-size: 9px; color: var(--text-muted); margin-top: 4px;" data-i18n="voice_guide_subtitle">SAY THE FOLLOWING KOREAN OR ENGLISH COMMANDS:</div>
+            </div>
+            <div class="modal-body" style="font-family: var(--font-mono); font-size: 11px; color: var(--text-primary); max-height: 320px; overflow-y: auto; padding-right: 8px;">
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <div style="border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 8px;">
+                        <span style="color: var(--theme-color); font-weight: bold;">[AI SCAN]</span><br>
+                        "스캔", "scan", "진단", "검사", "체크"
+                    </div>
+                    <div style="border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 8px;">
+                        <span style="color: var(--theme-color); font-weight: bold;">[RENDER MODES]</span><br>
+                        "솔리드", "solid" ➡️ Solid Surface<br>
+                        "와이어", "wireframe" ➡️ Wireframe Mesh<br>
+                        "포인트", "points" ➡️ Particle Cloud<br>
+                        "열화상", "thermal" ➡️ Thermal Contrast<br>
+                        "엑스레이", "xray" ➡️ Structural X-Ray
+                    </div>
+                    <div style="border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 8px;">
+                        <span style="color: var(--theme-color); font-weight: bold;">[COLOR SCHEME THEMES]</span><br>
+                        "블루", "blue" ➡️ Minimal Blue<br>
+                        "그린", "green" ➡️ Matrix Green<br>
+                        "실버", "silver" ➡️ Tactical Silver<br>
+                        "오렌지", "orange" ➡️ Energy Orange<br>
+                        "크림슨", "red" ➡️ Power Crimson
+                    </div>
+                    <div style="border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 8px;">
+                        <span style="color: var(--theme-color); font-weight: bold;">[QUANTUM SHOCKWAVE]</span><br>
+                        "충격파", "shockwave", "폭발", "분해"
+                    </div>
+                    <div style="border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 8px;">
+                        <span style="color: var(--theme-color); font-weight: bold;">[SYSTEM CONTROLS]</span><br>
+                        "회전", "rotate" ➡️ Toggle Auto-Rotation<br>
+                        "피라미드", "pyramid" ➡️ Toggle Cinema Screen<br>
+                        "저장", "capture", "snapshot" ➡️ Export snapshot PNG
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer" style="margin-top: 20px; justify-content: flex-end; display: flex;">
+                <button id="btn-close-voice-help" class="hud-btn glow-btn" style="min-height: 32px; padding: 4px 16px; font-weight: bold; border-radius: 8px;" data-i18n="close">CLOSE // 닫기</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Web Audio API Hum Toggle Warning & Maker Onboarding Modal -->
+    <div id="welcome-modal" class="modal-backdrop" role="dialog" aria-modal="true" aria-label="Welcome">
+        <div class="modal-content glass-panel border-flash">
+            <div class="modal-header">
+                <i data-lucide="sparkles" class="modal-icon glow-icon"></i>
+                <h2 data-i18n="welcome_title">HOLOSYN — START</h2>
+            </div>
+            <div class="modal-body">
+                <p class="welcome-intro" data-i18n="welcome_intro">홀로신은 1인 메이커와 하드웨어 개발자를 위한 프리미엄 3D 시제품 발표 도구입니다. 미팅룸이나 전시 부스에서 제품을 가장 돋보이게 시연해 보세요.</p>
+                
+                <div class="onboarding-cards">
+                    <div class="onboarding-card">
+                        <i data-lucide="box" class="card-icon"></i>
+                        <div class="card-info">
+                            <h4 data-i18n="intro_feature1_title">3D 파일 직접 투사</h4>
+                            <p data-i18n="intro_feature1_desc">.glb, .gltf, .obj 파일을 드래그 앤 드롭하여 바로 시제품을 3D 시각화합니다.</p>
+                        </div>
+                    </div>
+                    <div class="onboarding-card">
+                        <i data-lucide="presentation" class="card-icon"></i>
+                        <div class="card-info">
+                            <h4 data-i18n="intro_feature2_title">애플 스타일 Showcase</h4>
+                            <p data-i18n="intro_feature2_desc">HUD를 완벽히 숨긴 채 3D 분해도 및 파트 라벨링으로 제품에만 완벽히 집중시킵니다.</p>
+                        </div>
+                    </div>
+                    <div class="onboarding-card">
+                        <i data-lucide="download" class="card-icon"></i>
+                        <div class="card-info">
+                            <h4 data-i18n="intro_feature3_title">프로페셔널 포맷 내보내기</h4>
+                            <p data-i18n="intro_feature3_desc">최적화된 GLB 3D 압축 모델, 스펙 명세 JSON, 고해상도 PNG 캡처를 지원합니다.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <p class="welcome-sound-note" data-i18n="welcome_sound_note">※ 실감나는 공간 시연을 위해 Web Audio API 기반의 공간 신디사이저가 내장되어 있습니다. 아래 버튼을 눌러 엔진을 기동하세요.</p>
+            </div>
+            <div class="modal-footer">
+                <button id="btn-boot-system" class="hud-btn glow-btn">
+                    <i data-lucide="shield"></i> <span data-i18n="boot_btn">HOLOSYN 엔진 기동 (BOOT ENGINE)</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden high-definition composite canvas forSpec Sheet Export (v4.0) -->
+    <canvas id="export-canvas" style="display: none;"></canvas>
+
+    <!-- SVG overlay for drawing interactive callout lines (v4.0) -->
+    <svg id="callout-svg-overlay" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 80;"></svg>
+
+    <!-- Floating HUD Part Callout Annotation tooltip (v4.0) -->
+    <div id="hud-part-callout" class="glass-panel" style="position: fixed; display: none; z-index: 85; pointer-events: none; padding: 12px; border-radius: 8px; border: 1px solid var(--theme-color); box-shadow: 0 0 15px var(--theme-glow); background: rgba(12, 14, 18, 0.88); font-family: var(--font-ui); color: #ffffff; min-width: 200px;">
+        <div style="font-size: 8px; color: var(--theme-color); font-weight: 700; letter-spacing: 1px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 4px; margin-bottom: 6px;" id="callout-part-tag">PART_DIAGNOSTICS</div>
+        <div style="font-size: 13px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px;" id="callout-part-name">PROPULSION ROTOR</div>
+        <div style="font-family: var(--font-mono); font-size: 9px; color: var(--text-muted); display: flex; flex-direction: column; gap: 2px;">
+            <div>TEMP: <span id="callout-part-temp" style="color: var(--text-highlight);">34.8°C</span></div>
+            <div>STABILITY: <span id="callout-part-stab">99.8%</span></div>
+            <div>STATUS: <span style="color: #00ff77;" id="callout-part-status">ACTIVE</span></div>
+        </div>
+    </div>
+
+    <!-- IndexedDB History Archive slide-up board drawer (v5.0) -->
+    <div id="hud-archive-drawer" class="glass-panel" style="position: fixed; bottom: -280px; left: 50%; transform: translateX(-50%); width: 90%; max-width: 1100px; height: 260px; z-index: 95; border-radius: 16px 16px 0 0; border: 1px solid var(--theme-color); border-bottom: none; box-shadow: 0 -10px 30px rgba(0,0,0,0.5); background: rgba(12, 14, 18, 0.92); backdrop-filter: blur(25px); transition: bottom 0.45s cubic-bezier(0.16, 1, 0.3, 1); padding: 16px; display: flex; flex-direction: column;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 8px; margin-bottom: 12px;">
+            <div style="display: flex; align-items: center; gap: 8px; font-family: var(--font-ui); font-size: 13px; font-weight: 700; color: var(--text-primary);">
+                <i data-lucide="folder-open" style="color: var(--theme-color);"></i>
+                <span data-i18n="archive_board_title">MY PROTOTYPE ARCHIVES // 시제품 영구 보관 아카이브</span>
+            </div>
+            <button id="btn-close-archive" class="hud-btn icon-btn" style="min-height: 28px; padding: 2px 8px; border: none; background: transparent;">
+                <i data-lucide="chevron-down"></i>
+            </button>
+        </div>
+        <div id="archive-slots-container" style="display: flex; gap: 12px; overflow-x: auto; flex-grow: 1; padding-bottom: 8px; align-items: center;">
+            <!-- Dynamic archive items loaded here -->
+            <div style="font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); width: 100%; text-align: center;" data-i18n="archive_empty">보관함에 저장된 시제품이 없습니다. [보관함에 시제품 저장] 단추를 눌러 첫 요소를 보관해 보세요.</div>
+        </div>
+    </div>
+    
+    <!-- Timeline Keyframe Presenter Editor Panel (v8.0) -->
+    <div id="timeline-editor" class="timeline-editor-panel">
+        <div class="timeline-header">
+            <div class="timeline-header-left">
+                <i data-lucide="film"></i>
+                <span data-i18n="timeline_editor">TIMELINE KEYFRAME DIRECTOR</span>
+            </div>
+            <div class="timeline-header-right">
+                <button id="btn-tl-add-kf" class="tl-control-btn" title="현재 뷰 캡처 / Capture Current View">
+                    <i data-lucide="plus"></i>
+                    <span data-i18n="add_keyframe">ADD KEYFRAME</span>
+                </button>
+                <button id="btn-tl-play" class="tl-control-btn tl-play-btn" title="재생 / Play">
+                    <i data-lucide="play"></i>
+                    <span data-i18n="play_timeline">PLAY</span>
+                </button>
+                <select id="tl-speed" class="tl-speed-select" title="재생 속도">
+                    <option value="0.5">0.5x</option>
+                    <option value="1" selected>1x</option>
+                    <option value="1.5">1.5x</option>
+                    <option value="2">2x</option>
+                </select>
+                <button id="btn-tl-loop" class="tl-control-btn" title="루프 / Loop">
+                    <i data-lucide="repeat"></i>
+                </button>
+                <button id="btn-tl-export" class="tl-control-btn" title="타임라인 JSON 내보내기 / Export">
+                    <i data-lucide="download"></i>
+                </button>
+                <button id="btn-tl-import" class="tl-control-btn" title="타임라인 JSON 가져오기 / Import">
+                    <i data-lucide="upload"></i>
+                </button>
+                <input type="file" id="tl-import-input" accept=".json" style="display: none;">
+                <button id="btn-tl-close" class="tl-control-btn" title="닫기 / Close">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+        </div>
+        <div class="timeline-track-area">
+            <div class="timeline-ruler" id="tl-ruler"></div>
+            <div class="timeline-track" id="tl-track">
+                <div class="timeline-playhead" id="tl-playhead" style="left: 0%;"></div>
+                <!-- Keyframe markers will be dynamically injected here -->
+            </div>
+        </div>
+        <div class="timeline-footer">
+            <div class="timeline-time-display">
+                <span id="tl-current-time">00:00.0</span> / <span id="tl-total-time">00:30.0</span>
+            </div>
+            <div class="timeline-kf-count" id="tl-kf-count">KEYFRAMES: 0 / 20</div>
+        </div>
+    </div>
+
+    <!-- Drawer backdrop overlay (v3.8) -->
+    <div class="drawer-backdrop" id="drawer-backdrop"></div>
+
+    <!-- Mobile Bottom Quick-Action Toolbar (v3.8) -->
+    <div id="mobile-toolbar">
+        <button class="mobile-tool-btn" data-action="menu-left" aria-label="Controls">
+            <i data-lucide="sliders-horizontal"></i>
+            <span>Controls</span>
+        </button>
+        <button class="mobile-tool-btn" data-action="render-cycle" aria-label="Render Mode">
+            <i data-lucide="layers"></i>
+            <span>Render</span>
+        </button>
+        <button class="mobile-tool-btn" data-action="ai-scan" aria-label="AI Scan">
+            <i data-lucide="scan"></i>
+            <span>Scan</span>
+        </button>
+        <button class="mobile-tool-btn" data-action="timeline" aria-label="Timeline">
+            <i data-lucide="film"></i>
+            <span>Timeline</span>
+        </button>
+        <button class="mobile-tool-btn" data-action="sound-toggle" aria-label="Sound">
+            <i data-lucide="volume-2"></i>
+            <span>Sound</span>
+        </button>
+        <button class="mobile-tool-btn" data-action="menu-right" aria-label="Settings">
+            <i data-lucide="settings"></i>
+            <span>Settings</span>
+        </button>
+    </div>
+
+    <!-- Interactive 3D Label Editor Modal (v6.0) -->
+    <div id="label-editor-modal" class="modal-backdrop" style="display: none; z-index: 2020;" role="dialog" aria-modal="true" aria-label="Create 3D Annotation">
+        <div class="modal-content glass-panel border-flash" style="max-width: 340px; text-align: left; padding: 20px; border-radius: 16px;">
+            <div class="modal-header" style="margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <i data-lucide="tag" class="glow-icon" style="color: var(--theme-color); width: 18px; height: 18px;"></i>
+                    <h3 style="font-family: var(--font-ui); font-size: 13px; font-weight: 700; color: #ffffff; margin: 0;">CREATE 3D CALLOUT // 3D 주석 추가</h3>
+                </div>
+            </div>
+            <div class="modal-body" style="font-family: var(--font-ui); font-size: 11px; display: flex; flex-direction: column; gap: 12px;">
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                     <label style="color: var(--text-muted); font-size: 8px; font-family: var(--font-mono); letter-spacing: 0.5px;">CALLOUT TITLE // 주석 제목</label>
+                     <input type="text" id="input-label-title" placeholder="예: HIGH-PRESSURE ROTOR MODULE" style="background: rgba(0, 0, 0, 0.35); border: 1px solid rgba(255,255,255,0.08); padding: 8px; border-radius: 6px; color: #ffffff; font-family: var(--font-ui); font-size: 11px; outline: none; width: 100%; box-sizing: border-box;">
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                     <label style="color: var(--text-muted); font-size: 8px; font-family: var(--font-mono); letter-spacing: 0.5px;">DIAGNOSTICS & METRICS // 진단 명세</label>
+                     <textarea id="input-label-desc" placeholder="예: TEMP: 32°C | RPM: 4800 | STATUS: OPTIMAL" rows="3" style="background: rgba(0, 0, 0, 0.35); border: 1px solid rgba(255,255,255,0.08); padding: 8px; border-radius: 6px; color: #ffffff; font-family: var(--font-mono); font-size: 10px; resize: none; outline: none; width: 100%; box-sizing: border-box;"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer" style="margin-top: 18px; justify-content: flex-end; display: flex; gap: 8px;">
+                 <button id="btn-cancel-label" class="hud-btn outline-btn" style="min-height: 28px; padding: 4px 12px; font-size: 10px; border-radius: 6px;">CANCEL</button>
+                 <button id="btn-submit-label" class="hud-btn glow-btn" style="min-height: 28px; padding: 4px 16px; font-size: 10px; font-weight: bold; border-radius: 6px;">PLACE ANCHOR</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Multi-Viewer Collaboration Session Modal (v8.0) -->
+    <div id="collab-modal" class="modal-backdrop" style="display: none; z-index: 2030;" role="dialog" aria-modal="true" aria-label="Collaboration">
+        <div class="modal-content glass-panel border-flash collab-modal-content">
+            <div class="modal-header" style="flex-direction: column; align-items: center;">
+                <i data-lucide="users" class="glow-icon" style="color: var(--theme-color); width: 28px; height: 28px; margin-bottom: 8px;"></i>
+                <h2 data-i18n="collab_title">SPATIAL COLLABORATION</h2>
+                <div class="collab-subtitle" data-i18n="collab_subtitle">SHARE YOUR 3D PROTOTYPE IN REAL-TIME</div>
+                <div id="collab-module-status" class="collab-module-status ready">P2P MODULE READY</div>
+            </div>
+            <div class="modal-body" style="display: flex; flex-direction: column; align-items: center; gap: 14px;">
+                <div id="collab-room-display" style="display: none;">
+                    <div style="font-family: var(--font-mono); font-size: 8px; color: var(--text-muted); margin-bottom: 4px;">YOUR ROOM CODE (CLICK TO COPY)</div>
+                    <div class="collab-room-code" id="collab-room-code" title="클릭하여 복사"></div>
+                    <div class="collab-status-badge connected" id="collab-status">
+                        <span class="pulse-dot" style="width: 5px; height: 5px; background: #30d158;"></span>
+                        <span>CONNECTED — WAITING FOR PEERS</span>
+                    </div>
+                </div>
+                <div id="collab-join-section">
+                    <div style="font-family: var(--font-mono); font-size: 8px; color: var(--text-muted); margin-bottom: 6px;">ENTER ROOM CODE TO JOIN</div>
+                    <input type="text" id="collab-code-input" class="collab-code-input" placeholder="ABC123" maxlength="6" autocomplete="off">
+                </div>
+            </div>
+            <div class="collab-actions">
+                <button id="btn-collab-create" class="hud-btn glow-btn">
+                    <i data-lucide="plus-circle"></i>
+                    <span data-i18n="collab_create">CREATE NEW ROOM</span>
+                </button>
+                <button id="btn-collab-join" class="hud-btn outline-btn">
+                    <i data-lucide="log-in"></i>
+                    <span data-i18n="collab_join">JOIN ROOM</span>
+                </button>
+                <button id="btn-collab-voice" class="hud-btn outline-btn" style="display: none; border-color: rgba(255, 255, 255, 0.1); color: var(--text-secondary);">
+                    <i data-lucide="mic-off"></i>
+                    <span data-i18n="collab_voice">음성 통화 (VOICE): 꺼짐</span>
+                </button>
+                <button id="btn-collab-disconnect" class="hud-btn warning-btn" style="display: none; border-color: rgba(255, 69, 58, 0.3); color: #ff453a;">
+                    <i data-lucide="log-out"></i>
+                    <span data-i18n="collab_disconnect">DISCONNECT</span>
+                </button>
+            </div>
+            <div class="modal-footer" style="margin-top: 14px; justify-content: center;">
+                <button id="btn-collab-close" class="hud-btn outline-btn" style="min-height: 28px; padding: 4px 16px; font-size: 10px; border-radius: 6px;" data-i18n="close">CLOSE</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI Assistant Panel (v8.0) -->
+    <div id="ai-chat-panel" style="display: none;">
+        <div class="ai-chat-header">
+            <div class="header-title">
+                <i data-lucide="bot" style="color: var(--theme-color);"></i>
+                <span data-i18n="ai_assistant_title">AI SPATIAL ASSISTANT</span>
+            </div>
+            <button id="btn-ai-chat-close" class="close-btn"><i data-lucide="x"></i></button>
+        </div>
+        
+        <div class="ai-chat-api-key-row">
+            <input type="password" id="ai-api-key-input" placeholder="Enter Gemini API Key..." />
+            <button id="btn-use-api-key-session" class="hud-btn outline-btn" title="현재 탭에서만 사용">SESSION</button>
+            <button id="btn-save-api-key" class="hud-btn glow-btn" data-i18n="save">SAVE</button>
+            <button id="btn-clear-api-key" class="hud-btn outline-btn" title="저장된 키 삭제">CLEAR</button>
+        </div>
+        <div id="ai-key-status" class="ai-key-status">
+            API key is used only in this browser. Use SESSION for demos, SAVE for this device, CLEAR before handoff.
+        </div>
+
+        <div class="ai-chat-messages" id="ai-chat-messages">
+            <div class="chat-msg system" id="ai-chat-system-msg">
+                System initialized. Enter your Gemini API Key above to enable natural language spatial control. Try commands like "Explode structure to 50%", "Make theme green", "Reset camera view", or "Start auto rotation".
+            </div>
+        </div>
+
+        <div class="ai-chat-input-row">
+            <input type="text" id="ai-chat-input" placeholder="Command spatial model..." />
+            <button id="btn-ai-chat-send" class="hud-btn glow-btn"><i data-lucide="send"></i></button>
+        </div>
+    </div>
+
+    <!-- Interactive Guide Tour (Phase D) -->
+    <!-- 1. Tutorial Prompt Modal -->
+    <div id="tutorial-prompt-modal" class="modal-backdrop tutorial-prompt-dock" style="display: none; z-index: 2040;">
+        <div class="modal-content glass-panel border-flash tutorial-prompt-content" style="max-width: 360px; padding: 20px;">
+            <div class="modal-header" style="margin-bottom: 12px;">
+                <i data-lucide="sparkles" class="modal-icon glow-icon" style="font-size: 20px; color: var(--theme-color);"></i>
+                <h2 id="tutorial-prompt-title" style="font-size: 16px; font-weight: 700; margin: 0; letter-spacing: 0.5px;">HOLOSYN 가이드 투어</h2>
+            </div>
+            <div class="modal-body" style="text-align: center; padding: 8px 0; margin-bottom: 16px;">
+                <p id="tutorial-prompt-desc" style="font-size: 12px; color: var(--text-secondary); line-height: 1.6; margin: 0;">HOLOSYN의 핵심 기능(프리셋, 분해도, 타임라인, 협업, AI)을 둘러보는 2분 가이드 투어를 시작하시겠습니까?</p>
+            </div>
+            <div class="modal-footer" style="display: flex; gap: 12px; justify-content: center; width: 100%; margin-top: 0; border: none; padding: 0;">
+                <button id="btn-tutorial-prompt-skip" class="hud-btn outline-btn" style="flex: 1; min-height: 32px; font-size: 11px;" data-i18n="tutorial_skip_btn">건너뛰기</button>
+                <button id="btn-tutorial-prompt-start" class="hud-btn glow-btn" style="flex: 1; min-height: 32px; font-size: 11px;" data-i18n="tutorial_start_btn">시작하기</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. Tutorial Floating Card -->
+    <div id="tutorial-card" class="glass-panel tutorial-card" style="display: none;">
+        <div class="tutorial-card-header">
+            <div class="tutorial-step-indicator"><span data-i18n="tutorial_step_label">STEP</span> <span id="tutorial-current-step">1</span>/5</div>
+            <button id="btn-tutorial-card-skip" class="tutorial-close-btn" title="Skip Tour"><i data-lucide="x"></i></button>
+        </div>
+        <div class="tutorial-card-body">
+            <h3 id="tutorial-title">샘플 모델 시제품 투사</h3>
+            <p id="tutorial-desc">드론, 링, 전기차, 배터리 등 내장된 3D 시제품을 클릭해 다른 모델을 즉시 투사할 수 있습니다.</p>
+        </div>
+        <div class="tutorial-card-footer">
+            <button id="btn-tutorial-back" class="hud-btn outline-btn" style="min-height: 28px; padding: 4px 12px; font-size: 11px; display: flex; align-items: center; gap: 4px;"><i data-lucide="chevron-left" style="width:12px;height:12px;"></i><span data-i18n="tutorial_back">이전</span></button>
+            <button id="btn-tutorial-next" class="hud-btn glow-btn" style="min-height: 28px; padding: 4px 12px; font-size: 11px; display: flex; align-items: center; gap: 4px;"><span data-i18n="tutorial_next">다음</span><i data-lucide="chevron-right" style="width:12px;height:12px;"></i></button>
+        </div>
+    </div>
+
+    <!-- 3. Tutorial Spotlight Overlay Mask -->
+    <div id="tutorial-spotlight" class="tutorial-spotlight-overlay" style="display: none;"></div>
+
+    <!-- 4. HUD Part Callout (V9.1 Polish) -->
+    <div id="hud-part-callout" class="hud-part-callout" style="display: none;">
+        <svg id="callout-svg-overlay" style="position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 100;"></svg>
+        <div class="callout-box">
+            <div class="callout-header">
+                <i data-lucide="crosshair"></i> <span id="callout-title">PART_NAME</span>
+            </div>
+            <div class="callout-body">
+                <div class="callout-stat">STATUS: <span class="text-success">OPTIMAL</span></div>
+                <div class="callout-stat">COORD: <span id="callout-coords">X:0 Y:0 Z:0</span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Three.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- OrbitControls -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <!-- GLTFExporter -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/GLTFExporter.js"></script>
+    <!-- GLTFLoader & OBJLoader (New v3.2) -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/OBJLoader.js"></script>
+    <!-- PeerJS for WebRTC P2P (v8.0) -->
+    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
+    
+    <!-- HOLOSYN V9 Pro Scripts: WebXR & PostProcessing -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/webxr/ARButton.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+    <!-- V10 Premium Core: Cinematic DoF -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/BokehShader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/BokehPass.js"></script>
+
+    <!-- Main Script -->
+    <script src="app.js?v=20260707-final-pass"></script>
+    <script src="scripts/holosyn-timeline.js?v=20260707-final-pass"></script>
+    <script src="scripts/holosyn-pro-managers.js?v=20260707-final-pass"></script>
+    <script>
+        // Init Lucide Icons
+        lucide.createIcons();
+    </script>
+</body>
+</html>

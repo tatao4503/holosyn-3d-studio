@@ -1,0 +1,6 @@
+.DS_Store
+*.log
+node_modules/
+USER_GUIDE.html
+Thumbs.db
+.claude/
