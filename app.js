@@ -2477,7 +2477,7 @@ function initThreeEngine() {
     const rayLineGeo = new THREE.BufferGeometry();
     rayLineGeo.setAttribute('position', new THREE.Float32BufferAttribute([0, -1.5, 0, 0, 0, 0], 3));
     const rayLineMat = new THREE.LineBasicMaterial({
-        color: new THREE.Color(state.themeColor),
+        color: themeColorObj(),
         transparent: true,
         opacity: 0.0 // Hidden initially
     });
@@ -2491,7 +2491,7 @@ function initThreeEngine() {
     sparkGeometry.setAttribute('position', new THREE.Float32BufferAttribute(sparkPos, 3));
     
     const sparkMat = new THREE.PointsMaterial({
-        color: new THREE.Color(state.themeColor),
+        color: themeColorObj(),
         size: 0.08,
         transparent: true,
         opacity: 0.0
@@ -2522,7 +2522,7 @@ function initThreeEngine() {
 
 // Hologram Shader Materials Generator
 function updateHolographicMaterials() {
-    const activeColor = new THREE.Color(state.themeColor);
+    const activeColor = themeColorObj();
     
     if (!hologramMaterials.wireframe) {
         hologramMaterials.wireframe = new THREE.MeshBasicMaterial({
@@ -3793,9 +3793,19 @@ function updateFinalReadinessScore() {
     updateFinalPassPanel();
 }
 
+// Current product name from the spec form (fallback to a neutral default).
+function getProductName() {
+    return document.getElementById('spec-name')?.value || 'Holosyn Prototype';
+}
+
+// Fresh THREE.Color from the active theme (new instance each call — Colors are mutable).
+function themeColorObj() {
+    return new THREE.Color(state.themeColor);
+}
+
 function getProductSpecState() {
     return {
-        name: document.getElementById('spec-name')?.value || 'Holosyn Prototype',
+        name: getProductName(),
         category: document.getElementById('spec-category')?.value || 'PROTO',
         weight: document.getElementById('spec-param-weight')?.value || '12',
         power: document.getElementById('spec-param-power')?.value || '850',
@@ -3840,7 +3850,7 @@ function applyProductSpecState(specs = {}) {
 }
 
 function buildProjectSnapshot() {
-    const productName = document.getElementById('spec-name')?.value || 'Holosyn Prototype';
+    const productName = getProductName();
     return {
         holosynSnapshot: 'project-snapshot-v1',
         savedAt: new Date().toISOString(),
@@ -4209,7 +4219,7 @@ ${getRecommendedHandoffFiles(productName).slice(0, 6).map(file => `- ${file}`).j
 }
 
 function exportClientBriefMarkdown() {
-    const productName = document.getElementById('spec-name')?.value || 'Holosyn Prototype';
+    const productName = getProductName();
     markHandoffExportReady();
     const markdown = buildClientBriefMarkdown();
     triggerDownload(
@@ -4236,7 +4246,7 @@ if (typeof window !== 'undefined') {
 }
 
 function buildHandoffManifestData(savedSnapshot = getStoredProjectSnapshot()) {
-    const productName = document.getElementById('spec-name')?.value || 'Holosyn Prototype';
+    const productName = getProductName();
     const partMap = buildPartMapSummary();
     const finalReadiness = getFinalReadinessSummary();
     return {
@@ -4275,7 +4285,7 @@ function buildHandoffManifestData(savedSnapshot = getStoredProjectSnapshot()) {
 }
 
 function buildDemoPackData(snapshot = null) {
-    const productName = document.getElementById('spec-name')?.value || 'Holosyn Prototype';
+    const productName = getProductName();
     const projectSnapshot = snapshot || getStoredProjectSnapshot() || buildProjectSnapshot();
     const handoffManifest = buildHandoffManifestData(projectSnapshot);
     const briefMarkdown = buildClientBriefMarkdown();
@@ -4329,7 +4339,7 @@ function buildDemoPackData(snapshot = null) {
 }
 
 function exportHandoffManifest() {
-    const productName = document.getElementById('spec-name')?.value || 'Holosyn Prototype';
+    const productName = getProductName();
     markHandoffExportReady();
     const manifest = buildHandoffManifestData();
 
@@ -4354,7 +4364,7 @@ function exportDemoPack() {
         return;
     }
 
-    const productName = document.getElementById('spec-name')?.value || 'Holosyn Prototype';
+    const productName = getProductName();
     markHandoffExportReady();
     const savedSnapshot = saveProjectSnapshot({ silent: true }) || buildProjectSnapshot();
     const demoPack = buildDemoPackData(savedSnapshot);
@@ -4737,7 +4747,7 @@ function runSmoothDemoFlow() {
 function buildHologramNode(geometry, isChrome = false) {
     const nodeGroup = new THREE.Group();
     
-    const activeColor = new THREE.Color(state.themeColor);
+    const activeColor = themeColorObj();
     const solidMat = new THREE.MeshStandardMaterial({
         color: activeColor,
         transparent: true,
@@ -5373,7 +5383,7 @@ function applyWorkspaceMaterialsToLoadedMesh(group) {
     autoFitAndCenter(group, 2.0);
 
     group.name = "custom";
-    const activeColor = new THREE.Color(state.themeColor);
+    const activeColor = themeColorObj();
     let partIdx = 0;
     
     group.traverse(child => {
@@ -5750,7 +5760,7 @@ function createCustomImageGeometry() {
         
         rayGeo.setAttribute('position', new THREE.Float32BufferAttribute(rayPositions, 3));
         const rayMat = new THREE.LineBasicMaterial({
-            color: new THREE.Color(state.themeColor),
+            color: themeColorObj(),
             transparent: true,
             opacity: 0.25 * state.glowIntensity
         });
@@ -8563,7 +8573,7 @@ function initSpatialDrawingEngine() {
                     }
                     
                     const sphereGeo = new THREE.SphereGeometry(0.04, 16, 16);
-                    const sphereMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(state.themeColor) });
+                    const sphereMat = new THREE.MeshBasicMaterial({ color: themeColorObj() });
                     const startSphere = new THREE.Mesh(sphereGeo, sphereMat);
                     startSphere.position.copy(caliperStartPoint);
                     startSphere.name = "caliper-start-marker";
@@ -8584,7 +8594,7 @@ function initSpatialDrawingEngine() {
                     const caliperEndPoint = hit.clone();
                     
                     const sphereGeo = new THREE.SphereGeometry(0.04, 16, 16);
-                    const sphereMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(state.themeColor) });
+                    const sphereMat = new THREE.MeshBasicMaterial({ color: themeColorObj() });
                     const endSphere = new THREE.Mesh(sphereGeo, sphereMat);
                     endSphere.position.copy(caliperEndPoint);
                     endSphere.name = "caliper-end-marker";
@@ -8605,7 +8615,7 @@ function initSpatialDrawingEngine() {
                     
                     const lineGeo = new THREE.BufferGeometry().setFromPoints([caliperStartPoint, caliperEndPoint]);
                     const lineMat = new THREE.LineDashedMaterial({
-                        color: new THREE.Color(state.themeColor),
+                        color: themeColorObj(),
                         dashSize: 0.08,
                         gapSize: 0.04,
                         linewidth: 2,
@@ -8754,7 +8764,7 @@ function traceViewportIntersection() {
 function drawLiveSketchLine() {
     if (drawingPointsCache.length < 2) return;
     
-    const activeColor = new THREE.Color(state.themeColor);
+    const activeColor = themeColorObj();
     
     if (!currentSketchLine) {
         const lineGeo = new THREE.BufferGeometry();
@@ -8821,7 +8831,7 @@ function updateStudioEnvironment() {
     envParticles = null;
     envLines = [];
     
-    const activeColor = new THREE.Color(state.themeColor);
+    const activeColor = themeColorObj();
     
     if (state.studioEnvironment === 'cyberpunk') {
         const particleCount = 180;
@@ -9556,7 +9566,7 @@ function initSpatialInteractiveCallouts() {
                     
                     // Create glowing hover highlights
                     hit.material = hit.material.clone();
-                    hit.material.emissive = new THREE.Color(state.themeColor);
+                    hit.material.emissive = themeColorObj();
                     hit.material.emissiveIntensity = 0.85;
                 }
                 
@@ -9982,7 +9992,7 @@ function createShockwaveParticles() {
     const colors = new Float32Array(count * 3);
     
     shockwaveParticlesData = [];
-    const activeColor = new THREE.Color(state.themeColor);
+    const activeColor = themeColorObj();
     
     // Spawn particles in a tight sphere ring at center pedestal
     for (let i = 0; i < count; i++) {
@@ -10096,7 +10106,7 @@ function createHolographicScanDome() {
     scanDomeGroup = new THREE.Group();
     scanDomeGroup.name = "holographic-scan-dome";
     
-    const themeColor = new THREE.Color(state.themeColor);
+    const themeColor = themeColorObj();
     
     // 1. Hemispherical Grid Cage
     // Radius = 2.8, widthSegments = 24, heightSegments = 12
@@ -10636,7 +10646,7 @@ function initWindTunnelParticles() {
     geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     
     const material = new THREE.PointsMaterial({
-        color: new THREE.Color(state.themeColor),
+        color: themeColorObj(),
         size: 0.075,
         transparent: true,
         opacity: 0.65,
@@ -10874,7 +10884,7 @@ function addNewCalloutAnchor(point, title, desc) {
     geo.rotateX(Math.PI);
     geo.translate(0, 0.08, 0);
     const mat = new THREE.MeshBasicMaterial({
-        color: new THREE.Color(state.themeColor),
+        color: themeColorObj(),
         transparent: true,
         opacity: 0.9
     });
@@ -11155,7 +11165,7 @@ function createSpatialReticleRings() {
     reticleGroup.name = "targeting-hud-group";
     
     const mat = new THREE.LineBasicMaterial({
-        color: new THREE.Color(state.themeColor),
+        color: themeColorObj(),
         transparent: true,
         opacity: 0.35,
         blending: THREE.AdditiveBlending
@@ -11178,7 +11188,7 @@ function createSpatialReticleRings() {
     crossGroup.add(circ);
     
     // Cross ticks geometry
-    const ticksMat = new THREE.LineBasicMaterial({ color: new THREE.Color(state.themeColor), transparent: true, opacity: 0.45 });
+    const ticksMat = new THREE.LineBasicMaterial({ color: themeColorObj(), transparent: true, opacity: 0.45 });
     const ticksGeo = new THREE.BufferGeometry().setFromPoints([
         new THREE.Vector3(0, 0, -1.8), new THREE.Vector3(0, 0, -1.6),
         new THREE.Vector3(0, 0, 1.6), new THREE.Vector3(0, 0, 1.8),
@@ -11192,7 +11202,7 @@ function createSpatialReticleRings() {
     // Inner Torus Ring (radius 1.15)
     const innerRingGeo = new THREE.TorusGeometry(1.15, 0.015, 8, 36);
     const innerRing = new THREE.Mesh(innerRingGeo, new THREE.MeshBasicMaterial({
-        color: new THREE.Color(state.themeColor),
+        color: themeColorObj(),
         transparent: true,
         opacity: 0.22,
         blending: THREE.AdditiveBlending
@@ -11226,7 +11236,7 @@ function initVolumetricLaserBeam() {
     geometry.translate(0, 0.825, 0); // Translate origin to bottom base
     
     const material = new THREE.MeshBasicMaterial({
-        color: new THREE.Color(state.themeColor),
+        color: themeColorObj(),
         transparent: true,
         opacity: 0.15,
         blending: THREE.AdditiveBlending,
