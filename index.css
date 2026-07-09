@@ -5720,3 +5720,60 @@ body.power-core-active .pulse-dot {
     font-size: 9px;
     letter-spacing: 0.5px;
 }
+
+/* ===== Whole-window drag & drop overlay (v10.x upload polish) ===== */
+#global-drop-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 2100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(6, 10, 20, 0.72);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.18s ease, visibility 0.18s ease;
+    pointer-events: none; /* drop is captured by the window, not this layer */
+}
+#global-drop-overlay.active {
+    opacity: 1;
+    visibility: visible;
+}
+#global-drop-overlay .global-drop-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 40px 56px;
+    border: 2px dashed var(--theme-color, #0a84ff);
+    border-radius: 20px;
+    background: rgba(10, 132, 255, 0.06);
+    box-shadow: 0 0 40px rgba(10, 132, 255, 0.25);
+    animation: global-drop-pop 0.2s ease;
+}
+@keyframes global-drop-pop {
+    from { transform: scale(0.96); }
+    to   { transform: scale(1); }
+}
+#global-drop-overlay .global-drop-inner i {
+    width: 44px;
+    height: 44px;
+    color: var(--theme-color, #0a84ff);
+}
+#global-drop-overlay .global-drop-title {
+    font-family: var(--font-ui);
+    font-size: 18px;
+    font-weight: 700;
+    color: #fff;
+}
+#global-drop-overlay .global-drop-sub {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-muted);
+    letter-spacing: 0.5px;
+}
+@media (prefers-reduced-motion: reduce) {
+    #global-drop-overlay .global-drop-inner { animation: none; }
+}

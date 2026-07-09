@@ -6142,13 +6142,79 @@ function createForgeExoSuitGeometry() {
 // ==========================================================================
 // 6. CUSTOM NATIVE 3D LOADERS (GLB/GLTF/OBJ) & 2D CLOUD TRANSLATOR
 // ==========================================================================
+const MAX_UPLOAD_MB = 300;
+
+// Route a FileList/array through the importer (first file replaces, rest merge).
+function handleUploadFiles(files) {
+    const list = Array.from(files || []);
+    if (!list.length) return;
+    list.forEach((file, index) => processCustomUpload(file, index > 0));
+}
+
+// Accept a dropped model/image anywhere on the window, with a fullscreen cue.
+function initWindowDropUpload() {
+    let overlay = document.getElementById('global-drop-overlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'global-drop-overlay';
+        overlay.innerHTML = `<div class="global-drop-inner">
+            <i data-lucide="upload-cloud"></i>
+            <div class="global-drop-title"></div>
+            <div class="global-drop-sub">.glb · .gltf · .obj · image</div>
+        </div>`;
+        document.body.appendChild(overlay);
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+    const titleEl = overlay.querySelector('.global-drop-title');
+
+    let dragDepth = 0;
+    const hasFiles = (e) => e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files');
+
+    window.addEventListener('dragenter', (e) => {
+        if (!hasFiles(e)) return;
+        e.preventDefault();
+        dragDepth++;
+        if (titleEl) titleEl.textContent = state.language === 'ko' ? '여기에 드롭하여 임포트' : 'Drop to import';
+        overlay.classList.add('active');
+    });
+    window.addEventListener('dragover', (e) => {
+        if (!hasFiles(e)) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'copy';
+    });
+    window.addEventListener('dragleave', (e) => {
+        if (!hasFiles(e)) return;
+        dragDepth = Math.max(0, dragDepth - 1);
+        if (dragDepth === 0) overlay.classList.remove('active');
+    });
+    window.addEventListener('drop', (e) => {
+        if (!e.dataTransfer) return;
+        e.preventDefault();
+        dragDepth = 0;
+        overlay.classList.remove('active');
+        const dz = document.getElementById('drop-zone');
+        if (dz) dz.classList.remove('drag-over');
+        if (e.dataTransfer.files.length > 0) handleUploadFiles(e.dataTransfer.files);
+    });
+}
+
 function processCustomUpload(file, merge = false) {
     const filename = file.name.toLowerCase();
     const ext = filename.split('.').pop();
-    
+
+    // Guard against oversized files that would freeze the browser during parse.
+    if (file.size > MAX_UPLOAD_MB * 1024 * 1024) {
+        const message = state.language === 'ko'
+            ? `파일이 너무 큽니다 (${formatFileSize(file.size)}). 최대 ${MAX_UPLOAD_MB}MB까지 지원합니다.`
+            : `File too large (${formatFileSize(file.size)}). Maximum supported size is ${MAX_UPLOAD_MB}MB.`;
+        setImportQualityError(file, message);
+        showNotification(state.language === 'ko' ? "파일 용량 초과" : "File Too Large", message);
+        return;
+    }
+
     playSynthClick(580, 0.08);
     setImportQualityPending(file);
-    
+
     if (ext === 'glb' || ext === 'gltf') {
         if (state.language === 'ko') {
             addConsoleLog("[시스템] 주입된 GLTF/GLB 3D 제품 데이터를 로드 중입니다...", "info");
@@ -6162,6 +6228,11 @@ function processCustomUpload(file, merge = false) {
         );
         
         const reader = new FileReader();
+        reader.onerror = function() {
+            const message = state.language === 'ko' ? "파일을 읽지 못했습니다." : "Could not read the file.";
+            setImportQualityError(file, message);
+            showNotification(state.language === 'ko' ? "읽기 오류" : "Read Error", message);
+        };
         reader.readAsArrayBuffer(file);
         reader.onload = function(e) {
             const contents = e.target.result;
@@ -6230,6 +6301,11 @@ function processCustomUpload(file, merge = false) {
         );
         
         const reader = new FileReader();
+        reader.onerror = function() {
+            const message = state.language === 'ko' ? "파일을 읽지 못했습니다." : "Could not read the file.";
+            setImportQualityError(file, message);
+            showNotification(state.language === 'ko' ? "읽기 오류" : "Read Error", message);
+        };
         reader.readAsArrayBuffer(file);
         reader.onload = function(e) {
             const contents = e.target.result;
@@ -8176,35 +8252,20 @@ function initUIControls() {
     const imgUpload = document.getElementById('image-upload');
     
     if (dropZone) {
-        dropZone.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            dropZone.classList.add('drag-over');
-        });
-        
-        dropZone.addEventListener('dragleave', () => {
-            dropZone.classList.remove('drag-over');
-        });
-        
-        dropZone.addEventListener('drop', (e) => {
-            e.preventDefault();
-            dropZone.classList.remove('drag-over');
-            if (e.dataTransfer.files.length > 0) {
-                Array.from(e.dataTransfer.files).forEach((file, index) => {
-                    processCustomUpload(file, index > 0); // merge=true for 2nd file onwards
-                });
-            }
-        });
+        // Local highlight when hovering the dropzone itself (the window handler does the drop).
+        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
     }
-    
+
     if (imgUpload) {
         imgUpload.addEventListener('change', (e) => {
-            if (e.target.files.length > 0) {
-                Array.from(e.target.files).forEach((file, index) => {
-                    processCustomUpload(file, index > 0);
-                });
-            }
+            handleUploadFiles(e.target.files);
+            imgUpload.value = ''; // allow re-selecting the same file
         });
     }
+
+    // Whole-window drag & drop: drop a model/image anywhere on the studio, not just the dropzone.
+    initWindowDropUpload();
     
     // 5. PARAMETER TUNING RANGE SLIDERS
     bindTunerSlider('tuner-intensity', 'readout-intensity', (val) => {
