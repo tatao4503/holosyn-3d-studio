@@ -30,6 +30,7 @@ const htmlSelectors = [
   'btn-quality-boost',
   'quality-boost-status',
   'tutorial-prompt-modal',
+  'btn-header-share-link',
   'import-quality-card',
   'import-quality-status',
   'import-quality-source',
@@ -44,6 +45,20 @@ const htmlSelectors = [
   'import-quality-action-text',
   'btn-import-quality-action',
   'import-quality-action-button-label',
+  'meshy-import-panel',
+  'meshy-status',
+  'meshy-api-key',
+  'meshy-image-input',
+  'meshy-image-name',
+  'meshy-progress',
+  'btn-meshy-pick-image',
+  'btn-meshy-use-current-image',
+  'btn-meshy-start',
+  'btn-meshy-check',
+  'btn-meshy-import-glb',
+  'btn-meshy-download-glb',
+  'btn-meshy-save-key',
+  'btn-meshy-clear-key',
   'demo-preset-status',
   'demo-pack-panel',
   'demo-pack-status',
@@ -51,6 +66,25 @@ const htmlSelectors = [
   'rehearsal-pack-panel',
   'rehearsal-pack-status',
   'btn-export-rehearsal-pack',
+  'share-link-panel',
+  'share-link-status',
+  'share-link-detail',
+  'btn-copy-share-link',
+  'btn-export-share-state',
+  'clip-export-panel',
+  'clip-export-status',
+  'btn-record-clip-3s',
+  'btn-record-clip-5s',
+  'presenter-notes-panel',
+  'presenter-notes-status',
+  'presenter-note-input',
+  'btn-save-presenter-note',
+  'btn-export-presenter-notes',
+  'measurements-panel',
+  'measurements-status',
+  'measurements-list',
+  'btn-export-measurements',
+  'btn-clear-measurements',
   'btn-export-handoff-pack',
   'client-brief-panel',
   'client-brief-status',
@@ -190,6 +224,19 @@ const appNeedles = [
   'function restoreProjectSnapshot',
   'function exportProjectSnapshot',
   'function applyProjectSnapshot',
+  'function buildShareState',
+  'function copyShareLink',
+  'function applyShareStateFromUrl',
+  'function recordViewportClip',
+  'function startMeshyImageTo3D',
+  'function checkMeshyTask',
+  'function importMeshyGlbUrl',
+  'function savePresenterNote',
+  'function buildPresenterNotesMarkdown',
+  'function exportMeasurements',
+  'function rebuildSavedMeasurementVisuals',
+  'presenterNotes: state.presenterNotes',
+  'savedMeasurements: state.savedMeasurements',
   'function createForgeExoSuitGeometry',
   'function applyPartPalette',
   'function initVoiceRecognition',
@@ -278,11 +325,19 @@ const cssNeedles = [
   '.import-quality-next-action',
   '.import-quality-action-copy',
   '.import-quality-action-btn',
+  '.meshy-import-panel',
+  '.meshy-key-row',
+  '.meshy-actions',
   '.demo-presets-panel',
   '.demo-pack-panel',
   '.demo-pack-copy',
   '.rehearsal-pack-panel',
   '.rehearsal-pack-copy',
+  '.share-link-panel',
+  '.clip-export-panel',
+  '.presenter-notes-panel',
+  '.measurements-panel',
+  '.measurement-row',
   '.handoff-pack-panel',
   '.client-brief-panel',
   '.client-brief-copy',
@@ -385,10 +440,10 @@ async function main() {
     assert(html.includes(`id="${id}"`), `Missing #${id} in index.html`);
   }
   assert(html.includes('data-action="timeline"'), 'Missing mobile timeline action');
-  assert(html.includes('index.css?v=20260709-upload'), 'CSS cache version is stale');
-  assert(html.includes('app.js?v=20260709-upload'), 'Core JS cache version is stale');
-  assert(html.includes('scripts/holosyn-timeline.js?v=20260709-upload'), 'Timeline script tag is missing or stale');
-  assert(html.includes('scripts/holosyn-pro-managers.js?v=20260709-upload'), 'Pro managers script tag is missing or stale');
+  assert(html.includes('index.css?v=20260709-share-media'), 'CSS cache version is stale');
+  assert(html.includes('app.js?v=20260709-share-media'), 'Core JS cache version is stale');
+  assert(html.includes('scripts/holosyn-timeline.js?v=20260709-share-media'), 'Timeline script tag is missing or stale');
+  assert(html.includes('scripts/holosyn-pro-managers.js?v=20260709-share-media'), 'Pro managers script tag is missing or stale');
   assert(html.includes('id="handoff-next-action" class="handoff-next-action" type="button"'), 'Handoff next action should be clickable');
   assert(html.includes('id="final-readiness-panel" class="final-readiness-panel setup"'), 'Final readiness panel is missing');
   assert(html.includes('data-handoff-action="model"'), 'Handoff model jump action is missing');
@@ -398,6 +453,11 @@ async function main() {
   assert(html.includes('class="demo-presets-panel"'), 'Demo presets panel is missing');
   assert(html.includes('class="demo-pack-panel"'), 'Demo pack panel is missing');
   assert(html.includes('class="rehearsal-pack-panel"'), 'Rehearsal pack panel is missing');
+  assert(html.includes('class="share-link-panel"'), 'Share link panel is missing');
+  assert(html.includes('class="clip-export-panel"'), 'Clip export panel is missing');
+  assert(html.includes('class="presenter-notes-panel"'), 'Presenter notes panel is missing');
+  assert(html.includes('class="measurements-panel"'), 'Measurements panel is missing');
+  assert(html.includes('class="meshy-import-panel"'), 'Meshy import panel is missing');
   assert(html.includes('class="handoff-pack-panel"'), 'Handoff pack panel is missing');
   assert(html.includes('class="client-brief-panel"'), 'Client brief panel is missing');
   assert(html.includes('class="beta-readiness-panel"'), 'Beta readiness panel is missing');

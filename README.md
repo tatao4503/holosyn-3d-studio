@@ -16,7 +16,10 @@
 - **3D Measure** — click two points for a real-world dimension readout
 - **Exploded view · Assembly steps · Timeline director** for staged walkthroughs
 - **Showcase mode** — hide all HUD, product only; Play Show for an auto cinematic pass
-- **Export suite** — GLB, spec JSON, HQ PNG, client brief, rehearsal runbook, demo/handoff pack, beta launch/ops packages
+- **Share link** — pack model, lighting, color, camera, timeline, notes, and saved dimensions into one URL
+- **Clip recorder** — export 3-second or 5-second rotating/exploded WebM clips from the viewport
+- **Meshy Image-to-3D bridge** — optional API-key workflow for turning one photo into a real GLB mesh
+- **Export suite** — GLB, spec JSON, HQ PNG, client brief, rehearsal runbook, demo/handoff pack, presenter notes, measurements, beta launch/ops packages
 - **Pepper's Ghost** 4-way split for a physical acrylic-pyramid display
 - Beginner / Pro modes · guided tours · mobile touch gestures · i18n (KO/EN)
 
@@ -99,8 +102,10 @@ Use this after leaving the project alone for a few days:
 6. Save a Project Snapshot if you want to restore the same presentation setup later.
 7. Use `Timeline` or `Showcase` for a cleaner audience-facing presentation pass.
 8. Edit the product name or part labels if needed.
-9. Review Beta Preflight, Beta Launch Pack, and Beta Ops Pack, then export the Rehearsal Runbook or click `시연 패키지 생성` for the one-click Demo Pack.
-10. Export PNG, JSON, GLB, Client Brief Markdown, or the Handoff Manifest separately when needed.
+9. Save presenter notes or multiple 3D dimensions if the demo needs exact talking points.
+10. Copy a Share Link or record a short WebM clip when you need to send the same angle or motion pass.
+11. Review Beta Preflight, Beta Launch Pack, and Beta Ops Pack, then export the Rehearsal Runbook or click `시연 패키지 생성` for the one-click Demo Pack.
+12. Export PNG, JSON, GLB, Client Brief Markdown, or the Handoff Manifest separately when needed.
 
 ## Main Features
 
@@ -119,6 +124,11 @@ Use this after leaving the project alone for a few days:
 - Demo Scene Presets for investor, exploded tech, retail, and technical review flows
 - Suit Lab preset for powered exosuit concept experiments
 - Project Snapshot save/restore for presentation continuity
+- URL Share Link for restoring the same presentation state from one copied link
+- Viewport Clip Recorder for short rotating/exploded WebM exports
+- Optional Meshy Image-to-3D bridge for generating a real GLB mesh from a selected image
+- Multi-measurement 3D caliper with saved dimension list and JSON export
+- Presenter Notes for scene-by-scene rehearsal copy and Markdown export
 - Beta Preflight panel for WebGL, CDN, storage, model, and snapshot readiness
 - Beta Launch Pack for onboarding availability, import risk, FPS floor, snapshot, export, and docs/package readiness
 - Beta Ops Pack for user-test scripts, performance benchmark, error report, example project pack, deploy checklist, and release package
@@ -148,7 +158,9 @@ Multi-part 3D models work best for exploded views and part labels. HOLOSYN reads
 
 - The app loads Three.js, Lucide icons, and Google Fonts from CDNs, so an internet connection is recommended.
 - The AI assistant is optional. Use `SESSION` for temporary demo keys, `SAVE` only for your own device, and `CLEAR` before handoff.
+- Meshy Image-to-3D is optional and uses your own Meshy API key from the browser. HOLOSYN can create/poll a Meshy task and import the returned GLB, but API billing, quota, and CORS behavior belong to Meshy.
 - Collaboration requires the PeerJS CDN to load. If it is offline, HOLOSYN keeps the local presentation tools available.
 - Exports are handled by the browser download system.
+- Share Links embed presentation state only. Custom GLB/image source files are not embedded in the URL; re-drop those files if a shared custom scene needs the original local asset.
 - For a clean presentation, start with a Demo Scene Preset or `데모 런`, run Final Pass to lock HQ Boost and a fresh snapshot, then export the Rehearsal Runbook or one-click Demo Pack when Final Readiness reaches Demo Ready or better.
 - Project Snapshots store presentation settings and timeline state in this browser. Custom model files are not embedded; drop the file again if a restored custom setup needs its original GLB/OBJ/image.

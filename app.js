@@ -387,6 +387,19 @@ const state = {
         lastBenchmark: null,
         lastReportAt: null
     },
+    shareStateLastBuilt: null,
+    pendingShareState: null,
+    presenterNotes: [],
+    savedMeasurements: [],
+    meshy: {
+        selectedImageDataUri: null,
+        selectedImageName: null,
+        taskId: null,
+        status: 'READY',
+        progress: 0,
+        glbUrl: null,
+        lastCheckedAt: null
+    },
     diagnosticsLog: [],
     runtimeErrors: [],
     partScanActive: false,
@@ -468,6 +481,7 @@ let activeCalloutClickPoint = null; // Temp holder for raycast point before popu
 let isCaliperActive = false;
 let caliperStartPoint = null;
 let calipersList = [];       // Cache of { line, badgeEl, start, end, id }
+let meshyPollTimer = null;
 let environmentGroup = new THREE.Group();
 let envParticles = null;
 let envLines = [];           // Cache for windtunnel line objects
@@ -1609,6 +1623,9 @@ document.addEventListener('DOMContentLoaded', () => {
             bootBtn.disabled = true;
             initThreeEngine();
             loadPresetModel(state.activePreset);
+            if (state.pendingShareState) {
+                setTimeout(() => applyShareState(state.pendingShareState), 350);
+            }
             
             // Setup initial UI layout
             toggleUIMode(state.uiMode);
@@ -1638,6 +1655,8 @@ document.addEventListener('DOMContentLoaded', () => {
             setInterval(triggerRandomDiagnosticLog, 7000);
         });
     }
+
+    applyShareStateFromUrl();
 
     // Initialize Tutorial Manager (Phase D)
     if (typeof TutorialManager !== 'undefined') {
@@ -4636,13 +4655,16 @@ function buildProjectSnapshot() {
             renderMode: state.renderMode,
             cameraMode: state.cameraMode,
             environment: state.studioEnvironment,
+            lighting: state.lighting,
             explodedLevel: state.explodedLevel,
             rotationSpeed: state.rotationSpeed,
             themeColor: state.themeColor,
+            themeColorGlow: state.themeColorGlow,
             visualQualityBoost: state.visualQualityBoost,
             renderPixelRatioCap: getRenderPixelRatioCap(),
             specCardExportScale: getSpecCardExportScale()
         },
+        camera: getCameraShareState(),
         timeline: {
             duration: state.timelineDuration,
             currentTime: state.timelineCurrentTime,
@@ -4658,6 +4680,16 @@ function buildProjectSnapshot() {
         },
         launchReadiness: getLaunchReadinessSummary(),
         betaOps: getBetaOpsSummary(),
+        presenterNotes: state.presenterNotes,
+        savedMeasurements: state.savedMeasurements,
+        meshy: {
+            taskId: state.meshy.taskId,
+            status: state.meshy.status,
+            progress: state.meshy.progress,
+            glbUrl: state.meshy.glbUrl,
+            selectedImageName: state.meshy.selectedImageName,
+            lastCheckedAt: state.meshy.lastCheckedAt
+        },
         annotations: partAnnotations[state.activePreset] || []
     };
 }
@@ -4754,14 +4786,26 @@ function applyProjectSnapshot(snapshot) {
         demoStatusEl.textContent = scenario?.label || 'Manual';
     }
     if (presentation.renderMode) setRenderModeByKey(presentation.renderMode);
+    if (presentation.themeColor) {
+        applyThemeColorFromHex(presentation.themeColor, presentation.themeColorGlow);
+    }
     if (typeof presentation.visualQualityBoost === 'boolean') {
         state.visualQualityBoost = presentation.visualQualityBoost;
         applyRenderQualitySettings();
     }
     if (presentation.environment) applyStudioEnvironmentPreset(presentation.environment);
+    if (presentation.lighting) {
+        state.lighting = {
+            mood: presentation.lighting.mood || state.lighting.mood,
+            brightness: Number.isFinite(presentation.lighting.brightness) ? presentation.lighting.brightness : state.lighting.brightness
+        };
+        applyLighting(state.lighting.mood, state.lighting.brightness);
+        updateLightingUi();
+    }
     if (Number.isFinite(presentation.rotationSpeed)) state.rotationSpeed = presentation.rotationSpeed;
     if (Number.isFinite(presentation.explodedLevel)) animateExplodedLevel(presentation.explodedLevel, 700);
     if (presentation.cameraMode) applyCameraView(presentation.cameraMode, false);
+    if (snapshot.camera) restoreCameraShareState(snapshot.camera);
 
     if (snapshot.timeline) {
         state.timelineDuration = snapshot.timeline.duration || state.timelineDuration;
@@ -4784,6 +4828,22 @@ function applyProjectSnapshot(snapshot) {
         status: 'standby',
         lockedAt: null
     };
+    state.presenterNotes = Array.isArray(snapshot.presenterNotes) ? snapshot.presenterNotes : [];
+    state.savedMeasurements = Array.isArray(snapshot.savedMeasurements) ? snapshot.savedMeasurements : [];
+    if (snapshot.meshy) {
+        state.meshy = {
+            ...state.meshy,
+            taskId: snapshot.meshy.taskId || null,
+            status: snapshot.meshy.status || state.meshy.status,
+            progress: Number.isFinite(snapshot.meshy.progress) ? snapshot.meshy.progress : state.meshy.progress,
+            glbUrl: snapshot.meshy.glbUrl || null,
+            selectedImageName: snapshot.meshy.selectedImageName || state.meshy.selectedImageName,
+            lastCheckedAt: snapshot.meshy.lastCheckedAt || null
+        };
+    }
+    rebuildSavedMeasurementVisuals();
+    updatePresenterNotesPanel();
+    updateMeshyPanel();
     updateHandoffPackStatus();
     updateProjectSnapshotStatus(snapshot);
     updateBetaReadinessPanel();
@@ -5049,6 +5109,12 @@ function buildRehearsalRunbookMarkdown() {
     const partsMarkdown = partMap.parts.length > 0
         ? partMap.parts.map(item => `${item.index}. ${item.title} - ${item.description}`).join('\n')
         : '- No mapped components yet.';
+    const notesMarkdown = state.presenterNotes.length > 0
+        ? state.presenterNotes.map((note, index) => `${index + 1}. ${note.context?.preset || state.activePreset} / ${note.context?.demoPreset || 'manual'} / ${Number(note.context?.timelineTime || 0).toFixed(1)}s - ${note.text}`).join('\n')
+        : '- No presenter notes saved yet.';
+    const measurementMarkdown = state.savedMeasurements.length > 0
+        ? state.savedMeasurements.map(item => `- ${item.label || 'M'}: ${item.distanceText || `${item.distanceMm} mm`} (${item.preset || state.activePreset})`).join('\n')
+        : '- No saved dimensions yet.';
 
     return `# HOLOSYN Rehearsal Runbook: ${productName}
 
@@ -5060,6 +5126,8 @@ Generated: ${new Date().toLocaleString()}
 - Import Risk: ${quality.reliabilityRisk || 'LOW'} (${quality.reliabilityType || 'SAMPLE'} / ${quality.reliabilityParts || '-'})
 - Demo Flow: ${scenario?.label || state.activeDemoPreset || 'Manual'}
 - Part Map: ${partMap.total} components${partMap.exported < partMap.total ? ` / ${partMap.exported} listed` : ''}
+- Presenter Notes: ${state.presenterNotes.length}
+- Saved Dimensions: ${state.savedMeasurements.length}
 
 ## 30-Second Run
 1. Boot HOLOSYN and confirm the product name.
@@ -5080,6 +5148,12 @@ ${riskMarkdown}
 
 ## Component Talking Points
 ${partsMarkdown}
+
+## Presenter Notes
+${notesMarkdown}
+
+## Saved Dimensions
+${measurementMarkdown}
 
 ## Recommended Files
 ${getRecommendedHandoffFiles(productName).slice(0, 7).map(file => `- ${file}`).join('\n')}
@@ -5169,6 +5243,8 @@ function buildHandoffManifestData(savedSnapshot = getStoredProjectSnapshot()) {
             runbookRecommended: true,
             risks: getRehearsalRiskList()
         },
+        presenterNotes: state.presenterNotes,
+        savedMeasurements: state.savedMeasurements,
         launchReadiness: getLaunchReadinessSummary(),
         betaOps: getBetaOpsSummary(),
         recommendedFiles: getRecommendedHandoffFiles(productName),
@@ -5210,13 +5286,17 @@ function buildDemoPackData(snapshot = null) {
         contents: {
             clientBriefMarkdown: briefMarkdown,
             rehearsalRunbookMarkdown,
+            presenterNotesMarkdown: buildPresenterNotesMarkdown(),
             handoffManifest,
-            projectSnapshot
+            projectSnapshot,
+            savedMeasurements: state.savedMeasurements
         },
         recommendedFiles: {
             includedInThisPack: [
                 `${getExportBaseName(productName)}_holosyn_client_brief.md`,
                 `${getExportBaseName(productName)}_holosyn_rehearsal_runbook.md`,
+                `${getExportBaseName(productName)}_holosyn_presenter_notes.md`,
+                `${getExportBaseName(productName)}_holosyn_measurements.json`,
                 `${getExportBaseName(productName)}_holosyn_handoff_manifest.json`,
                 `${getExportBaseName(productName)}_holosyn_project_snapshot.json`
             ],
@@ -5435,8 +5515,50 @@ function initProductizationControls() {
     if (restoreSnapshotBtn) restoreSnapshotBtn.addEventListener('click', restoreProjectSnapshot);
     const exportSnapshotBtn = document.getElementById('btn-export-project-snapshot');
     if (exportSnapshotBtn) exportSnapshotBtn.addEventListener('click', exportProjectSnapshot);
+    const copyShareLinkBtn = document.getElementById('btn-copy-share-link');
+    if (copyShareLinkBtn) copyShareLinkBtn.addEventListener('click', copyShareLink);
+    const headerShareLinkBtn = document.getElementById('btn-header-share-link');
+    if (headerShareLinkBtn) headerShareLinkBtn.addEventListener('click', copyShareLink);
+    const exportShareStateBtn = document.getElementById('btn-export-share-state');
+    if (exportShareStateBtn) exportShareStateBtn.addEventListener('click', exportShareState);
+    const recordClip3sBtn = document.getElementById('btn-record-clip-3s');
+    if (recordClip3sBtn) recordClip3sBtn.addEventListener('click', () => recordViewportClip(3000));
+    const recordClip5sBtn = document.getElementById('btn-record-clip-5s');
+    if (recordClip5sBtn) recordClip5sBtn.addEventListener('click', () => recordViewportClip(5000));
+    const savePresenterNoteBtn = document.getElementById('btn-save-presenter-note');
+    if (savePresenterNoteBtn) savePresenterNoteBtn.addEventListener('click', savePresenterNote);
+    const exportPresenterNotesBtn = document.getElementById('btn-export-presenter-notes');
+    if (exportPresenterNotesBtn) exportPresenterNotesBtn.addEventListener('click', exportPresenterNotesMarkdown);
+    const exportMeasurementsBtn = document.getElementById('btn-export-measurements');
+    if (exportMeasurementsBtn) exportMeasurementsBtn.addEventListener('click', exportMeasurements);
+    const clearMeasurementsBtn = document.getElementById('btn-clear-measurements');
+    if (clearMeasurementsBtn) clearMeasurementsBtn.addEventListener('click', clearAllSavedMeasurements);
+    const meshyPickBtn = document.getElementById('btn-meshy-pick-image');
+    const meshyInput = document.getElementById('meshy-image-input');
+    if (meshyPickBtn && meshyInput) {
+        meshyPickBtn.addEventListener('click', () => meshyInput.click());
+        meshyInput.addEventListener('change', event => selectMeshyImageFile(event.target.files?.[0]));
+    }
+    const meshyUseCurrentBtn = document.getElementById('btn-meshy-use-current-image');
+    if (meshyUseCurrentBtn) meshyUseCurrentBtn.addEventListener('click', useCurrentImageForMeshy);
+    const meshyStartBtn = document.getElementById('btn-meshy-start');
+    if (meshyStartBtn) meshyStartBtn.addEventListener('click', startMeshyImageTo3D);
+    const meshyCheckBtn = document.getElementById('btn-meshy-check');
+    if (meshyCheckBtn) meshyCheckBtn.addEventListener('click', () => checkMeshyTask());
+    const meshyImportBtn = document.getElementById('btn-meshy-import-glb');
+    if (meshyImportBtn) meshyImportBtn.addEventListener('click', importMeshyGlbUrl);
+    const meshyDownloadBtn = document.getElementById('btn-meshy-download-glb');
+    if (meshyDownloadBtn) meshyDownloadBtn.addEventListener('click', downloadMeshyGlb);
+    const meshySaveKeyBtn = document.getElementById('btn-meshy-save-key');
+    if (meshySaveKeyBtn) meshySaveKeyBtn.addEventListener('click', saveMeshyApiKey);
+    const meshyClearKeyBtn = document.getElementById('btn-meshy-clear-key');
+    if (meshyClearKeyBtn) meshyClearKeyBtn.addEventListener('click', clearMeshyApiKey);
     updateImportQualityForSample(state.activePreset);
     updateProjectSnapshotStatus();
+    updateShareLinkPanel();
+    updatePresenterNotesPanel();
+    updateMeasurementsPanel();
+    updateMeshyPanel();
     updateHandoffPackStatus();
     updateBetaReadinessPanel();
     updateFinalPassPanel();
@@ -6514,6 +6636,12 @@ function processCustomImage(file) {
             state.customImageBase64 = event.target.result; // Cache base64 string for IndexedDB
             state.customImageTexture = new THREE.TextureLoader().load(event.target.result);
             state.customImageTexture.minFilter = THREE.LinearFilter;
+            state.meshy.selectedImageDataUri = event.target.result;
+            state.meshy.selectedImageName = file.name;
+            state.meshy.status = 'IMAGE READY';
+            state.meshy.progress = 0;
+            state.meshy.glbUrl = null;
+            updateMeshyPanel();
             
             // Reset uploaded GLB mesh group if using image fallback
             uploadedMeshGroup = null;
@@ -7059,29 +7187,27 @@ function renderCaliperBadge() {
     const container = document.getElementById('annotations-container');
     if (!container || calipersList.length === 0) return;
     
-    const badge = container.querySelector('.caliper-badge');
-    if (!badge) return;
-    
-    const caliper = calipersList[0];
-    
-    // Midpoint in world space
-    const mid3D = new THREE.Vector3().addVectors(caliper.start, caliper.end).multiplyScalar(0.5);
-    
-    // Project to screen space
     const containerWidth = container.clientWidth;
     const containerHeight = container.clientHeight;
-    
-    const mid2D = mid3D.project(camera);
-    const midX = (mid2D.x * 0.5 + 0.5) * containerWidth;
-    const midY = (mid2D.y * -0.5 + 0.5) * containerHeight;
-    
-    if (mid2D.z <= 1.0) {
-        badge.style.left = `${midX}px`;
-        badge.style.top = `${midY}px`;
-        badge.style.display = 'flex';
-    } else {
-        badge.style.display = 'none';
-    }
+
+    calipersList.forEach(caliper => {
+        const badge = caliper.badgeEl || container.querySelector(`.caliper-badge[data-caliper-id="${caliper.id}"]`);
+        if (!badge) return;
+
+        // Midpoint in world space
+        const mid3D = new THREE.Vector3().addVectors(caliper.start, caliper.end).multiplyScalar(0.5);
+        const mid2D = mid3D.project(camera);
+        const midX = (mid2D.x * 0.5 + 0.5) * containerWidth;
+        const midY = (mid2D.y * -0.5 + 0.5) * containerHeight;
+
+        if (mid2D.z <= 1.0) {
+            badge.style.left = `${midX}px`;
+            badge.style.top = `${midY}px`;
+            badge.style.display = 'flex';
+        } else {
+            badge.style.display = 'none';
+        }
+    });
 }
 
 function renderLoop(timestamp, frame) {
@@ -8837,11 +8963,771 @@ function updateTelemetryHUD() {
 // ==========================================================================
 function triggerDownload(content, type, filename) {
     const blob = new Blob([content], { type: type });
+    triggerBlobDownload(blob, filename);
+}
+
+function triggerBlobDownload(blob, filename) {
     const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
+    const objectUrl = URL.createObjectURL(blob);
+    link.href = objectUrl;
     link.download = filename;
     link.click();
-    URL.revokeObjectURL(link.href);
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+}
+
+function copyTextToClipboard(text) {
+    if (!text) return Promise.resolve(false);
+    if (navigator.clipboard && window.isSecureContext) {
+        return navigator.clipboard.writeText(text).then(() => true).catch(() => false);
+    }
+
+    return new Promise(resolve => {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.setAttribute('readonly', '');
+        textarea.style.position = 'fixed';
+        textarea.style.left = '-9999px';
+        document.body.appendChild(textarea);
+        textarea.select();
+        let ok = false;
+        try {
+            ok = document.execCommand('copy');
+        } catch (error) {
+            ok = false;
+        }
+        textarea.remove();
+        resolve(ok);
+    });
+}
+
+function getCameraShareState() {
+    if (!camera || !controls) return null;
+    return {
+        position: { x: camera.position.x, y: camera.position.y, z: camera.position.z },
+        target: { x: controls.target.x, y: controls.target.y, z: controls.target.z },
+        targetCameraPosition: targetCameraPosition ? { x: targetCameraPosition.x, y: targetCameraPosition.y, z: targetCameraPosition.z } : null,
+        targetCameraTarget: targetCameraTarget ? { x: targetCameraTarget.x, y: targetCameraTarget.y, z: targetCameraTarget.z } : null,
+        zoom: camera.zoom || 1
+    };
+}
+
+function restoreCameraShareState(cameraState = {}) {
+    if (!camera || !controls || !cameraState.position || !cameraState.target) return;
+    const pos = cameraState.position;
+    const target = cameraState.target;
+    camera.position.set(Number(pos.x) || 0, Number(pos.y) || 0, Number(pos.z) || 10);
+    controls.target.set(Number(target.x) || 0, Number(target.y) || 0, Number(target.z) || 0);
+    if (cameraState.targetCameraPosition && targetCameraPosition) {
+        targetCameraPosition.set(
+            Number(cameraState.targetCameraPosition.x) || camera.position.x,
+            Number(cameraState.targetCameraPosition.y) || camera.position.y,
+            Number(cameraState.targetCameraPosition.z) || camera.position.z
+        );
+    } else if (targetCameraPosition) {
+        targetCameraPosition.copy(camera.position);
+    }
+    if (cameraState.targetCameraTarget && targetCameraTarget) {
+        targetCameraTarget.set(
+            Number(cameraState.targetCameraTarget.x) || controls.target.x,
+            Number(cameraState.targetCameraTarget.y) || controls.target.y,
+            Number(cameraState.targetCameraTarget.z) || controls.target.z
+        );
+    } else if (targetCameraTarget) {
+        targetCameraTarget.copy(controls.target);
+    }
+    if (Number.isFinite(cameraState.zoom)) {
+        camera.zoom = cameraState.zoom;
+        camera.updateProjectionMatrix();
+    }
+    controls.update();
+}
+
+function applyThemeColorFromHex(colorHex, colorGlow) {
+    if (!colorHex) return;
+    state.themeColor = colorHex;
+    state.themeColorGlow = colorGlow || state.themeColorGlow || 'rgba(0, 122, 255, 0.22)';
+    document.documentElement.style.setProperty('--theme-color', state.themeColor);
+    document.documentElement.style.setProperty('--theme-glow', state.themeColorGlow);
+    document.documentElement.style.setProperty('--theme-color-glow', state.themeColorGlow);
+    document.querySelectorAll('.color-select-btn').forEach(btn => {
+        const colorName = btn.getAttribute('data-color');
+        const style = getComputedStyle(document.body);
+        const btnColor = style.getPropertyValue(`--${colorName}`).trim();
+        btn.classList.toggle('active-color', btnColor.toLowerCase() === String(colorHex).toLowerCase());
+    });
+    if (typeof updateHolographicMaterials === 'function') updateHolographicMaterials();
+}
+
+function updateLightingUi() {
+    document.querySelectorAll('.light-mode-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.getAttribute('data-light') === state.lighting.mood);
+    });
+    const slider = document.getElementById('tuner-light-brightness');
+    const readout = document.getElementById('readout-light-brightness');
+    if (slider) slider.value = String(state.lighting.brightness);
+    if (readout) readout.textContent = Number(state.lighting.brightness || 1).toFixed(1);
+}
+
+function encodeSharePayload(payload) {
+    const json = JSON.stringify(payload);
+    return btoa(unescape(encodeURIComponent(json)))
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/, '');
+}
+
+function decodeSharePayload(encoded) {
+    const normalized = String(encoded || '').replace(/-/g, '+').replace(/_/g, '/');
+    const padded = normalized.padEnd(normalized.length + ((4 - normalized.length % 4) % 4), '=');
+    return JSON.parse(decodeURIComponent(escape(atob(padded))));
+}
+
+function buildShareState() {
+    const projectSnapshot = saveProjectSnapshot({ silent: true }) || buildProjectSnapshot();
+    const shareState = {
+        holosynShare: 'url-share-state-v1',
+        exportedAt: new Date().toISOString(),
+        product: projectSnapshot.product,
+        projectSnapshot,
+        camera: getCameraShareState(),
+        notes: {
+            count: state.presenterNotes.length,
+            presenterNotes: state.presenterNotes
+        },
+        measurements: {
+            count: state.savedMeasurements.length,
+            savedMeasurements: state.savedMeasurements
+        },
+        warning: 'Custom GLB/image binaries are not embedded in the URL. Re-drop original files if this share uses a custom local import.'
+    };
+    state.shareStateLastBuilt = shareState.exportedAt;
+    updateShareLinkPanel();
+    return shareState;
+}
+
+function buildShareUrl() {
+    const payload = buildShareState();
+    const encoded = encodeSharePayload(payload);
+    const url = new URL(window.location.href);
+    url.hash = `hs=${encoded}`;
+    return {
+        url: url.toString(),
+        encodedLength: encoded.length,
+        payload
+    };
+}
+
+async function copyShareLink() {
+    const result = buildShareUrl();
+    try {
+        window.history.replaceState(null, '', result.url);
+    } catch (error) {
+        window.location.hash = new URL(result.url).hash;
+    }
+    const copied = await copyTextToClipboard(result.url);
+    const detail = document.getElementById('share-link-detail');
+    const status = document.getElementById('share-link-status');
+    if (status) status.textContent = copied ? 'COPIED' : 'URL IN BAR';
+    if (detail) {
+        detail.textContent = copied
+            ? `URL length ${result.url.length}. 링크를 열면 현재 발표 장면을 복원합니다.`
+            : '클립보드 접근이 막혀 주소창에 공유 링크를 표시했습니다. 주소창 URL을 복사하세요.';
+    }
+    showNotification(
+        state.language === 'ko' ? '공유 링크 준비' : 'Share Link Ready',
+        copied
+            ? (state.language === 'ko' ? '현재 발표 장면 URL을 클립보드에 복사했습니다.' : 'Copied the current scene URL to the clipboard.')
+            : (state.language === 'ko' ? '클립보드가 막혀 주소창에 공유 URL을 표시했습니다.' : 'Clipboard was blocked, so the share URL is now in the address bar.')
+    );
+    addConsoleLog(`[SHARE] URL state packed (${result.url.length} chars).`, copied ? 'success' : 'warning');
+}
+
+function exportShareState() {
+    const shareState = buildShareState();
+    triggerDownload(
+        JSON.stringify(shareState, null, 2),
+        'application/json',
+        `${getExportBaseName(getProductName())}_holosyn_share_state.json`
+    );
+    showNotification(
+        state.language === 'ko' ? '공유 상태 저장' : 'Share State Saved',
+        state.language === 'ko' ? 'URL 공유와 같은 상태 데이터를 JSON으로 저장했습니다.' : 'Saved the same state used by URL sharing as JSON.'
+    );
+    addConsoleLog('[SHARE] Share state JSON exported.', 'success');
+}
+
+function parseShareStateFromLocation() {
+    const hash = window.location.hash ? window.location.hash.replace(/^#/, '') : '';
+    if (!hash) return null;
+    const params = new URLSearchParams(hash);
+    const encoded = params.get('hs');
+    if (!encoded) return null;
+    try {
+        const payload = decodeSharePayload(encoded);
+        return payload?.holosynShare === 'url-share-state-v1' ? payload : null;
+    } catch (error) {
+        console.warn('Invalid HOLOSYN share state:', error);
+        return null;
+    }
+}
+
+function applyShareStateFromUrl() {
+    const payload = parseShareStateFromLocation();
+    if (!payload) return false;
+    state.pendingShareState = payload;
+    const status = document.getElementById('share-link-status');
+    const detail = document.getElementById('share-link-detail');
+    if (status) status.textContent = 'RESTORE READY';
+    if (detail) detail.textContent = '공유 링크 감지됨. 엔진 기동 후 같은 장면을 복원합니다.';
+    showNotification(
+        state.language === 'ko' ? '공유 장면 감지' : 'Shared Scene Detected',
+        state.language === 'ko' ? 'HOLOSYN 엔진을 기동해 공유된 시점과 발표 상태를 복원합니다.' : 'Booting HOLOSYN will restore the shared camera and presentation state.'
+    );
+    setTimeout(() => {
+        if (state.engineBooted) {
+            applyShareState(payload);
+            return;
+        }
+        const bootBtn = document.getElementById('btn-boot-system');
+        if (bootBtn && !bootBtn.disabled) bootBtn.click();
+    }, 700);
+    return true;
+}
+
+function applyShareState(payload) {
+    if (!payload || payload.holosynShare !== 'url-share-state-v1') return false;
+    const snapshot = payload.projectSnapshot;
+    if (snapshot?.holosynSnapshot === 'project-snapshot-v1') {
+        applyProjectSnapshot(snapshot);
+    }
+    if (payload.camera) {
+        restoreCameraShareState(payload.camera);
+    }
+    state.pendingShareState = null;
+    state.shareStateLastBuilt = payload.exportedAt || new Date().toISOString();
+    updateShareLinkPanel();
+    const status = document.getElementById('share-link-status');
+    const detail = document.getElementById('share-link-detail');
+    if (status) status.textContent = 'RESTORED';
+    if (detail) detail.textContent = '공유 링크의 발표 장면을 이 브라우저에 복원했습니다.';
+    showNotification(
+        state.language === 'ko' ? '공유 장면 복원 완료' : 'Shared Scene Restored',
+        state.language === 'ko' ? '링크에 담긴 모델, 조명, 카메라, 노트, 치수 상태를 복원했습니다.' : 'Restored the linked model, lighting, camera, notes, and measurements.'
+    );
+    addConsoleLog('[SHARE] Shared URL state restored.', 'success');
+    return true;
+}
+
+function updateShareLinkPanel() {
+    const status = document.getElementById('share-link-status');
+    const detail = document.getElementById('share-link-detail');
+    if (status) status.textContent = state.shareStateLastBuilt ? 'LINK BUILT' : 'URL READY';
+    if (detail && state.shareStateLastBuilt) {
+        detail.textContent = `Last packed ${new Date(state.shareStateLastBuilt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}. Custom binaries are excluded.`;
+    }
+}
+
+function getPresenterNoteContext() {
+    const part = state.partScanActive ? getCurrentPartScanAnnotation() : null;
+    const timeLabel = state.timelineCurrentTime ? `${state.timelineCurrentTime.toFixed(1)}s` : '0.0s';
+    return {
+        preset: state.activePreset,
+        demoPreset: state.activeDemoPreset || 'manual',
+        renderMode: state.renderMode,
+        cameraMode: state.cameraMode,
+        timelineTime: Number(state.timelineCurrentTime || 0),
+        partTitle: part?.title || part?.label || null,
+        key: `${state.activePreset}|${state.activeDemoPreset || 'manual'}|${timeLabel}|${part?.title || 'scene'}`
+    };
+}
+
+function updatePresenterNotesPanel() {
+    const status = document.getElementById('presenter-notes-status');
+    if (status) status.textContent = `${state.presenterNotes.length} NOTES`;
+}
+
+function savePresenterNote() {
+    const input = document.getElementById('presenter-note-input');
+    const text = input?.value.trim();
+    if (!text) {
+        showNotification(
+            state.language === 'ko' ? '노트 없음' : 'No Note',
+            state.language === 'ko' ? '저장할 발표자 노트를 먼저 입력하세요.' : 'Write a presenter note before saving.'
+        );
+        return;
+    }
+    const context = getPresenterNoteContext();
+    const note = {
+        id: `note-${Date.now()}`,
+        createdAt: new Date().toISOString(),
+        text,
+        context
+    };
+    state.presenterNotes.push(note);
+    input.value = '';
+    updatePresenterNotesPanel();
+    showNotification(
+        state.language === 'ko' ? '발표자 노트 저장' : 'Presenter Note Saved',
+        state.language === 'ko' ? '현재 장면 메모를 공유 링크와 패키지에 포함합니다.' : 'This scene note will be included in share links and packages.'
+    );
+    addConsoleLog(`[NOTES] Presenter note saved for ${context.preset}/${context.demoPreset}.`, 'success');
+}
+
+function buildPresenterNotesMarkdown() {
+    const lines = [
+        `# HOLOSYN Presenter Notes: ${getProductName()}`,
+        '',
+        `Generated: ${new Date().toLocaleString()}`,
+        '',
+        `Notes: ${state.presenterNotes.length}`,
+        ''
+    ];
+    if (state.presenterNotes.length === 0) {
+        lines.push('- No presenter notes saved yet.');
+    } else {
+        state.presenterNotes.forEach((note, index) => {
+            const ctx = note.context || {};
+            lines.push(`## ${index + 1}. ${ctx.preset || 'scene'} / ${ctx.demoPreset || 'manual'} / ${Number(ctx.timelineTime || 0).toFixed(1)}s`);
+            lines.push(`- Camera: ${ctx.cameraMode || '-'} / Render: ${ctx.renderMode || '-'}`);
+            if (ctx.partTitle) lines.push(`- Part: ${ctx.partTitle}`);
+            lines.push('');
+            lines.push(note.text);
+            lines.push('');
+        });
+    }
+    return lines.join('\n');
+}
+
+function exportPresenterNotesMarkdown() {
+    triggerDownload(
+        buildPresenterNotesMarkdown(),
+        'text/markdown;charset=utf-8',
+        `${getExportBaseName(getProductName())}_holosyn_presenter_notes.md`
+    );
+    showNotification(
+        state.language === 'ko' ? '발표자 노트 내보내기' : 'Presenter Notes Exported',
+        state.language === 'ko' ? '저장된 장면별 메모를 Markdown으로 저장했습니다.' : 'Saved scene-by-scene notes as Markdown.'
+    );
+    addConsoleLog('[NOTES] Presenter notes exported.', 'success');
+}
+
+function getVectorPlain(vector) {
+    return { x: Number(vector.x), y: Number(vector.y), z: Number(vector.z) };
+}
+
+function vectorFromPlain(point) {
+    return new THREE.Vector3(Number(point?.x) || 0, Number(point?.y) || 0, Number(point?.z) || 0);
+}
+
+function updateMeasurementsPanel() {
+    const status = document.getElementById('measurements-status');
+    const list = document.getElementById('measurements-list');
+    if (status) status.textContent = `${state.savedMeasurements.length} SAVED`;
+    if (!list) return;
+    if (state.savedMeasurements.length === 0) {
+        list.innerHTML = '<span>3D 측정 도구로 A/B 지점을 찍으면 치수가 여기에 누적됩니다.</span>';
+        return;
+    }
+    list.innerHTML = state.savedMeasurements.map((measurement, index) => `
+        <div class="measurement-row" data-measurement-id="${measurement.id}">
+            <span>${measurement.label || `M${index + 1}`} · ${measurement.preset || state.activePreset}</span>
+            <strong>${measurement.distanceText || `${measurement.distanceMm} mm`}</strong>
+        </div>
+    `).join('');
+}
+
+function saveMeasurementRecord(measurement) {
+    state.savedMeasurements.push(measurement);
+    updateMeasurementsPanel();
+}
+
+function removeRenderedCalipers() {
+    if (drawingsGroup) {
+        [...drawingsGroup.children].forEach(child => {
+            if (child.name && child.name.startsWith('caliper-')) drawingsGroup.remove(child);
+        });
+    }
+    const container = document.getElementById('annotations-container');
+    if (container) {
+        container.querySelectorAll('.caliper-badge').forEach(badge => badge.remove());
+    }
+    calipersList = [];
+}
+
+function createCaliperVisualFromMeasurement(measurement) {
+    if (!drawingsGroup || !measurement?.points?.start || !measurement?.points?.end) return;
+    const start = vectorFromPlain(measurement.points.start);
+    const end = vectorFromPlain(measurement.points.end);
+    const id = measurement.id || `m-${Date.now()}`;
+
+    const sphereGeo = new THREE.SphereGeometry(0.04, 16, 16);
+    const sphereMat = new THREE.MeshBasicMaterial({ color: themeColorObj() });
+    const startSphere = new THREE.Mesh(sphereGeo, sphereMat);
+    startSphere.position.copy(start);
+    startSphere.name = `caliper-${id}-start`;
+    drawingsGroup.add(startSphere);
+
+    const endSphere = new THREE.Mesh(sphereGeo, sphereMat.clone());
+    endSphere.position.copy(end);
+    endSphere.name = `caliper-${id}-end`;
+    drawingsGroup.add(endSphere);
+
+    const lineGeo = new THREE.BufferGeometry().setFromPoints([start, end]);
+    const lineMat = new THREE.LineDashedMaterial({
+        color: themeColorObj(),
+        dashSize: 0.08,
+        gapSize: 0.04,
+        linewidth: 2,
+        transparent: true,
+        opacity: 0.95
+    });
+    const line = new THREE.Line(lineGeo, lineMat);
+    line.computeLineDistances();
+    line.name = `caliper-${id}-line`;
+    drawingsGroup.add(line);
+
+    const container = document.getElementById('annotations-container');
+    let badge = null;
+    if (container) {
+        badge = document.createElement('div');
+        badge.className = 'caliper-badge';
+        badge.dataset.caliperId = id;
+        badge.innerHTML = `
+            <span class="label-title">${measurement.label || '3D DIMENSION'}</span>
+            <span class="label-value">L: ${measurement.distanceText || `${measurement.distanceMm} mm`}</span>
+        `;
+        container.appendChild(badge);
+    }
+
+    calipersList.push({
+        id,
+        start,
+        end,
+        distance: measurement.distanceText || `${measurement.distanceMm} mm`,
+        line,
+        badgeEl: badge
+    });
+}
+
+function rebuildSavedMeasurementVisuals() {
+    removeRenderedCalipers();
+    if (!Array.isArray(state.savedMeasurements)) state.savedMeasurements = [];
+    state.savedMeasurements.forEach(measurement => createCaliperVisualFromMeasurement(measurement));
+    updateMeasurementsPanel();
+}
+
+function exportMeasurements() {
+    triggerDownload(
+        JSON.stringify({
+            holosynMeasurements: 'saved-dimensions-v1',
+            exportedAt: new Date().toISOString(),
+            product: getProductSpecState(),
+            measurements: state.savedMeasurements
+        }, null, 2),
+        'application/json',
+        `${getExportBaseName(getProductName())}_holosyn_measurements.json`
+    );
+    showNotification(
+        state.language === 'ko' ? '치수 JSON 저장' : 'Measurements Saved',
+        state.language === 'ko' ? '저장된 모든 3D 치수를 JSON으로 내보냈습니다.' : 'Exported all saved 3D dimensions as JSON.'
+    );
+    addConsoleLog(`[MEASURE] Exported ${state.savedMeasurements.length} saved dimensions.`, 'success');
+}
+
+function clearAllSavedMeasurements() {
+    state.savedMeasurements = [];
+    caliperStartPoint = null;
+    removeRenderedCalipers();
+    updateMeasurementsPanel();
+    showNotification(
+        state.language === 'ko' ? '치수 삭제' : 'Measurements Cleared',
+        state.language === 'ko' ? '저장된 치수와 뷰포트 측정 표시를 지웠습니다.' : 'Cleared saved dimensions and viewport measurement marks.'
+    );
+    addConsoleLog('[MEASURE] Saved dimensions cleared.', 'info');
+}
+
+function getMeshyStorageKey() {
+    return 'holosyn_meshy_api_key';
+}
+
+function getMeshyApiKey() {
+    const input = document.getElementById('meshy-api-key');
+    const typed = input?.value.trim();
+    if (typed) return typed;
+    const storage = getBrowserStorage();
+    return storage?.getItem(getMeshyStorageKey()) || '';
+}
+
+function updateMeshyPanel() {
+    const status = document.getElementById('meshy-status');
+    const progress = document.getElementById('meshy-progress');
+    const imageName = document.getElementById('meshy-image-name');
+    if (status) status.textContent = state.meshy.status || 'READY';
+    if (progress) progress.textContent = `${Math.round(state.meshy.progress || 0)}%`;
+    if (imageName) imageName.textContent = state.meshy.selectedImageName || (state.customImageBase64 ? 'Current HOLOSYN image available' : 'No image selected');
+}
+
+function saveMeshyApiKey() {
+    const key = document.getElementById('meshy-api-key')?.value.trim();
+    if (!key) {
+        showNotification(state.language === 'ko' ? '키 없음' : 'No Key', state.language === 'ko' ? 'Meshy API 키를 입력하세요.' : 'Enter a Meshy API key first.');
+        return;
+    }
+    const storage = getBrowserStorage();
+    if (storage) storage.setItem(getMeshyStorageKey(), key);
+    showNotification(state.language === 'ko' ? 'Meshy 키 저장' : 'Meshy Key Saved', state.language === 'ko' ? '이 브라우저에만 API 키를 저장했습니다.' : 'Saved the API key in this browser only.');
+    addConsoleLog('[MESHY] API key stored locally in this browser.', 'success');
+}
+
+function clearMeshyApiKey() {
+    const storage = getBrowserStorage();
+    if (storage) storage.removeItem(getMeshyStorageKey());
+    const input = document.getElementById('meshy-api-key');
+    if (input) input.value = '';
+    showNotification(state.language === 'ko' ? 'Meshy 키 삭제' : 'Meshy Key Cleared', state.language === 'ko' ? '브라우저에 저장된 Meshy 키를 지웠습니다.' : 'Cleared the saved Meshy key from this browser.');
+    addConsoleLog('[MESHY] API key cleared.', 'info');
+}
+
+function selectMeshyImageFile(file) {
+    if (!file || !file.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = event => {
+        state.meshy.selectedImageDataUri = event.target.result;
+        state.meshy.selectedImageName = file.name;
+        state.meshy.status = 'IMAGE READY';
+        state.meshy.progress = 0;
+        state.meshy.glbUrl = null;
+        updateMeshyPanel();
+        showNotification(
+            state.language === 'ko' ? 'Meshy 이미지 준비' : 'Meshy Image Ready',
+            state.language === 'ko' ? `${file.name} 이미지를 3D 생성 입력으로 준비했습니다.` : `${file.name} is ready for image-to-3D.`
+        );
+        addConsoleLog(`[MESHY] Image selected: ${file.name}.`, 'info');
+    };
+    reader.onerror = () => {
+        showNotification(state.language === 'ko' ? '이미지 읽기 실패' : 'Image Read Failed', state.language === 'ko' ? 'Meshy 입력 이미지를 읽지 못했습니다.' : 'Could not read the Meshy input image.');
+    };
+    reader.readAsDataURL(file);
+}
+
+function useCurrentImageForMeshy() {
+    if (!state.customImageBase64) {
+        showNotification(
+            state.language === 'ko' ? '현재 이미지 없음' : 'No Current Image',
+            state.language === 'ko' ? '먼저 이미지를 HOLOSYN에 임포트하거나 Meshy 이미지 선택을 사용하세요.' : 'Import an image into HOLOSYN first, or pick a Meshy image.'
+        );
+        return;
+    }
+    state.meshy.selectedImageDataUri = state.customImageBase64;
+    state.meshy.selectedImageName = `${getProductName()} current image`;
+    state.meshy.status = 'IMAGE READY';
+    state.meshy.progress = 0;
+    updateMeshyPanel();
+    showNotification(
+        state.language === 'ko' ? '현재 이미지 연결' : 'Current Image Linked',
+        state.language === 'ko' ? '현재 HOLOSYN 이미지 투사를 Meshy 입력으로 사용합니다.' : 'Using the current HOLOSYN image projection as Meshy input.'
+    );
+}
+
+async function startMeshyImageTo3D() {
+    const apiKey = getMeshyApiKey();
+    const imageUrl = state.meshy.selectedImageDataUri || state.customImageBase64;
+    if (!apiKey) {
+        showNotification(state.language === 'ko' ? 'Meshy 키 필요' : 'Meshy Key Required', state.language === 'ko' ? 'Image-to-3D 생성에는 Meshy API 키가 필요합니다.' : 'Meshy Image-to-3D needs an API key.');
+        return;
+    }
+    if (!imageUrl) {
+        showNotification(state.language === 'ko' ? '이미지 필요' : 'Image Required', state.language === 'ko' ? '사진을 선택하거나 현재 이미지를 연결하세요.' : 'Pick an image or link the current image first.');
+        return;
+    }
+    state.meshy.status = 'SUBMITTING';
+    state.meshy.progress = 1;
+    updateMeshyPanel();
+    try {
+        const response = await fetch('https://api.meshy.ai/openapi/v1/image-to-3d', {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${apiKey}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                image_url: imageUrl,
+                enable_pbr: true,
+                should_texture: true,
+                should_remesh: true,
+                target_formats: ['glb']
+            })
+        });
+        if (!response.ok) throw new Error(`Meshy create failed (${response.status})`);
+        const data = await response.json();
+        state.meshy.taskId = data.result;
+        state.meshy.status = 'PROCESSING';
+        state.meshy.progress = 5;
+        state.meshy.glbUrl = null;
+        updateMeshyPanel();
+        showNotification(
+            state.language === 'ko' ? 'Meshy 생성 시작' : 'Meshy Task Started',
+            state.language === 'ko' ? 'Image-to-3D 태스크를 만들었습니다. 자동으로 상태를 확인합니다.' : 'Created an Image-to-3D task. HOLOSYN will poll its status.'
+        );
+        addConsoleLog(`[MESHY] Task created: ${state.meshy.taskId}.`, 'success');
+        scheduleMeshyPoll();
+    } catch (error) {
+        state.meshy.status = 'ERROR';
+        updateMeshyPanel();
+        showNotification(
+            state.language === 'ko' ? 'Meshy 요청 실패' : 'Meshy Request Failed',
+            state.language === 'ko' ? 'API 키, CORS, 네트워크, 과금 상태를 확인하세요.' : 'Check API key, CORS, network, and billing status.'
+        );
+        addConsoleLog(`[MESHY] ${error.message}`, 'error');
+    }
+}
+
+function scheduleMeshyPoll() {
+    if (meshyPollTimer) clearTimeout(meshyPollTimer);
+    meshyPollTimer = setTimeout(() => checkMeshyTask({ keepPolling: true }), 4000);
+}
+
+async function checkMeshyTask(options = {}) {
+    const { keepPolling = false } = options;
+    const apiKey = getMeshyApiKey();
+    const taskId = state.meshy.taskId;
+    if (!apiKey || !taskId) {
+        showNotification(state.language === 'ko' ? 'Meshy 태스크 없음' : 'No Meshy Task', state.language === 'ko' ? '먼저 Image-to-3D 생성을 시작하세요.' : 'Start an Image-to-3D task first.');
+        return;
+    }
+    try {
+        const response = await fetch(`https://api.meshy.ai/openapi/v1/image-to-3d/${encodeURIComponent(taskId)}`, {
+            headers: { Authorization: `Bearer ${apiKey}` }
+        });
+        if (!response.ok) throw new Error(`Meshy status failed (${response.status})`);
+        const data = await response.json();
+        state.meshy.status = data.status || 'PROCESSING';
+        state.meshy.progress = Number.isFinite(data.progress) ? data.progress : state.meshy.progress;
+        state.meshy.lastCheckedAt = new Date().toISOString();
+        if (data.model_urls?.glb) state.meshy.glbUrl = data.model_urls.glb;
+        updateMeshyPanel();
+        addConsoleLog(`[MESHY] Task ${taskId}: ${state.meshy.status} ${Math.round(state.meshy.progress || 0)}%.`, state.meshy.status === 'SUCCEEDED' ? 'success' : 'info');
+        if (state.meshy.status === 'SUCCEEDED') {
+            showNotification(
+                state.language === 'ko' ? 'Meshy GLB 준비 완료' : 'Meshy GLB Ready',
+                state.language === 'ko' ? '생성된 GLB를 바로 불러오거나 다운로드할 수 있습니다.' : 'The generated GLB can now be imported or downloaded.'
+            );
+            return;
+        }
+        if (state.meshy.status === 'FAILED' || state.meshy.status === 'EXPIRED') {
+            showNotification(state.language === 'ko' ? 'Meshy 생성 실패' : 'Meshy Task Failed', state.language === 'ko' ? `상태: ${state.meshy.status}` : `Status: ${state.meshy.status}`);
+            return;
+        }
+        if (keepPolling) scheduleMeshyPoll();
+    } catch (error) {
+        state.meshy.status = 'ERROR';
+        updateMeshyPanel();
+        showNotification(state.language === 'ko' ? 'Meshy 상태 확인 실패' : 'Meshy Check Failed', state.language === 'ko' ? '태스크 상태를 확인하지 못했습니다.' : 'Could not check Meshy task status.');
+        addConsoleLog(`[MESHY] ${error.message}`, 'error');
+    }
+}
+
+function importMeshyGlbUrl() {
+    if (!state.meshy.glbUrl) {
+        showNotification(state.language === 'ko' ? 'GLB 없음' : 'No GLB', state.language === 'ko' ? 'Meshy 생성이 완료된 뒤 불러올 수 있습니다.' : 'Wait until Meshy generation succeeds.');
+        return;
+    }
+    if (!state.engineBooted) {
+        showNotification(state.language === 'ko' ? '엔진 기동 필요' : 'Boot Required', state.language === 'ko' ? '먼저 HOLOSYN 엔진을 기동하세요.' : 'Boot HOLOSYN first.');
+        return;
+    }
+    const loader = new THREE.GLTFLoader();
+    state.meshy.status = 'IMPORTING';
+    updateMeshyPanel();
+    loader.load(state.meshy.glbUrl, gltf => {
+        uploadedMeshGroup = gltf.scene;
+        applyWorkspaceMaterialsToLoadedMesh(uploadedMeshGroup);
+        state.imageUploaded = false;
+        state.customImageParticles = null;
+        state.activePreset = 'custom';
+        const nameInput = document.getElementById('spec-name');
+        if (nameInput && state.meshy.selectedImageName) {
+            nameInput.value = state.meshy.selectedImageName.replace(/\.[^/.]+$/, '');
+        }
+        loadPresetModel('custom');
+        updateImportQualityFromModel(uploadedMeshGroup, {
+            source: `Meshy · ${state.meshy.taskId || 'image-to-3d'}`,
+            type: '3d',
+            extension: 'glb',
+            fileSize: 0
+        });
+        state.meshy.status = 'IMPORTED';
+        state.meshy.progress = 100;
+        updateMeshyPanel();
+        showNotification(state.language === 'ko' ? 'Meshy GLB 불러오기 완료' : 'Meshy GLB Imported', state.language === 'ko' ? '생성된 3D 메쉬를 HOLOSYN 뷰포트에 투사했습니다.' : 'Imported the generated 3D mesh into HOLOSYN.');
+        addConsoleLog('[MESHY] Generated GLB imported into HOLOSYN.', 'success');
+    }, undefined, error => {
+        state.meshy.status = 'IMPORT ERROR';
+        updateMeshyPanel();
+        showNotification(state.language === 'ko' ? 'GLB 불러오기 실패' : 'GLB Import Failed', state.language === 'ko' ? '생성된 GLB URL을 불러오지 못했습니다.' : 'Could not load the generated GLB URL.');
+        addConsoleLog(`[MESHY] GLB import failed: ${error.message || error}`, 'error');
+    });
+}
+
+async function downloadMeshyGlb() {
+    if (!state.meshy.glbUrl) {
+        showNotification(state.language === 'ko' ? 'GLB 없음' : 'No GLB', state.language === 'ko' ? 'Meshy 생성 완료 후 다운로드하세요.' : 'Wait until Meshy generation succeeds.');
+        return;
+    }
+    try {
+        const response = await fetch(state.meshy.glbUrl);
+        if (!response.ok) throw new Error(`GLB download failed (${response.status})`);
+        const blob = await response.blob();
+        triggerBlobDownload(blob, `${getExportBaseName(getProductName())}_meshy_generated.glb`);
+    } catch (error) {
+        window.open(state.meshy.glbUrl, '_blank', 'noopener');
+        addConsoleLog(`[MESHY] Direct download blocked, opened generated GLB URL instead: ${error.message}`, 'warning');
+    }
+}
+
+async function recordViewportClip(durationMs = 5000) {
+    if (!renderer?.domElement || !renderer.domElement.captureStream || typeof MediaRecorder === 'undefined') {
+        showNotification(state.language === 'ko' ? '녹화 미지원' : 'Recording Unsupported', state.language === 'ko' ? '이 브라우저는 캔버스 MediaRecorder를 지원하지 않습니다.' : 'This browser does not support canvas MediaRecorder.');
+        return;
+    }
+    if (!state.engineBooted) {
+        showNotification(state.language === 'ko' ? '엔진 기동 필요' : 'Boot Required', state.language === 'ko' ? '먼저 HOLOSYN 엔진을 기동하세요.' : 'Boot HOLOSYN first.');
+        return;
+    }
+    const status = document.getElementById('clip-export-status');
+    const stream = renderer.domElement.captureStream(30);
+    const preferred = 'video/webm;codecs=vp9';
+    const mimeType = MediaRecorder.isTypeSupported(preferred) ? preferred : 'video/webm';
+    const recorder = new MediaRecorder(stream, { mimeType });
+    const chunks = [];
+    const previous = {
+        rotationSpeed: state.rotationSpeed,
+        explodedLevel: state.explodedLevel,
+        cameraMode: state.cameraMode
+    };
+    recorder.ondataavailable = event => {
+        if (event.data && event.data.size > 0) chunks.push(event.data);
+    };
+    recorder.onstop = () => {
+        stream.getTracks().forEach(track => track.stop());
+        state.rotationSpeed = previous.rotationSpeed;
+        animateExplodedLevel(previous.explodedLevel, 500);
+        if (previous.cameraMode) applyCameraView(previous.cameraMode, false);
+        const blob = new Blob(chunks, { type: mimeType });
+        triggerBlobDownload(blob, `${getExportBaseName(getProductName())}_holosyn_clip_${Math.round(durationMs / 1000)}s.webm`);
+        if (status) status.textContent = 'SAVED';
+        showNotification(state.language === 'ko' ? '클립 저장 완료' : 'Clip Saved', state.language === 'ko' ? '회전·분해 WebM 클립을 저장했습니다.' : 'Saved the rotating/exploded WebM clip.');
+        addConsoleLog(`[CLIP] Recorded ${Math.round(durationMs / 1000)}s viewport clip.`, 'success');
+    };
+    if (status) status.textContent = 'REC';
+    state.rotationSpeed = Math.max(state.rotationSpeed, 0.9);
+    applyCameraView('orbit', false);
+    animateExplodedLevel(Math.max(state.explodedLevel, 0.62), 650);
+    recorder.start();
+    showNotification(state.language === 'ko' ? '클립 녹화 중' : 'Recording Clip', state.language === 'ko' ? `${Math.round(durationMs / 1000)}초 WebM 클립을 녹화합니다.` : `Recording a ${Math.round(durationMs / 1000)} second WebM clip.`);
+    setTimeout(() => {
+        if (recorder.state !== 'inactive') recorder.stop();
+    }, durationMs);
 }
 
 function exportGLTF() {
@@ -9520,11 +10406,12 @@ function initSpatialDrawingEngine() {
             // Clear caliper badges & variables
             const container = document.getElementById('annotations-container');
             if (container) {
-                const badge = container.querySelector('.caliper-badge');
-                if (badge) badge.remove();
+                container.querySelectorAll('.caliper-badge').forEach(badge => badge.remove());
             }
             caliperStartPoint = null;
             calipersList = [];
+            state.savedMeasurements = [];
+            updateMeasurementsPanel();
             
             btnClear.style.display = 'none';
             if (btnPencil) btnPencil.classList.remove('active-pencil');
@@ -9569,22 +10456,14 @@ function initSpatialDrawingEngine() {
                     // First click: anchor A
                     caliperStartPoint = hit.clone();
                     
-                    const prevStart = drawingsGroup.getObjectByName("caliper-start-marker");
-                    const prevEnd = drawingsGroup.getObjectByName("caliper-end-marker");
-                    const prevLine = drawingsGroup.getObjectByName("caliper-main-line");
-                    if (prevStart) drawingsGroup.remove(prevStart);
-                    if (prevEnd) drawingsGroup.remove(prevEnd);
-                    if (prevLine) drawingsGroup.remove(prevLine);
-                    if (container) {
-                        const prevBadge = container.querySelector('.caliper-badge');
-                        if (prevBadge) prevBadge.remove();
-                    }
+                    const prevPendingStart = drawingsGroup.getObjectByName("caliper-pending-start-marker");
+                    if (prevPendingStart) drawingsGroup.remove(prevPendingStart);
                     
                     const sphereGeo = new THREE.SphereGeometry(0.04, 16, 16);
                     const sphereMat = new THREE.MeshBasicMaterial({ color: themeColorObj() });
                     const startSphere = new THREE.Mesh(sphereGeo, sphereMat);
                     startSphere.position.copy(caliperStartPoint);
-                    startSphere.name = "caliper-start-marker";
+                    startSphere.name = "caliper-pending-start-marker";
                     drawingsGroup.add(startSphere);
                     
                     if (btnClear) btnClear.style.display = 'inline-flex';
@@ -9600,12 +10479,17 @@ function initSpatialDrawingEngine() {
                 } else {
                     // Second click: anchor B
                     const caliperEndPoint = hit.clone();
+                    const measurementIndex = state.savedMeasurements.length + 1;
+                    const measurementId = `m-${Date.now()}-${measurementIndex}`;
+                    const measurementLabel = `M${measurementIndex}`;
+                    const pendingStart = drawingsGroup.getObjectByName("caliper-pending-start-marker");
+                    if (pendingStart) pendingStart.name = `caliper-${measurementId}-start`;
                     
                     const sphereGeo = new THREE.SphereGeometry(0.04, 16, 16);
                     const sphereMat = new THREE.MeshBasicMaterial({ color: themeColorObj() });
                     const endSphere = new THREE.Mesh(sphereGeo, sphereMat);
                     endSphere.position.copy(caliperEndPoint);
-                    endSphere.name = "caliper-end-marker";
+                    endSphere.name = `caliper-${measurementId}-end`;
                     drawingsGroup.add(endSphere);
                     
                     // Measure in the preset model's base geometry space. The model carries
@@ -9620,6 +10504,7 @@ function initSpatialDrawingEngine() {
                     const localB = modelRoot.worldToLocal(caliperEndPoint.clone());
                     const baseUnits = localA.distanceTo(localB);
                     const distMM = (baseUnits * mmPerUnit).toFixed(1);
+                    const distanceText = `${distMM} mm`;
                     
                     const lineGeo = new THREE.BufferGeometry().setFromPoints([caliperStartPoint, caliperEndPoint]);
                     const lineMat = new THREE.LineDashedMaterial({
@@ -9632,15 +10517,17 @@ function initSpatialDrawingEngine() {
                     });
                     const caliperLine = new THREE.Line(lineGeo, lineMat);
                     caliperLine.computeLineDistances();
-                    caliperLine.name = "caliper-main-line";
+                    caliperLine.name = `caliper-${measurementId}-line`;
                     drawingsGroup.add(caliperLine);
                     
+                    let badge = null;
                     if (container) {
-                        const badge = document.createElement('div');
+                        badge = document.createElement('div');
                         badge.className = 'caliper-badge';
+                        badge.dataset.caliperId = measurementId;
                         badge.innerHTML = `
-                            <span class="label-title">${state.language === 'ko' ? '3D 프로젝션 치수' : '3D DIMENSION'}</span>
-                            <span class="label-value">L: ${distMM} mm</span>
+                            <span class="label-title">${measurementLabel} · ${state.language === 'ko' ? '3D 프로젝션 치수' : '3D DIMENSION'}</span>
+                            <span class="label-value">L: ${distanceText}</span>
                         `;
                         container.appendChild(badge);
                     }
@@ -9655,11 +10542,33 @@ function initSpatialDrawingEngine() {
                         speakAssistant(`Measurement complete. Distance is ${distMM} millimeters.`);
                     }
                     
-                    calipersList = [{
+                    calipersList.push({
+                        id: measurementId,
                         start: caliperStartPoint.clone(),
                         end: caliperEndPoint.clone(),
-                        distance: distMM
-                    }];
+                        distance: distanceText,
+                        line: caliperLine,
+                        badgeEl: badge
+                    });
+                    saveMeasurementRecord({
+                        id: measurementId,
+                        label: measurementLabel,
+                        createdAt: new Date().toISOString(),
+                        preset: state.activePreset,
+                        productName: getProductName(),
+                        mmPerUnit,
+                        baseUnits: Number(baseUnits.toFixed(4)),
+                        distanceMm: Number(distMM),
+                        distanceText,
+                        points: {
+                            start: getVectorPlain(caliperStartPoint),
+                            end: getVectorPlain(caliperEndPoint)
+                        },
+                        localPoints: {
+                            start: getVectorPlain(localA),
+                            end: getVectorPlain(localB)
+                        }
+                    });
                     
                     caliperStartPoint = null;
                 }
