@@ -297,6 +297,7 @@ const state = {
     themeColorGlow: 'rgba(0, 122, 255, 0.22)',
     activePreset: 'drone',       // drone, ring, car, battery, exosuit, custom
     renderMode: 'wireframe',      // points, wireframe, solid
+    materialView: 'hologram',     // hologram, product, hybrid
     visualQualityBoost: true,
     glowIntensity: 1.5,
     rotationSpeed: 1.0,
@@ -326,6 +327,7 @@ const state = {
         export: false
     },
     demoFlowRunning: false,
+    pitchRunRunning: false,
     activeDemoPreset: null,
     gesturePilot: {
         pointerStart: null,
@@ -389,6 +391,13 @@ const state = {
     },
     shareStateLastBuilt: null,
     pendingShareState: null,
+    portableProject: {
+        status: 'READY',
+        detail: '모델과 발표 상태를 한 파일로 전달합니다.',
+        busy: false,
+        lastExportedAt: null,
+        lastImportedAt: null
+    },
     presenterNotes: [],
     savedMeasurements: [],
     meshy: {
@@ -398,7 +407,10 @@ const state = {
         status: 'READY',
         progress: 0,
         glbUrl: null,
-        lastCheckedAt: null
+        lastCheckedAt: null,
+        gatewayStatus: 'CHECKING',
+        gatewayConfigured: false,
+        transport: 'checking'
     },
     diagnosticsLog: [],
     runtimeErrors: [],
@@ -499,6 +511,7 @@ function savePreferences() {
             themeColor: state.themeColor,
             themeColorGlow: state.themeColorGlow,
             renderMode: state.renderMode,
+            materialView: state.materialView,
             visualQualityBoost: state.visualQualityBoost,
             glowIntensity: state.glowIntensity,
             rotationSpeed: state.rotationSpeed,
@@ -526,6 +539,7 @@ function loadPreferences() {
         if (prefs.themeColor) state.themeColor = prefs.themeColor;
         if (prefs.themeColorGlow) state.themeColorGlow = prefs.themeColorGlow;
         if (prefs.renderMode) state.renderMode = prefs.renderMode;
+        if (['hologram', 'product', 'hybrid'].includes(prefs.materialView)) state.materialView = prefs.materialView;
         if (typeof prefs.visualQualityBoost === 'boolean') state.visualQualityBoost = prefs.visualQualityBoost;
         if (typeof prefs.glowIntensity === 'number') state.glowIntensity = prefs.glowIntensity;
         if (typeof prefs.rotationSpeed === 'number') state.rotationSpeed = prefs.rotationSpeed;
@@ -536,6 +550,7 @@ function loadPreferences() {
         if (prefs.uiMode) state.uiMode = prefs.uiMode;
         if (prefs.language) state.language = prefs.language;
         if (prefs.activePreset) state.activePreset = prefs.activePreset;
+        if (state.materialView !== 'hologram') state.renderMode = 'solid';
         
         // Apply body theme class from saved color
         const colorMap = {
@@ -1434,8 +1449,179 @@ function updatePartScanPanel() {
     setPartScanButtonState();
 }
 
+function cloneMaterialSet(material) {
+    if (Array.isArray(material)) return material.map(item => item?.clone ? item.clone() : item);
+    return material?.clone ? material.clone() : material;
+}
+
+function visitMaterialSet(material, callback) {
+    if (Array.isArray(material)) {
+        material.forEach((item, index) => item && callback(item, index));
+    } else if (material) {
+        callback(material, 0);
+    }
+}
+
+function captureMaterialOpacity(material) {
+    if (Array.isArray(material)) {
+        return material.map(item => Number.isFinite(item?.opacity) ? item.opacity : 1);
+    }
+    return Number.isFinite(material?.opacity) ? material.opacity : 1;
+}
+
+function restoreMaterialOpacity(material, savedOpacity, fallbackOpacity = 1) {
+    visitMaterialSet(material, (item, index) => {
+        const saved = Array.isArray(savedOpacity) ? savedOpacity[index] : savedOpacity;
+        const opacity = Number.isFinite(saved) ? saved : fallbackOpacity;
+        item.transparent = opacity < 1;
+        item.opacity = opacity;
+        item.needsUpdate = true;
+    });
+}
+
+function updateMaterialViewUi() {
+    const status = document.getElementById('material-view-status');
+    const detail = document.getElementById('material-view-detail');
+    const labels = {
+        hologram: 'HOLOGRAM',
+        product: 'PRODUCT COLOR',
+        hybrid: 'HYBRID REVEAL'
+    };
+    if (status) status.textContent = labels[state.materialView] || labels.hologram;
+    document.querySelectorAll('.material-view-btn, .beginner-material-btn').forEach(btn => {
+        const active = btn.dataset.materialView === state.materialView;
+        btn.classList.toggle('active', active);
+        btn.setAttribute('aria-pressed', String(active));
+    });
+    updateBeginnerFlowUi();
+
+    if (!detail) return;
+    const ko = state.language === 'ko';
+    if (state.materialView === 'product') {
+        detail.textContent = state.activePreset === 'custom' && !state.imageUploaded
+            ? (ko ? '가져온 모델의 원본 PBR 색상·텍스처·금속감을 표시합니다.' : 'Shows the imported model original PBR color, textures, and metal response.')
+            : (state.imageUploaded
+                ? (ko ? '업로드 이미지의 원색과 표면 디테일을 표시합니다.' : 'Shows the uploaded image color and surface detail.')
+                : (ko ? '프리셋의 제품 컬러와 불투명 소재감을 표시합니다.' : 'Shows the preset product color and opaque material finish.'));
+    } else if (state.materialView === 'hybrid') {
+        detail.textContent = state.partScanActive
+            ? (ko ? '선택 부품은 실제 재질, 나머지는 홀로그램으로 비교합니다.' : 'Shows the focused component in product material and ghosts the rest.')
+            : (ko ? '부품 포커스가 없으면 제품 전체 재질을 표시합니다.' : 'Without component focus, the full product material is shown.');
+    } else {
+        detail.textContent = ko ? '홀로그램 스타일로 구조와 실루엣을 강조합니다.' : 'Emphasizes structure and silhouette in hologram style.';
+    }
+}
+
+function applyMaterialView() {
+    if (!activeModelGroup) {
+        updateMaterialViewUi();
+        return;
+    }
+    const mode = ['hologram', 'product', 'hybrid'].includes(state.materialView) ? state.materialView : 'hologram';
+    const focused = state.partScanActive ? getCurrentPartScanAnnotation() : null;
+    const focusedName = focused?.name || null;
+    const useWholeProductForHybrid = mode === 'hybrid' && !focusedName;
+
+    if (scanDomeGroup) {
+        scanDomeGroup.visible = state.uiMode === 'pro' && mode !== 'product';
+    }
+    if (reticleGroup) {
+        reticleGroup.visible = state.targetingReticles && mode !== 'product';
+    }
+    if (volumetricLaserBeam && mode === 'product') {
+        volumetricLaserBeam.visible = false;
+    }
+
+    activeModelGroup.traverse(node => {
+        const data = node.userData || {};
+        const isFocused = focusedName ? isNodeInsidePart(node, focusedName) : false;
+        const showProduct = mode === 'product' || useWholeProductForHybrid || (mode === 'hybrid' && isFocused);
+
+        if (data.solidMesh && data.solidMaterial) {
+            const solid = data.solidMesh;
+            const wire = data.wireMesh;
+            const points = data.pointsMesh;
+            solid.material = showProduct && data.productMaterial ? data.productMaterial : data.solidMaterial;
+            if (!showProduct) {
+                const baseOpacity = data.isChrome ? 0.85 : 0.65;
+                restoreMaterialOpacity(data.solidMaterial, null, baseOpacity * state.glowIntensity);
+                visitMaterialSet(data.solidMaterial, material => {
+                    if (material.emissive) material.emissiveIntensity = data.emissiveIntensity || 0.35;
+                });
+            }
+            if (mode === 'product' || (mode === 'hybrid' && showProduct)) {
+                solid.visible = true;
+                if (wire) wire.visible = false;
+                if (points) points.visible = false;
+            } else if (mode === 'hybrid') {
+                visitMaterialSet(data.solidMaterial, material => {
+                    material.transparent = true;
+                    material.opacity = 0.08;
+                    material.needsUpdate = true;
+                });
+                solid.visible = true;
+                if (wire) wire.visible = true;
+                if (points) points.visible = false;
+            }
+            return;
+        }
+
+        if (node.isMesh && data.hologramMaterial && data.productMaterial) {
+            node.material = showProduct ? data.productMaterial : data.hologramMaterial;
+            node.visible = true;
+            if (!showProduct) {
+                const baseOpacity = data.isChrome ? 0.85 : 0.65;
+                const savedOpacity = data.solidMaterial ? null : data.hologramOpacity;
+                restoreMaterialOpacity(data.hologramMaterial, savedOpacity, baseOpacity * state.glowIntensity);
+            }
+            if (mode === 'hybrid' && !showProduct) {
+                visitMaterialSet(data.hologramMaterial, material => {
+                    material.transparent = true;
+                    material.opacity = 0.10;
+                    material.needsUpdate = true;
+                });
+            }
+        }
+    });
+    updateMaterialViewUi();
+}
+
+function setMaterialView(mode, options = {}) {
+    if (!['hologram', 'product', 'hybrid'].includes(mode)) return;
+    const { notify = true, broadcast = true, autoFocus = true } = options;
+    state.materialView = mode;
+    if ((mode === 'product' || mode === 'hybrid') && state.renderMode !== 'solid') {
+        setRenderModeByKey('solid');
+    }
+    if (mode === 'hybrid' && autoFocus && !state.partScanActive && getPartScanList().length > 0) {
+        setPartScanActive(true, state.partScanIndex || 0);
+    } else {
+        toggleRenderVisibility();
+    }
+    updateMaterialViewUi();
+    savePreferences();
+
+    if (broadcast && typeof CollabManager !== 'undefined' && CollabManager.isActive) {
+        CollabManager.broadcast({ type: 'state_update', key: 'materialView', value: mode });
+    }
+    if (notify) {
+        const messages = {
+            hologram: state.language === 'ko' ? '홀로그램 구조 표현으로 전환했습니다.' : 'Switched to hologram structure view.',
+            product: state.language === 'ko' ? '제품의 실제 색상과 소재를 표시합니다.' : 'Showing product colors and materials.',
+            hybrid: state.language === 'ko' ? '선택 부품만 실제 재질로 드러냅니다.' : 'Revealing the focused component in its product material.'
+        };
+        showNotification(
+            state.language === 'ko' ? 'Material Reveal' : 'Material Reveal',
+            messages[mode]
+        );
+        addConsoleLog(`[MATERIAL] View switched to ${mode.toUpperCase()}.`, 'info');
+    }
+}
+
 function applyPartScanVisuals() {
     if (!activeModelGroup) return;
+    applyMaterialView();
+    if (state.materialView !== 'hologram') return;
     const focused = state.partScanActive ? getCurrentPartScanAnnotation() : null;
     const focusedName = focused?.name || null;
     if (!focusedName) return;
@@ -1702,6 +1888,7 @@ function updateLanguageHTML(lang) {
     const modeEl = document.getElementById('tele-render');
     if (modeEl) modeEl.innerText = translations[lang][state.renderMode] || state.renderMode.toUpperCase();
     updateQualityBoostUi();
+    updateMaterialViewUi();
     
     if (typeof CollabManager !== 'undefined' && typeof CollabManager.updateVoiceUI === 'function') {
         CollabManager.updateVoiceUI(CollabManager.voiceChatActive);
@@ -1804,6 +1991,8 @@ function toggleUIMode(mode) {
             }, 650);
         }
     }
+
+    updateBeginnerFlowUi();
 
     // Recalculate 3D viewport canvas aspect ratio
     setTimeout(onWindowResize, 450);
@@ -2304,6 +2493,7 @@ function initThreeEngine() {
     renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
     renderer.setSize(container.clientWidth, container.clientHeight);
     renderer.setPixelRatio(getRenderPixelRatio());
+    renderer.outputEncoding = THREE.sRGBEncoding;
     renderer.shadowMap.enabled = false;
     renderer.xr.enabled = true; // Enable WebXR
     container.appendChild(renderer.domElement);
@@ -2629,6 +2819,11 @@ function updateHolographicMaterials() {
                     ? new THREE.Color(child.userData.paletteColor)
                     : activeColor;
                 child.userData.solidMaterial.color.copy(solidColor);
+                if (child.userData.productMaterial && !child.userData.hologramMaterial && !child.userData.paletteColor) {
+                    visitMaterialSet(child.userData.productMaterial, material => {
+                        if (material.color) material.color.copy(solidColor);
+                    });
+                }
                 const baseOpacity = child.userData.isChrome ? 0.85 : 0.65;
                 child.userData.solidMaterial.opacity = baseOpacity * state.glowIntensity;
                 if (child.userData.paletteColor && child.userData.wireMaterial) {
@@ -3006,17 +3201,39 @@ function setStandLineup(type) {
     if (state.activePreset !== 'stand' || !activeModelGroup) return;
     activeModelGroup.traverse(node => {
         const mat = node.userData && node.userData.solidMaterial;
+        const productMat = node.userData && node.userData.productMaterial;
         if (!mat) return;
         if (node.userData.isChrome) return; // keep the living-hinge highlight intact
         if (type === 'clear') {
             mat.opacity = 0.32; mat.metalness = 0.10; mat.roughness = 0.05;
+            if (productMat) {
+                productMat.transparent = true;
+                productMat.opacity = 0.32;
+                productMat.metalness = 0.10;
+                productMat.roughness = 0.05;
+            }
         } else if (type === 'custom') {
             mat.color.set(state.themeColor); mat.opacity = 0.88; mat.metalness = 0.30; mat.roughness = 0.40;
+            if (productMat) {
+                productMat.color.set(state.themeColor);
+                productMat.transparent = false;
+                productMat.opacity = 1;
+                productMat.metalness = 0.30;
+                productMat.roughness = 0.40;
+            }
         } else { // basic — opaque PP
             mat.opacity = 0.92; mat.metalness = 0.12; mat.roughness = 0.62;
+            if (productMat) {
+                productMat.transparent = false;
+                productMat.opacity = 1;
+                productMat.metalness = 0.12;
+                productMat.roughness = 0.62;
+            }
         }
         mat.needsUpdate = true;
+        if (productMat) productMat.needsUpdate = true;
     });
+    applyMaterialView();
     const labelMap = { basic: 'BASIC — 표준 PP(불투명)', clear: 'CLEAR — 프리미엄 아크릴(투명)', custom: 'CUSTOM — 브랜드 컬러' };
     addConsoleLog(`[ST,AND] 라인업: ${labelMap[type] || type}`, "info");
 }
@@ -3462,6 +3679,7 @@ function buildScenarioKeyframes(scenario) {
         },
         explodedLevel: item.explodedLevel,
         renderMode: item.renderMode,
+        materialView: item.materialView || (item.renderMode === 'solid' ? 'product' : 'hologram'),
         themeColor,
         assemblyStep: 0,
         environment,
@@ -3689,6 +3907,8 @@ function runHandoffChecklistAction(actionKey) {
 function markHandoffExportReady() {
     state.handoffReady.export = true;
     updateHandoffPackStatus();
+    updateFinalPassPanel();
+    updateLaunchReadinessPanel();
 }
 
 function getProjectSnapshotStorageKey() {
@@ -4345,6 +4565,9 @@ function runPerformanceBenchmark() {
             pass: averageFps >= 30,
             activePreset: state.activePreset,
             renderMode: state.renderMode,
+            materialView: state.materialView,
+            partScanActive: !!state.partScanActive,
+            partScanIndex: state.partScanIndex,
             visualQualityBoost: state.visualQualityBoost
         };
 
@@ -4653,6 +4876,9 @@ function buildProjectSnapshot() {
         presentation: {
             activeDemoPreset: state.activeDemoPreset || 'manual',
             renderMode: state.renderMode,
+            materialView: state.materialView,
+            partScanActive: !!state.partScanActive,
+            partScanIndex: state.partScanIndex,
             cameraMode: state.cameraMode,
             environment: state.studioEnvironment,
             lighting: state.lighting,
@@ -4692,6 +4918,49 @@ function buildProjectSnapshot() {
         },
         annotations: partAnnotations[state.activePreset] || []
     };
+}
+
+function buildCompactShareSnapshot(snapshot = buildProjectSnapshot()) {
+    return {
+        holosynSnapshot: snapshot.holosynSnapshot,
+        savedAt: snapshot.savedAt,
+        product: snapshot.product,
+        specs: snapshot.specs,
+        model: snapshot.model,
+        presentation: snapshot.presentation,
+        camera: snapshot.camera,
+        timeline: snapshot.timeline,
+        presenterNotes: normalizePresenterNotes(snapshot.presenterNotes),
+        savedMeasurements: normalizeSavedMeasurements(snapshot.savedMeasurements),
+        annotations: Array.isArray(snapshot.annotations)
+            ? snapshot.annotations.slice(0, 100).map(annotation => ({
+                name: limitSnapshotText(annotation?.name, '', 120),
+                label: limitSnapshotText(annotation?.label, '', 240)
+            })).filter(annotation => annotation.name)
+            : []
+    };
+}
+
+function restoreProjectSnapshotAnnotations(snapshot) {
+    const preset = snapshot?.model?.activePreset || state.activePreset;
+    const current = partAnnotations[preset];
+    if (!Array.isArray(current) || !Array.isArray(snapshot?.annotations)) return;
+
+    const savedLabels = new Map(
+        snapshot.annotations.slice(0, 100)
+            .map(annotation => [
+                limitSnapshotText(annotation?.name, '', 120),
+                limitSnapshotText(annotation?.label, '', 240)
+            ])
+            .filter(([name, label]) => name && label)
+    );
+    current.forEach(annotation => {
+        const label = savedLabels.get(annotation.name);
+        if (label) annotation.label = label;
+    });
+
+    const container = document.getElementById('annotations-container');
+    if (container) container.replaceChildren();
 }
 
 function updateProjectSnapshotStatus(snapshot = getStoredProjectSnapshot()) {
@@ -4737,7 +5006,7 @@ function saveProjectSnapshot(options = {}) {
     return snapshot;
 }
 
-function applyProjectSnapshot(snapshot) {
+function applyProjectSnapshot(snapshot, options = {}) {
     if (!snapshot || snapshot.holosynSnapshot !== 'project-snapshot-v1') {
         showNotification(
             state.language === 'ko' ? '스냅샷 오류' : 'Snapshot Error',
@@ -4760,7 +5029,7 @@ function applyProjectSnapshot(snapshot) {
         state.customImageParticles = null;
         updatePresetButtonSelection(preset);
         loadPresetModel(preset);
-    } else if (preset === 'custom') {
+    } else if (preset === 'custom' && !options.customAssetLoaded) {
         addConsoleLog(
             state.language === 'ko'
                 ? '[SNAPSHOT] 커스텀 파일은 보안상 스냅샷에 포함되지 않습니다. 모델 파일을 다시 드롭하면 세팅을 이어서 사용할 수 있습니다.'
@@ -4770,6 +5039,7 @@ function applyProjectSnapshot(snapshot) {
     }
 
     applyProductSpecState(snapshot.specs);
+    restoreProjectSnapshotAnnotations(snapshot);
 
     const presentation = snapshot.presentation || {};
     state.activeDemoPreset = presentation.activeDemoPreset
@@ -4786,6 +5056,13 @@ function applyProjectSnapshot(snapshot) {
         demoStatusEl.textContent = scenario?.label || 'Manual';
     }
     if (presentation.renderMode) setRenderModeByKey(presentation.renderMode);
+    if (typeof presentation.partScanActive === 'boolean') {
+        state.partScanActive = presentation.partScanActive && getPartScanList().length > 0;
+        state.partScanIndex = Number.isFinite(presentation.partScanIndex) ? presentation.partScanIndex : 0;
+    }
+    if (presentation.materialView) {
+        setMaterialView(presentation.materialView, { notify: false, broadcast: false, autoFocus: false });
+    }
     if (presentation.themeColor) {
         applyThemeColorFromHex(presentation.themeColor, presentation.themeColorGlow);
     }
@@ -4828,8 +5105,8 @@ function applyProjectSnapshot(snapshot) {
         status: 'standby',
         lockedAt: null
     };
-    state.presenterNotes = Array.isArray(snapshot.presenterNotes) ? snapshot.presenterNotes : [];
-    state.savedMeasurements = Array.isArray(snapshot.savedMeasurements) ? snapshot.savedMeasurements : [];
+    state.presenterNotes = normalizePresenterNotes(snapshot.presenterNotes);
+    state.savedMeasurements = normalizeSavedMeasurements(snapshot.savedMeasurements);
     if (snapshot.meshy) {
         state.meshy = {
             ...state.meshy,
@@ -4843,6 +5120,7 @@ function applyProjectSnapshot(snapshot) {
     }
     rebuildSavedMeasurementVisuals();
     updatePresenterNotesPanel();
+    updatePartScanPanel();
     updateMeshyPanel();
     updateHandoffPackStatus();
     updateProjectSnapshotStatus(snapshot);
@@ -4878,6 +5156,253 @@ function exportProjectSnapshot() {
     );
     markHandoffExportReady();
     addConsoleLog(`[SNAPSHOT] Project snapshot JSON exported for ${productName}.`, 'success');
+}
+
+const PORTABLE_PROJECT_MAX_BYTES = 80 * 1024 * 1024;
+
+function updatePortableProjectPanel() {
+    const row = document.getElementById('portable-project-row');
+    const status = document.getElementById('portable-project-status');
+    const detail = document.getElementById('portable-project-detail');
+    if (row) {
+        row.classList.toggle('is-busy', !!state.portableProject.busy);
+        row.classList.toggle('is-ready', state.portableProject.status === 'SAVED' || state.portableProject.status === 'RESTORED');
+    }
+    if (status) status.textContent = state.portableProject.status || 'READY';
+    if (detail) detail.textContent = state.portableProject.detail || '모델과 발표 상태를 한 파일로 전달합니다.';
+}
+
+function setPortableProjectState(status, detail, busy = false) {
+    state.portableProject.status = status;
+    state.portableProject.detail = detail;
+    state.portableProject.busy = busy;
+    updatePortableProjectPanel();
+}
+
+function exportActiveModelGlb() {
+    return new Promise((resolve, reject) => {
+        if (!window.THREE || !THREE.GLTFExporter || !activeModelGroup) {
+            reject(new Error('GLB exporter or active model is unavailable.'));
+            return;
+        }
+
+        const restoredNodes = [];
+        const restoredMaterials = [];
+        const restoredVisibility = [];
+        activeModelGroup.traverse(node => {
+            if (node.userData?.originalPosition && node.position) {
+                restoredNodes.push({ node, position: node.position.clone() });
+                node.position.copy(node.userData.originalPosition);
+            }
+            const data = node.userData || {};
+            if (data.solidMesh && data.productMaterial) {
+                restoredMaterials.push({ mesh: data.solidMesh, material: data.solidMesh.material });
+                data.solidMesh.material = data.productMaterial;
+                [data.solidMesh, data.wireMesh, data.pointsMesh].forEach(mesh => {
+                    if (!mesh) return;
+                    restoredVisibility.push({ mesh, visible: mesh.visible });
+                });
+                data.solidMesh.visible = true;
+                if (data.wireMesh) data.wireMesh.visible = false;
+                if (data.pointsMesh) data.pointsMesh.visible = false;
+            } else if (node.isMesh && data.productMaterial) {
+                restoredMaterials.push({ mesh: node, material: node.material });
+                node.material = data.productMaterial;
+            }
+        });
+        const previousGroupY = activeModelGroup.position.y;
+        activeModelGroup.position.y = 0.15;
+        activeModelGroup.updateMatrixWorld(true);
+
+        const restoreScene = () => {
+            restoredNodes.forEach(({ node, position }) => node.position.copy(position));
+            restoredMaterials.forEach(({ mesh, material }) => { mesh.material = material; });
+            restoredVisibility.forEach(({ mesh, visible }) => { mesh.visible = visible; });
+            activeModelGroup.position.y = previousGroupY;
+            activeModelGroup.updateMatrixWorld(true);
+        };
+
+        const exporter = new THREE.GLTFExporter();
+        exporter.parse(activeModelGroup, result => {
+            restoreScene();
+            if (!(result instanceof ArrayBuffer)) {
+                reject(new Error('Portable project export did not produce a binary GLB.'));
+                return;
+            }
+            resolve(result);
+        }, error => {
+            restoreScene();
+            reject(error instanceof Error ? error : new Error(String(error)));
+        }, { binary: true });
+    });
+}
+
+function arrayBufferToDataUrl(buffer, mimeType = 'model/gltf-binary') {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(reader.error || new Error('Could not encode the portable model.'));
+        reader.readAsDataURL(new Blob([buffer], { type: mimeType }));
+    });
+}
+
+function dataUrlToArrayBuffer(dataUrl) {
+    const match = /^data:([^;,]+)?;base64,(.+)$/s.exec(String(dataUrl || ''));
+    if (!match) throw new Error('Portable project model payload is invalid.');
+    const binary = atob(match[2]);
+    const bytes = new Uint8Array(binary.length);
+    for (let index = 0; index < binary.length; index++) bytes[index] = binary.charCodeAt(index);
+    return bytes.buffer;
+}
+
+async function sha256ArrayBuffer(buffer) {
+    if (!window.crypto?.subtle) throw new Error('SHA-256 verification is unavailable in this browser.');
+    const digest = await window.crypto.subtle.digest('SHA-256', buffer);
+    return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
+}
+
+function parsePortableGlb(buffer) {
+    return new Promise((resolve, reject) => {
+        const loader = new THREE.GLTFLoader();
+        loader.parse(buffer, '', gltf => resolve(gltf.scene), error => {
+            reject(error instanceof Error ? error : new Error(String(error)));
+        });
+    });
+}
+
+async function exportPortableProjectBundle() {
+    if (!state.engineBooted || !activeModelGroup || activeModelGroup.children.length === 0) {
+        showNotification(
+            state.language === 'ko' ? '번들 대기' : 'Bundle Waiting',
+            state.language === 'ko' ? '엔진을 기동하고 모델을 먼저 불러오세요.' : 'Boot the engine and load a model first.'
+        );
+        return;
+    }
+
+    setPortableProjectState('PACKING', '현재 모델을 휴대용 GLB로 패킹하고 있습니다.', true);
+    try {
+        const snapshot = buildProjectSnapshot();
+        const originalPreset = snapshot.model.activePreset;
+        snapshot.model = {
+            ...snapshot.model,
+            activePreset: 'custom',
+            originalPreset,
+            isCustom: true,
+            customFileIncluded: true
+        };
+        const glb = await exportActiveModelGlb();
+        if (glb.byteLength > PORTABLE_PROJECT_MAX_BYTES) {
+            throw new Error(`Portable GLB exceeds ${Math.round(PORTABLE_PROJECT_MAX_BYTES / 1024 / 1024)}MB.`);
+        }
+        const sha256 = await sha256ArrayBuffer(glb);
+        const modelDataUrl = await arrayBufferToDataUrl(glb);
+        const bundle = {
+            holosynBundle: 'portable-project-v1',
+            exportedAt: new Date().toISOString(),
+            app: 'HOLOSYN',
+            model: {
+                name: `${getExportBaseName(getProductName())}.glb`,
+                mimeType: 'model/gltf-binary',
+                byteLength: glb.byteLength,
+                sha256,
+                dataUrl: modelDataUrl
+            },
+            projectSnapshot: snapshot
+        };
+        triggerDownload(
+            JSON.stringify(bundle),
+            'application/vnd.holosyn.project+json',
+            `${getExportBaseName(getProductName())}.holosyn`
+        );
+        state.portableProject.lastExportedAt = bundle.exportedAt;
+        setPortableProjectState('SAVED', `${formatFileSize(glb.byteLength)} 모델과 발표 상태를 한 파일로 저장했습니다.`);
+        markHandoffExportReady();
+        showNotification(
+            state.language === 'ko' ? '휴대용 프로젝트 저장' : 'Portable Project Saved',
+            state.language === 'ko' ? '모델·카메라·타임라인·노트·치수를 .holosyn 파일 하나에 담았습니다.' : 'Packed the model, camera, timeline, notes, and dimensions into one .holosyn file.'
+        );
+        addConsoleLog(`[BUNDLE] Portable project saved (${formatFileSize(glb.byteLength)} GLB).`, 'success');
+    } catch (error) {
+        setPortableProjectState('ERROR', error.message || '휴대용 프로젝트를 만들지 못했습니다.');
+        showNotification(
+            state.language === 'ko' ? '프로젝트 번들 실패' : 'Project Bundle Failed',
+            state.language === 'ko' ? '모델 내보내기 호환성 또는 80MB 제한을 확인하세요.' : 'Check model export compatibility or the 80MB limit.'
+        );
+        addConsoleLog(`[BUNDLE] Export failed: ${error.message}`, 'error');
+    }
+}
+
+async function importPortableProjectBundle(file) {
+    if (!file) return;
+    if (!state.engineBooted) {
+        showNotification(
+            state.language === 'ko' ? '엔진 기동 필요' : 'Boot Required',
+            state.language === 'ko' ? '먼저 HOLOSYN 엔진을 기동한 뒤 번들을 여세요.' : 'Boot HOLOSYN before opening a portable project.'
+        );
+        return;
+    }
+    if (file.size > PORTABLE_PROJECT_MAX_BYTES * 1.5) {
+        showNotification(
+            state.language === 'ko' ? '번들 용량 초과' : 'Bundle Too Large',
+            state.language === 'ko' ? '휴대용 프로젝트는 최대 약 120MB까지 열 수 있습니다.' : 'Portable project files are limited to about 120MB.'
+        );
+        return;
+    }
+
+    setPortableProjectState('OPENING', `${file.name} 무결성을 확인하고 있습니다.`, true);
+    try {
+        const bundle = JSON.parse(await file.text());
+        if (bundle.holosynBundle !== 'portable-project-v1') {
+            throw new Error('This is not a HOLOSYN portable project.');
+        }
+        if (!bundle.projectSnapshot || bundle.projectSnapshot.holosynSnapshot !== 'project-snapshot-v1') {
+            throw new Error('Portable project snapshot is missing.');
+        }
+        if (!bundle.model?.dataUrl || !Number.isFinite(bundle.model.byteLength) || !/^[a-f0-9]{64}$/i.test(bundle.model.sha256 || '')) {
+            throw new Error('Portable project model is missing.');
+        }
+        if (bundle.model.byteLength > PORTABLE_PROJECT_MAX_BYTES) {
+            throw new Error('Portable project model exceeds the 80MB safety limit.');
+        }
+
+        const modelBuffer = dataUrlToArrayBuffer(bundle.model.dataUrl);
+        if (modelBuffer.byteLength !== bundle.model.byteLength) {
+            throw new Error('Portable project model size check failed.');
+        }
+        const sha256 = await sha256ArrayBuffer(modelBuffer);
+        if (sha256 !== bundle.model.sha256.toLowerCase()) {
+            throw new Error('Portable project model integrity check failed.');
+        }
+        uploadedMeshGroup = await parsePortableGlb(modelBuffer);
+        applyWorkspaceMaterialsToLoadedMesh(uploadedMeshGroup);
+        state.imageUploaded = false;
+        state.customImageParticles = null;
+        state.customImageBase64 = null;
+        state.activePreset = 'custom';
+        updatePresetButtonSelection('custom');
+        loadPresetModel('custom');
+        updateImportQualityFromModel(uploadedMeshGroup, {
+            source: `${bundle.model.name || file.name} · portable bundle`,
+            type: '3d',
+            extension: 'glb',
+            fileSize: bundle.model.byteLength
+        });
+        applyProjectSnapshot(bundle.projectSnapshot, { customAssetLoaded: true });
+        state.portableProject.lastImportedAt = new Date().toISOString();
+        setPortableProjectState('RESTORED', `${file.name} 모델과 발표 상태를 복원했습니다.`);
+        showNotification(
+            state.language === 'ko' ? '휴대용 프로젝트 복원' : 'Portable Project Restored',
+            state.language === 'ko' ? '모델·카메라·타임라인·노트·치수를 모두 복원했습니다.' : 'Restored the model, camera, timeline, notes, and dimensions.'
+        );
+        addConsoleLog(`[BUNDLE] Portable project restored: ${file.name}.`, 'success');
+    } catch (error) {
+        setPortableProjectState('ERROR', error.message || '휴대용 프로젝트를 열지 못했습니다.');
+        showNotification(
+            state.language === 'ko' ? '프로젝트 번들 오류' : 'Project Bundle Error',
+            state.language === 'ko' ? '파일 형식, 모델 데이터, 용량 제한을 확인하세요.' : 'Check the file format, model payload, and size limit.'
+        );
+        addConsoleLog(`[BUNDLE] Import failed: ${error.message}`, 'error');
+    }
 }
 
 function getExportBaseName(name) {
@@ -5228,6 +5753,7 @@ function buildHandoffManifestData(savedSnapshot = getStoredProjectSnapshot()) {
         finalReadiness,
         presentation: {
             renderMode: state.renderMode,
+            materialView: state.materialView,
             cameraMode: state.cameraMode,
             environment: state.studioEnvironment,
             explodedLevel: Math.round(state.explodedLevel * 100),
@@ -5515,6 +6041,17 @@ function initProductizationControls() {
     if (restoreSnapshotBtn) restoreSnapshotBtn.addEventListener('click', restoreProjectSnapshot);
     const exportSnapshotBtn = document.getElementById('btn-export-project-snapshot');
     if (exportSnapshotBtn) exportSnapshotBtn.addEventListener('click', exportProjectSnapshot);
+    const exportPortableProjectBtn = document.getElementById('btn-export-portable-project');
+    if (exportPortableProjectBtn) exportPortableProjectBtn.addEventListener('click', exportPortableProjectBundle);
+    const importPortableProjectBtn = document.getElementById('btn-import-portable-project');
+    const portableProjectInput = document.getElementById('portable-project-input');
+    if (importPortableProjectBtn && portableProjectInput) {
+        importPortableProjectBtn.addEventListener('click', () => portableProjectInput.click());
+        portableProjectInput.addEventListener('change', event => {
+            importPortableProjectBundle(event.target.files?.[0]);
+            event.target.value = '';
+        });
+    }
     const copyShareLinkBtn = document.getElementById('btn-copy-share-link');
     if (copyShareLinkBtn) copyShareLinkBtn.addEventListener('click', copyShareLink);
     const headerShareLinkBtn = document.getElementById('btn-header-share-link');
@@ -5555,10 +6092,12 @@ function initProductizationControls() {
     if (meshyClearKeyBtn) meshyClearKeyBtn.addEventListener('click', clearMeshyApiKey);
     updateImportQualityForSample(state.activePreset);
     updateProjectSnapshotStatus();
+    updatePortableProjectPanel();
     updateShareLinkPanel();
     updatePresenterNotesPanel();
     updateMeasurementsPanel();
     updateMeshyPanel();
+    checkMeshyGateway();
     updateHandoffPackStatus();
     updateBetaReadinessPanel();
     updateFinalPassPanel();
@@ -5578,24 +6117,77 @@ function setWorkflowProgress(activeStep = state.workflowStep, completedSteps = [
 
 function updateWorkflowCoach() {
     const coach = document.getElementById('flow-coach');
-    if (!coach) return;
-
-    document.querySelectorAll('.flow-step').forEach(btn => {
-        const step = btn.getAttribute('data-flow-step');
-        btn.classList.toggle('active', step === state.workflowStep);
-        btn.classList.toggle('done', !!state.workflowCompleted[step]);
-    });
+    if (coach) {
+        document.querySelectorAll('.flow-step').forEach(btn => {
+            const step = btn.getAttribute('data-flow-step');
+            btn.classList.toggle('active', step === state.workflowStep);
+            btn.classList.toggle('done', !!state.workflowCompleted[step]);
+        });
+    }
 
     const demoBtn = document.getElementById('btn-demo-run');
     if (demoBtn) demoBtn.classList.toggle('is-running', !!state.demoFlowRunning);
+    const pitchBtn = document.getElementById('btn-pitch-run');
+    if (pitchBtn) pitchBtn.classList.toggle('is-running', !!state.pitchRunRunning);
     const finalPassBtn = document.getElementById('btn-final-pass');
     if (finalPassBtn) finalPassBtn.classList.toggle('locked', state.finalPass.status === 'locked');
+    updateBeginnerFlowUi();
+}
+
+function updateBeginnerFlowUi() {
+    const importBtn = document.getElementById('btn-beginner-import');
+    const revealControl = document.querySelector('.beginner-reveal-control');
+    const pitchBtn = document.getElementById('btn-beginner-pitch');
+    const modeStatus = document.getElementById('beginner-reveal-status');
+    const isImportStep = state.workflowStep === 'model';
+    const isPitchStep = state.pitchRunRunning || state.workflowStep === 'export';
+
+    if (importBtn) {
+        importBtn.classList.toggle('current', isImportStep);
+        importBtn.classList.toggle('done', !!state.workflowCompleted.model);
+        if (isImportStep) importBtn.setAttribute('aria-current', 'step');
+        else importBtn.removeAttribute('aria-current');
+    }
+    if (revealControl) {
+        revealControl.classList.toggle('current', !isImportStep && !isPitchStep);
+        revealControl.classList.toggle('done', !!state.workflowCompleted.structure);
+    }
+    if (pitchBtn) {
+        pitchBtn.classList.toggle('current', isPitchStep);
+        pitchBtn.classList.toggle('done', !!state.workflowCompleted.export);
+        pitchBtn.classList.toggle('is-running', !!state.pitchRunRunning);
+        if (isPitchStep) pitchBtn.setAttribute('aria-current', 'step');
+        else pitchBtn.removeAttribute('aria-current');
+    }
+
+    document.querySelectorAll('.beginner-material-btn').forEach(btn => {
+        const active = btn.dataset.materialView === state.materialView;
+        btn.classList.toggle('active', active);
+        btn.setAttribute('aria-pressed', String(active));
+    });
+
+    if (modeStatus) {
+        modeStatus.textContent = {
+            hologram: 'HOLO',
+            product: 'COLOR',
+            hybrid: 'PART'
+        }[state.materialView] || 'HOLO';
+    }
+
+    const ko = state.language === 'ko';
+    const importLabel = document.getElementById('beginner-import-label');
+    const revealLabel = document.getElementById('beginner-reveal-label');
+    const pitchLabel = document.getElementById('beginner-pitch-label');
+    if (importLabel) importLabel.textContent = ko ? '넣기' : 'IMPORT';
+    if (revealLabel) revealLabel.textContent = ko ? '보기' : 'REVEAL';
+    if (pitchLabel) pitchLabel.textContent = ko ? '발표·공유' : 'PITCH & SHARE';
 }
 
 function clearDemoFlowTimers() {
     demoFlowTimers.forEach(timer => clearTimeout(timer));
     demoFlowTimers = [];
     state.demoFlowRunning = false;
+    state.pitchRunRunning = false;
     updateWorkflowCoach();
 }
 
@@ -5670,9 +6262,43 @@ function initWorkflowControls() {
     if (demoBtn) {
         demoBtn.addEventListener('click', runSmoothDemoFlow);
     }
+    const pitchBtn = document.getElementById('btn-pitch-run');
+    if (pitchBtn) {
+        pitchBtn.addEventListener('click', runThirtySecondPitch);
+    }
     const finalPassBtn = document.getElementById('btn-final-pass');
     if (finalPassBtn) {
         finalPassBtn.addEventListener('click', runFinalPass);
+    }
+
+    const beginnerImportBtn = document.getElementById('btn-beginner-import');
+    if (beginnerImportBtn) {
+        beginnerImportBtn.addEventListener('click', () => handleWorkflowStep('model'));
+    }
+    document.querySelectorAll('.beginner-material-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            if (!state.engineBooted) {
+                showNotification(
+                    state.language === 'ko' ? '엔진 기동 필요' : 'Boot Required',
+                    state.language === 'ko' ? '먼저 HOLOSYN 엔진을 기동하세요.' : 'Boot HOLOSYN first.'
+                );
+                return;
+            }
+            clearDemoFlowTimers();
+            const mode = btn.dataset.materialView;
+            setWorkflowProgress('structure', ['model']);
+            if (mode !== 'hybrid') {
+                if (state.partScanActive) setPartScanActive(false);
+                if (state.explodedLevel > 0.01) animateExplodedLevel(0, 450);
+            }
+            setMaterialView(mode);
+            if (mode === 'product') applyCameraView('front', false);
+            if (mode === 'hologram') applyCameraView('orbit', false);
+        });
+    });
+    const beginnerPitchBtn = document.getElementById('btn-beginner-pitch');
+    if (beginnerPitchBtn) {
+        beginnerPitchBtn.addEventListener('click', runThirtySecondPitch);
     }
 
     updateWorkflowCoach();
@@ -5800,6 +6426,125 @@ function runSmoothDemoFlow() {
     });
 }
 
+function preparePitchShareUrl() {
+    const result = buildShareUrl();
+    try {
+        window.history.replaceState(null, '', result.url);
+    } catch (error) {
+        window.location.hash = new URL(result.url).hash;
+    }
+    markHandoffExportReady();
+    const status = document.getElementById('share-link-status');
+    const detail = document.getElementById('share-link-detail');
+    if (status) status.textContent = 'PITCH URL';
+    if (detail) detail.textContent = `30초 피치 장면 URL 준비됨 · ${result.url.length} chars`;
+    addConsoleLog(`[PITCH] Share URL prepared (${result.url.length} chars).`, 'success');
+    return result;
+}
+
+function runThirtySecondPitch() {
+    if (!state.engineBooted || !activeModelGroup || activeModelGroup.children.length === 0) {
+        showNotification(
+            state.language === 'ko' ? '30초 피치 대기' : '30s Pitch Waiting',
+            state.language === 'ko' ? '엔진을 기동하고 모델을 먼저 불러오세요.' : 'Boot the engine and load a model first.'
+        );
+        return;
+    }
+
+    clearDemoFlowTimers();
+    if (state.isShowcaseMode) stopCinematicPresentation();
+
+    state.demoFlowRunning = true;
+    state.pitchRunRunning = true;
+    state.activeDemoPreset = '30s-pitch';
+    state.handoffReady.demo = true;
+    state.handoffReady.timeline = true;
+    updateWorkflowCoach();
+    updateHandoffPackStatus();
+    closeMobileDrawers();
+
+    setMaterialView('hologram', { notify: false, broadcast: false, autoFocus: false });
+    setRenderModeByKey('solid');
+    applyStudioEnvironmentPreset('cupertino');
+    applyCameraView('front', false);
+    animateExplodedLevel(0.0, 450);
+    state.rotationSpeed = 0.42;
+    setWorkflowProgress('model', ['model']);
+
+    showNotification(
+        state.language === 'ko' ? '30초 Pitch 시작' : '30s Pitch Started',
+        state.language === 'ko' ? '히어로샷, 구조, 파트 포커스, 쇼케이스, 공유 준비까지 자동으로 진행합니다.' : 'Running hero, structure, part focus, showcase, and share prep.'
+    );
+    addConsoleLog('[PITCH] 30-second judge/demo pitch started.', 'info');
+
+    const schedule = (delay, fn) => {
+        const timer = setTimeout(fn, delay);
+        demoFlowTimers.push(timer);
+    };
+
+    schedule(1600, () => {
+        setWorkflowProgress('structure', ['model']);
+        setRenderModeByKey('wireframe');
+        applyCameraView('top', false);
+        animateExplodedLevel(0.58, 1200);
+        showNotification(
+            state.language === 'ko' ? '구조 한 컷' : 'Structure Beat',
+            state.language === 'ko' ? '분해도와 상단 시점으로 “어떻게 생겼는지”를 바로 보여줍니다.' : 'Showing the top exploded view so the structure lands immediately.'
+        );
+    });
+
+    schedule(4700, () => {
+        setWorkflowProgress('present', ['model', 'structure']);
+        applyCameraView('macro', false);
+        setRenderModeByKey(state.activePreset === 'exosuit' ? 'xray' : 'solid');
+        animateExplodedLevel(0.34, 850);
+        if (getPartScanList().length > 0) {
+            setPartScanActive(true, 0);
+        }
+        setMaterialView('hybrid', { notify: false, broadcast: false, autoFocus: false });
+        showNotification(
+            state.language === 'ko' ? '핵심 부품 포커스' : 'Component Focus',
+            state.language === 'ko' ? 'Part Scan으로 한 부품만 강조해 설명 포인트를 만듭니다.' : 'Part Scan isolates one component for a clear talking point.'
+        );
+    });
+
+    schedule(8200, () => {
+        if (getPartScanList().length > 1) {
+            cyclePartScan(1);
+        }
+        applyCameraView('orbit', false);
+        state.rotationSpeed = 0.7;
+        showNotification(
+            state.language === 'ko' ? '두 번째 증거' : 'Second Proof Point',
+            state.language === 'ko' ? '다음 부품으로 넘어가 구조가 실제로 나뉘어 있음을 보여줍니다.' : 'Jumping to a second component to prove the model is structured.'
+        );
+    });
+
+    schedule(11200, () => {
+        setMaterialView('product', { notify: false, broadcast: false, autoFocus: false });
+        startCinematicPresentation({ preserveFlowTimers: true });
+        showNotification(
+            state.language === 'ko' ? '쇼케이스 컷' : 'Showcase Beat',
+            state.language === 'ko' ? 'HUD를 줄이고 제품만 보이는 발표 컷으로 전환합니다.' : 'Switching into the product-only presentation cut.'
+        );
+    });
+
+    schedule(17200, () => {
+        runFinalPass();
+        const result = preparePitchShareUrl();
+        const headerShare = document.getElementById('btn-header-share-link');
+        pulseWorkflowTarget(headerShare);
+        state.demoFlowRunning = false;
+        state.pitchRunRunning = false;
+        updateWorkflowCoach();
+        showNotification(
+            state.language === 'ko' ? '30초 Pitch 준비 완료' : '30s Pitch Ready',
+            state.language === 'ko' ? 'Final Pass와 공유 URL이 준비됐습니다. 이제 주소창 링크나 SHARE 버튼으로 전달하면 됩니다.' : 'Final Pass and share URL are ready. Use the address bar or SHARE button to hand it off.'
+        );
+        addConsoleLog(`[PITCH] 30-second pitch completed. URL length: ${result.url.length}.`, 'success');
+    });
+}
+
 // Unified node builder - MeshStandardMaterial shiny integration
 function buildHologramNode(geometry, isChrome = false) {
     const nodeGroup = new THREE.Group();
@@ -5828,6 +6573,13 @@ function buildHologramNode(geometry, isChrome = false) {
     nodeGroup.add(pointsMesh);
     
     nodeGroup.userData.solidMaterial = solidMat;
+    nodeGroup.userData.hologramOpacity = captureMaterialOpacity(solidMat);
+    const productMat = solidMat.clone();
+    productMat.transparent = false;
+    productMat.opacity = 1;
+    productMat.depthWrite = true;
+    productMat.needsUpdate = true;
+    nodeGroup.userData.productMaterial = productMat;
     nodeGroup.userData.solidMesh = solidMesh;
     nodeGroup.userData.wireMesh = wireMesh;
     nodeGroup.userData.pointsMesh = pointsMesh;
@@ -5839,16 +6591,24 @@ function buildHologramNode(geometry, isChrome = false) {
 function applyPartPalette(nodeGroup, colorHex, options = {}) {
     if (!nodeGroup || !colorHex) return nodeGroup;
     const color = new THREE.Color(colorHex);
+    const productColor = new THREE.Color(options.productColor || colorHex);
     nodeGroup.userData.paletteColor = colorHex;
     nodeGroup.userData.paletteWireOpacity = options.wireOpacity || 0.72;
     nodeGroup.userData.palettePointsOpacity = options.pointsOpacity || 0.82;
     if (nodeGroup.userData.solidMaterial) {
         nodeGroup.userData.solidMaterial.color.copy(color);
+        if (nodeGroup.userData.productMaterial?.color) {
+            nodeGroup.userData.productMaterial.color.copy(productColor);
+        }
         if (options.emissiveColor && nodeGroup.userData.solidMaterial.emissive) {
             nodeGroup.userData.emissiveColor = options.emissiveColor;
             nodeGroup.userData.emissiveIntensity = options.emissiveIntensity || 0.35;
             nodeGroup.userData.solidMaterial.emissive.copy(new THREE.Color(options.emissiveColor));
             nodeGroup.userData.solidMaterial.emissiveIntensity = nodeGroup.userData.emissiveIntensity;
+            if (nodeGroup.userData.productMaterial?.emissive) {
+                nodeGroup.userData.productMaterial.emissive.copy(new THREE.Color(options.productEmissiveColor || options.emissiveColor));
+                nodeGroup.userData.productMaterial.emissiveIntensity = options.productEmissiveIntensity ?? Math.min(nodeGroup.userData.emissiveIntensity, 0.35);
+            }
         }
     }
     if (nodeGroup.userData.wireMesh && nodeGroup.userData.wireMesh.material) {
@@ -6106,10 +6866,14 @@ function createForgeExoSuitGeometry() {
     const suit = new THREE.Group();
     suit.name = "exosuit";
 
-    // Hologram palette - Cyan & Blue glow
+    // Hologram palette stays cyan; product reveal uses a grounded finish palette.
     const C = {
         red: '#005588', dk: '#002244', gold: '#00aaff', lt: '#44ccff',
         jnt: '#001122', met: '#004466', gl: '#88eeff', glH: '#ffffff', eye: '#ffffff'
+    };
+    const P = {
+        red: '#8f2028', dk: '#171b22', gold: '#c5a15a', lt: '#c7d0d8',
+        jnt: '#101318', met: '#626d78', gl: '#7de3f4', glH: '#eafcff', eye: '#eafcff'
     };
 
     // Part builder
@@ -6120,7 +6884,16 @@ function createForgeExoSuitGeometry() {
         if(o.r) nd.rotation.set(o.r[0]||0, o.r[1]||0, o.r[2]||0);
         if(o.s) nd.scale.set(o.s[0]||1, o.s[1]||1, o.s[2]||1);
         nd.userData.explodedOffset = new THREE.Vector3(ex[0],ex[1],ex[2]);
-        if(o.c) applyPartPalette(nd, o.c, {emissiveColor:o.ec, emissiveIntensity:o.ei});
+        if(o.c) {
+            const role = Object.keys(C).find(key => C[key] === o.c);
+            applyPartPalette(nd, o.c, {
+                emissiveColor: o.ec,
+                emissiveIntensity: o.ei,
+                productColor: o.pc || (role ? P[role] : o.c),
+                productEmissiveColor: o.pec || (o.ec ? P.glH : undefined),
+                productEmissiveIntensity: o.pei
+            });
+        }
         suit.add(nd);
         return nd;
     };
@@ -6530,6 +7303,9 @@ function applyWorkspaceMaterialsToLoadedMesh(group) {
             const cName = originalImportName.toLowerCase();
             const isChromePart = (cName.includes('rotor') || cName.includes('wheel') || cName.includes('gear') || cName.includes('ring') || cName.includes('rim') || cName.includes('rod'));
             child.userData.originalImportName = originalImportName || `Imported Part ${partIdx + 1}`;
+            if (!child.userData.productMaterial) {
+                child.userData.productMaterial = cloneMaterialSet(child.material);
+            }
             
             const solidMat = new THREE.MeshStandardMaterial({
                 color: activeColor,
@@ -6542,6 +7318,8 @@ function applyWorkspaceMaterialsToLoadedMesh(group) {
             
             child.material = solidMat;
             child.userData.solidMaterial = solidMat;
+            child.userData.hologramMaterial = solidMat;
+            child.userData.hologramOpacity = captureMaterialOpacity(solidMat);
             child.userData.isChrome = isChromePart;
             
             // Set up a dynamic exploded direction radially or vertically
@@ -6636,6 +7414,7 @@ function processCustomImage(file) {
             state.customImageBase64 = event.target.result; // Cache base64 string for IndexedDB
             state.customImageTexture = new THREE.TextureLoader().load(event.target.result);
             state.customImageTexture.minFilter = THREE.LinearFilter;
+            state.customImageTexture.encoding = THREE.sRGBEncoding;
             state.meshy.selectedImageDataUri = event.target.result;
             state.meshy.selectedImageName = file.name;
             state.meshy.status = 'IMAGE READY';
@@ -6745,9 +7524,26 @@ function createCustomImageGeometry() {
         } else {
             meshMaterial = state.renderMode === 'solid' ? hologramMaterials.solid : hologramMaterials.wireframe;
         }
+        const productImageMaterial = state.customImageTexture
+            ? new THREE.MeshStandardMaterial({
+                map: state.customImageTexture,
+                color: 0xffffff,
+                emissive: new THREE.Color(0xffffff),
+                emissiveMap: state.customImageTexture,
+                emissiveIntensity: 0.12,
+                transparent: false,
+                opacity: 1,
+                metalness: 0.05,
+                roughness: 0.68,
+                side: THREE.DoubleSide
+            })
+            : cloneMaterialSet(meshMaterial);
         
         const surfaceMesh = new THREE.Mesh(surfaceGeo, meshMaterial);
         surfaceMesh.name = "generic-1"; // Essential for matching annotation logic
+        surfaceMesh.userData.hologramMaterial = meshMaterial;
+        surfaceMesh.userData.hologramOpacity = captureMaterialOpacity(meshMaterial);
+        surfaceMesh.userData.productMaterial = productImageMaterial;
         
         surfaceMesh.userData.originalPosition = new THREE.Vector3(0, 0, 0);
         surfaceMesh.userData.explodedOffset = new THREE.Vector3(0, 0.4, 0); // Displace Y (local Z) for exploded view!
@@ -6834,6 +7630,9 @@ function createCustomImageGeometry() {
         
         const wallMesh = new THREE.Mesh(wallGeo, meshMaterial);
         wallMesh.name = "generic-1-walls";
+        wallMesh.userData.hologramMaterial = meshMaterial;
+        wallMesh.userData.hologramOpacity = captureMaterialOpacity(meshMaterial);
+        wallMesh.userData.productMaterial = productImageMaterial;
         wallMesh.userData.originalPosition = new THREE.Vector3(0, 0, 0);
         wallMesh.userData.explodedOffset = new THREE.Vector3(0, 0.4, 0);
         wallMesh.rotation.x = -Math.PI / 2;
@@ -6847,6 +7646,9 @@ function createCustomImageGeometry() {
         }
         const bottomCapMesh = new THREE.Mesh(bottomCapGeo, meshMaterial);
         bottomCapMesh.name = "generic-1-bottomcap";
+        bottomCapMesh.userData.hologramMaterial = meshMaterial;
+        bottomCapMesh.userData.hologramOpacity = captureMaterialOpacity(meshMaterial);
+        bottomCapMesh.userData.productMaterial = productImageMaterial;
         bottomCapMesh.userData.originalPosition = new THREE.Vector3(0, 0, 0);
         bottomCapMesh.userData.explodedOffset = new THREE.Vector3(0, 0.4, 0);
         bottomCapMesh.rotation.x = Math.PI / 2; // Face downwards
@@ -7468,7 +8270,15 @@ function renderLoop(timestamp, frame) {
             // While projecting an image, raise the bloom threshold and soften strength
             // so complex images keep their detail (only true highlights bloom).
             if (bloomPass) {
-                if (state.imageUploaded) {
+                if (state.materialView === 'product') {
+                    bloomPass.threshold = 0.64;
+                    bloomPass.strength = state.visualQualityBoost ? 0.42 : 0.34;
+                    bloomPass.radius = 0.32;
+                } else if (state.materialView === 'hybrid') {
+                    bloomPass.threshold = 0.42;
+                    bloomPass.strength = state.visualQualityBoost ? 0.82 : 0.68;
+                    bloomPass.radius = 0.44;
+                } else if (state.imageUploaded) {
                     bloomPass.threshold = state.visualQualityBoost ? 0.68 : 0.72;
                     bloomPass.strength = (state.visualQualityBoost ? 0.68 : 0.55) + Math.sin(elapsedTime * 3.0) * 0.08;
                     bloomPass.radius = state.visualQualityBoost ? 0.48 : 0.5;
@@ -7949,8 +8759,10 @@ function initGesturePilotControls() {
     });
 }
 
-function startCinematicPresentation() {
-    clearDemoFlowTimers();
+function startCinematicPresentation(options = {}) {
+    if (!options.preserveFlowTimers) {
+        clearDemoFlowTimers();
+    }
     state.isShowcaseMode = true;
     presentationPartScanWasActive = !!state.partScanActive;
     setWorkflowProgress('export', ['model', 'structure', 'present']);
@@ -8194,7 +9006,7 @@ function initUIControls() {
         reticlesSwitch.addEventListener('change', (e) => {
             state.targetingReticles = e.target.checked;
             if (reticleGroup) {
-                reticleGroup.visible = state.targetingReticles;
+                reticleGroup.visible = state.targetingReticles && state.materialView !== 'product';
             }
             playSynthClick(580, 0.05);
             
@@ -8518,6 +9330,14 @@ function initUIControls() {
         });
     });
     
+    document.querySelectorAll('.material-view-btn').forEach(btn => {
+        btn.addEventListener('click', event => {
+            playSynthClick(720, 0.05);
+            setMaterialView(event.currentTarget.dataset.materialView);
+        });
+    });
+    updateMaterialViewUi();
+
     // 7. RENDER SCHEMATIC MODE SELECTORS
     document.querySelectorAll('.render-mode-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
@@ -8528,6 +9348,10 @@ function initUIControls() {
             
             const mode = e.currentTarget.getAttribute('data-mode');
             state.renderMode = mode;
+            if (mode !== 'solid') {
+                state.materialView = 'hologram';
+                updateMaterialViewUi();
+            }
             savePreferences();
             
             toggleRenderVisibility();
@@ -8674,7 +9498,7 @@ function initUIControls() {
 function toggleShowcaseMode() {
     state.isShowcaseMode = !state.isShowcaseMode;
     if (state.isShowcaseMode) {
-        startCinematicPresentation();
+        startCinematicPresentation({ preserveFlowTimers: true });
     } else {
         stopCinematicPresentation();
     }
@@ -8729,6 +9553,10 @@ function bindSpecFormSlider(id, readoutId, suffix, tableCellId, callback) {
 // Toggle Mesh Node Visibilities inside Three.js Group geometries
 function toggleRenderVisibility() {
     if (!activeModelGroup) return;
+    if (state.renderMode !== 'solid' && state.materialView !== 'hologram') {
+        state.materialView = 'hologram';
+        updateMaterialViewUi();
+    }
     
     activeModelGroup.traverse(child => {
         // Custom 2D->3D volumetric mesh group render controls (v3.9)
@@ -9083,22 +9911,13 @@ function decodeSharePayload(encoded) {
 }
 
 function buildShareState() {
-    const projectSnapshot = saveProjectSnapshot({ silent: true }) || buildProjectSnapshot();
+    const storedSnapshot = saveProjectSnapshot({ silent: true }) || buildProjectSnapshot();
+    const projectSnapshot = buildCompactShareSnapshot(storedSnapshot);
     const shareState = {
         holosynShare: 'url-share-state-v1',
         exportedAt: new Date().toISOString(),
-        product: projectSnapshot.product,
         projectSnapshot,
-        camera: getCameraShareState(),
-        notes: {
-            count: state.presenterNotes.length,
-            presenterNotes: state.presenterNotes
-        },
-        measurements: {
-            count: state.savedMeasurements.length,
-            savedMeasurements: state.savedMeasurements
-        },
-        warning: 'Custom GLB/image binaries are not embedded in the URL. Re-drop original files if this share uses a custom local import.'
+        warning: 'Custom GLB/image binaries are not embedded in the URL. Use a HOLOSYN portable project bundle when the model file must travel with the scene.'
     };
     state.shareStateLastBuilt = shareState.exportedAt;
     updateShareLinkPanel();
@@ -9124,6 +9943,7 @@ async function copyShareLink() {
     } catch (error) {
         window.location.hash = new URL(result.url).hash;
     }
+    markHandoffExportReady();
     const copied = await copyTextToClipboard(result.url);
     const detail = document.getElementById('share-link-detail');
     const status = document.getElementById('share-link-status');
@@ -9149,6 +9969,7 @@ function exportShareState() {
         'application/json',
         `${getExportBaseName(getProductName())}_holosyn_share_state.json`
     );
+    markHandoffExportReady();
     showNotification(
         state.language === 'ko' ? '공유 상태 저장' : 'Share State Saved',
         state.language === 'ko' ? 'URL 공유와 같은 상태 데이터를 JSON으로 저장했습니다.' : 'Saved the same state used by URL sharing as JSON.'
@@ -9223,7 +10044,7 @@ function updateShareLinkPanel() {
     const detail = document.getElementById('share-link-detail');
     if (status) status.textContent = state.shareStateLastBuilt ? 'LINK BUILT' : 'URL READY';
     if (detail && state.shareStateLastBuilt) {
-        detail.textContent = `Last packed ${new Date(state.shareStateLastBuilt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}. Custom binaries are excluded.`;
+        detail.textContent = `Last packed ${new Date(state.shareStateLastBuilt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}. Use PORTABLE PROJECT when the model must be included.`;
     }
 }
 
@@ -9239,6 +10060,77 @@ function getPresenterNoteContext() {
         partTitle: part?.title || part?.label || null,
         key: `${state.activePreset}|${state.activeDemoPreset || 'manual'}|${timeLabel}|${part?.title || 'scene'}`
     };
+}
+
+function limitSnapshotText(value, fallback = '', maxLength = 240) {
+    if (typeof value !== 'string') return fallback;
+    const text = value.trim();
+    return (text || fallback).slice(0, maxLength);
+}
+
+function finiteSnapshotNumber(value, fallback = 0, limit = 1_000_000) {
+    const number = Number(value);
+    if (!Number.isFinite(number)) return fallback;
+    return Math.max(-limit, Math.min(limit, number));
+}
+
+function normalizeSnapshotPoint(point) {
+    return {
+        x: finiteSnapshotNumber(point?.x),
+        y: finiteSnapshotNumber(point?.y),
+        z: finiteSnapshotNumber(point?.z)
+    };
+}
+
+function normalizePresenterNotes(notes) {
+    if (!Array.isArray(notes)) return [];
+    return notes.slice(0, 200).map((note, index) => {
+        const context = note?.context || {};
+        return {
+            id: limitSnapshotText(note?.id, `note-${index + 1}`, 120),
+            createdAt: limitSnapshotText(note?.createdAt, '', 64),
+            text: limitSnapshotText(note?.text, '', 4000),
+            context: {
+                preset: limitSnapshotText(context.preset, 'scene', 80),
+                demoPreset: limitSnapshotText(context.demoPreset, 'manual', 80),
+                renderMode: limitSnapshotText(context.renderMode, 'solid', 40),
+                cameraMode: limitSnapshotText(context.cameraMode, 'orbit', 40),
+                timelineTime: finiteSnapshotNumber(context.timelineTime, 0, 86_400),
+                partTitle: limitSnapshotText(context.partTitle, '', 240) || null,
+                key: limitSnapshotText(context.key, '', 500)
+            }
+        };
+    }).filter(note => note.text);
+}
+
+function normalizeSavedMeasurements(measurements) {
+    if (!Array.isArray(measurements)) return [];
+    return measurements.slice(0, 100).filter(measurement => (
+        measurement && measurement.points?.start && measurement.points?.end
+    )).map((measurement, index) => {
+        const distanceMm = Math.max(0, finiteSnapshotNumber(measurement.distanceMm, 0));
+        return {
+            id: limitSnapshotText(measurement.id, `m-${index + 1}`, 120),
+            label: limitSnapshotText(measurement.label, `M${index + 1}`, 120),
+            createdAt: limitSnapshotText(measurement.createdAt, '', 64),
+            preset: limitSnapshotText(measurement.preset, state.activePreset, 80),
+            productName: limitSnapshotText(measurement.productName, getProductName(), 160),
+            mmPerUnit: Math.max(0, finiteSnapshotNumber(measurement.mmPerUnit, 0)),
+            baseUnits: Math.max(0, finiteSnapshotNumber(measurement.baseUnits, 0)),
+            distanceMm,
+            distanceText: limitSnapshotText(measurement.distanceText, `${distanceMm} mm`, 80),
+            points: {
+                start: normalizeSnapshotPoint(measurement.points.start),
+                end: normalizeSnapshotPoint(measurement.points.end)
+            },
+            localPoints: measurement.localPoints?.start && measurement.localPoints?.end
+                ? {
+                    start: normalizeSnapshotPoint(measurement.localPoints.start),
+                    end: normalizeSnapshotPoint(measurement.localPoints.end)
+                }
+                : null
+        };
+    });
 }
 
 function updatePresenterNotesPanel() {
@@ -9324,16 +10216,42 @@ function updateMeasurementsPanel() {
     const list = document.getElementById('measurements-list');
     if (status) status.textContent = `${state.savedMeasurements.length} SAVED`;
     if (!list) return;
+    list.replaceChildren();
     if (state.savedMeasurements.length === 0) {
-        list.innerHTML = '<span>3D 측정 도구로 A/B 지점을 찍으면 치수가 여기에 누적됩니다.</span>';
+        const empty = document.createElement('span');
+        empty.textContent = '3D 측정 도구로 A/B 지점을 찍으면 치수가 여기에 누적됩니다.';
+        list.appendChild(empty);
         return;
     }
-    list.innerHTML = state.savedMeasurements.map((measurement, index) => `
-        <div class="measurement-row" data-measurement-id="${measurement.id}">
-            <span>${measurement.label || `M${index + 1}`} · ${measurement.preset || state.activePreset}</span>
-            <strong>${measurement.distanceText || `${measurement.distanceMm} mm`}</strong>
-        </div>
-    `).join('');
+    state.savedMeasurements.forEach((measurement, index) => {
+        const row = document.createElement('div');
+        row.className = 'measurement-row';
+        row.dataset.measurementId = String(measurement.id || `m-${index + 1}`);
+
+        const label = document.createElement('span');
+        label.textContent = `${measurement.label || `M${index + 1}`} · ${measurement.preset || state.activePreset}`;
+        const value = document.createElement('strong');
+        value.textContent = measurement.distanceText || `${measurement.distanceMm} mm`;
+        row.append(label, value);
+        list.appendChild(row);
+    });
+}
+
+function createCaliperBadge(container, id, label, distanceText) {
+    if (!container) return null;
+    const badge = document.createElement('div');
+    badge.className = 'caliper-badge';
+    badge.dataset.caliperId = String(id || 'measurement');
+
+    const title = document.createElement('span');
+    title.className = 'label-title';
+    title.textContent = label || '3D DIMENSION';
+    const value = document.createElement('span');
+    value.className = 'label-value';
+    value.textContent = `L: ${distanceText || '0 mm'}`;
+    badge.append(title, value);
+    container.appendChild(badge);
+    return badge;
 }
 
 function saveMeasurementRecord(measurement) {
@@ -9387,17 +10305,12 @@ function createCaliperVisualFromMeasurement(measurement) {
     drawingsGroup.add(line);
 
     const container = document.getElementById('annotations-container');
-    let badge = null;
-    if (container) {
-        badge = document.createElement('div');
-        badge.className = 'caliper-badge';
-        badge.dataset.caliperId = id;
-        badge.innerHTML = `
-            <span class="label-title">${measurement.label || '3D DIMENSION'}</span>
-            <span class="label-value">L: ${measurement.distanceText || `${measurement.distanceMm} mm`}</span>
-        `;
-        container.appendChild(badge);
-    }
+    const badge = createCaliperBadge(
+        container,
+        id,
+        measurement.label || '3D DIMENSION',
+        measurement.distanceText || `${measurement.distanceMm} mm`
+    );
 
     calipersList.push({
         id,
@@ -9450,21 +10363,108 @@ function getMeshyStorageKey() {
     return 'holosyn_meshy_api_key';
 }
 
+function getMeshySessionStorage() {
+    try {
+        return window.sessionStorage;
+    } catch (error) {
+        addConsoleLog(`[MESHY] Session storage unavailable: ${error.message}`, 'warning');
+        return null;
+    }
+}
+
+function migrateLegacyMeshyApiKey() {
+    const legacyStorage = getBrowserStorage();
+    const sessionStorage = getMeshySessionStorage();
+    if (!legacyStorage || !sessionStorage) return;
+    const legacyKey = legacyStorage.getItem(getMeshyStorageKey());
+    if (legacyKey && !sessionStorage.getItem(getMeshyStorageKey())) {
+        sessionStorage.setItem(getMeshyStorageKey(), legacyKey);
+    }
+    if (legacyKey) {
+        legacyStorage.removeItem(getMeshyStorageKey());
+        addConsoleLog('[MESHY] Migrated legacy saved key to this tab session.', 'info');
+    }
+}
+
 function getMeshyApiKey() {
     const input = document.getElementById('meshy-api-key');
     const typed = input?.value.trim();
     if (typed) return typed;
-    const storage = getBrowserStorage();
+    const storage = getMeshySessionStorage();
     return storage?.getItem(getMeshyStorageKey()) || '';
 }
 
 function updateMeshyPanel() {
+    const panel = document.getElementById('meshy-import-panel');
     const status = document.getElementById('meshy-status');
     const progress = document.getElementById('meshy-progress');
     const imageName = document.getElementById('meshy-image-name');
+    const transportRow = document.getElementById('meshy-transport-row');
+    const transportStatus = document.getElementById('meshy-transport-status');
+    const transportDetail = document.getElementById('meshy-transport-detail');
     if (status) status.textContent = state.meshy.status || 'READY';
     if (progress) progress.textContent = `${Math.round(state.meshy.progress || 0)}%`;
     if (imageName) imageName.textContent = state.meshy.selectedImageName || (state.customImageBase64 ? 'Current HOLOSYN image available' : 'No image selected');
+    if (panel) panel.classList.toggle('gateway-active', state.meshy.transport === 'gateway');
+    if (transportRow) {
+        transportRow.classList.toggle('secure', state.meshy.transport === 'gateway');
+        transportRow.classList.toggle('session', state.meshy.transport === 'direct');
+    }
+    if (transportStatus) {
+        transportStatus.textContent = state.meshy.transport === 'gateway'
+            ? 'SECURE GATEWAY'
+            : (state.meshy.transport === 'direct' ? 'SESSION KEY' : 'CHECKING');
+    }
+    if (transportDetail) {
+        transportDetail.textContent = state.meshy.transport === 'gateway'
+            ? '서버가 Meshy 인증을 처리합니다. API 키는 브라우저로 전달되지 않습니다.'
+            : (state.meshy.transport === 'direct'
+                ? '게이트웨이 키가 없어 개발용 세션 키를 사용합니다. 탭을 닫으면 키가 사라집니다.'
+                : '로컬 보안 게이트웨이를 확인하고 있습니다.');
+    }
+}
+
+async function checkMeshyGateway() {
+    migrateLegacyMeshyApiKey();
+    try {
+        const response = await fetch('/api/health', { cache: 'no-store' });
+        if (!response.ok) throw new Error(`Health check failed (${response.status})`);
+        const health = await response.json();
+        if (health.service !== 'holosyn-local-gateway') throw new Error('Gateway signature missing');
+        state.meshy.gatewayStatus = health.meshyConfigured ? 'READY' : 'NO KEY';
+        state.meshy.gatewayConfigured = Boolean(health.meshyConfigured);
+        state.meshy.transport = health.meshyConfigured ? 'gateway' : 'direct';
+        addConsoleLog(
+            health.meshyConfigured
+                ? '[MESHY] Secure local gateway ready.'
+                : '[MESHY] Local gateway is running without a Meshy key; session fallback enabled.',
+            health.meshyConfigured ? 'success' : 'info'
+        );
+    } catch (error) {
+        state.meshy.gatewayStatus = 'UNAVAILABLE';
+        state.meshy.gatewayConfigured = false;
+        state.meshy.transport = 'direct';
+        addConsoleLog(`[MESHY] Gateway unavailable; session fallback enabled: ${error.message}`, 'warning');
+    }
+    updateMeshyPanel();
+}
+
+function hasMeshyCredentials() {
+    return state.meshy.gatewayConfigured || Boolean(getMeshyApiKey());
+}
+
+function fetchMeshyApi(path = '', options = {}) {
+    const useGateway = state.meshy.gatewayConfigured;
+    const apiKey = getMeshyApiKey();
+    const url = useGateway
+        ? `/api/meshy/image-to-3d${path}`
+        : `https://api.meshy.ai/openapi/v1/image-to-3d${path}`;
+    const headers = {
+        ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+        ...(!useGateway && apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
+        ...(options.headers || {})
+    };
+    return fetch(url, { ...options, headers });
 }
 
 function saveMeshyApiKey() {
@@ -9473,18 +10473,22 @@ function saveMeshyApiKey() {
         showNotification(state.language === 'ko' ? '키 없음' : 'No Key', state.language === 'ko' ? 'Meshy API 키를 입력하세요.' : 'Enter a Meshy API key first.');
         return;
     }
-    const storage = getBrowserStorage();
+    const storage = getMeshySessionStorage();
     if (storage) storage.setItem(getMeshyStorageKey(), key);
-    showNotification(state.language === 'ko' ? 'Meshy 키 저장' : 'Meshy Key Saved', state.language === 'ko' ? '이 브라우저에만 API 키를 저장했습니다.' : 'Saved the API key in this browser only.');
-    addConsoleLog('[MESHY] API key stored locally in this browser.', 'success');
+    state.meshy.transport = 'direct';
+    updateMeshyPanel();
+    showNotification(state.language === 'ko' ? 'Meshy 세션 키 준비' : 'Meshy Session Key Ready', state.language === 'ko' ? '현재 탭 세션에만 키를 보관합니다. 탭을 닫으면 삭제됩니다.' : 'The key is held only for this tab session and disappears when the tab closes.');
+    addConsoleLog('[MESHY] API key stored for this tab session only.', 'success');
 }
 
 function clearMeshyApiKey() {
-    const storage = getBrowserStorage();
-    if (storage) storage.removeItem(getMeshyStorageKey());
+    const sessionStorage = getMeshySessionStorage();
+    const legacyStorage = getBrowserStorage();
+    if (sessionStorage) sessionStorage.removeItem(getMeshyStorageKey());
+    if (legacyStorage) legacyStorage.removeItem(getMeshyStorageKey());
     const input = document.getElementById('meshy-api-key');
     if (input) input.value = '';
-    showNotification(state.language === 'ko' ? 'Meshy 키 삭제' : 'Meshy Key Cleared', state.language === 'ko' ? '브라우저에 저장된 Meshy 키를 지웠습니다.' : 'Cleared the saved Meshy key from this browser.');
+    showNotification(state.language === 'ko' ? 'Meshy 키 삭제' : 'Meshy Key Cleared', state.language === 'ko' ? '현재 탭과 이전 브라우저 저장소의 Meshy 키를 지웠습니다.' : 'Cleared the Meshy key from this tab and legacy browser storage.');
     addConsoleLog('[MESHY] API key cleared.', 'info');
 }
 
@@ -9530,10 +10534,9 @@ function useCurrentImageForMeshy() {
 }
 
 async function startMeshyImageTo3D() {
-    const apiKey = getMeshyApiKey();
     const imageUrl = state.meshy.selectedImageDataUri || state.customImageBase64;
-    if (!apiKey) {
-        showNotification(state.language === 'ko' ? 'Meshy 키 필요' : 'Meshy Key Required', state.language === 'ko' ? 'Image-to-3D 생성에는 Meshy API 키가 필요합니다.' : 'Meshy Image-to-3D needs an API key.');
+    if (!hasMeshyCredentials()) {
+        showNotification(state.language === 'ko' ? 'Meshy 연결 필요' : 'Meshy Connection Required', state.language === 'ko' ? '.env.local에 서버 키를 설정하거나 현재 탭에 세션 키를 입력하세요.' : 'Set a server key in .env.local or enter a key for this tab session.');
         return;
     }
     if (!imageUrl) {
@@ -9544,12 +10547,8 @@ async function startMeshyImageTo3D() {
     state.meshy.progress = 1;
     updateMeshyPanel();
     try {
-        const response = await fetch('https://api.meshy.ai/openapi/v1/image-to-3d', {
+        const response = await fetchMeshyApi('', {
             method: 'POST',
-            headers: {
-                Authorization: `Bearer ${apiKey}`,
-                'Content-Type': 'application/json'
-            },
             body: JSON.stringify({
                 image_url: imageUrl,
                 enable_pbr: true,
@@ -9576,7 +10575,7 @@ async function startMeshyImageTo3D() {
         updateMeshyPanel();
         showNotification(
             state.language === 'ko' ? 'Meshy 요청 실패' : 'Meshy Request Failed',
-            state.language === 'ko' ? 'API 키, CORS, 네트워크, 과금 상태를 확인하세요.' : 'Check API key, CORS, network, and billing status.'
+            state.language === 'ko' ? '게이트웨이 설정, API 키, 네트워크, 과금 상태를 확인하세요.' : 'Check gateway setup, API key, network, and billing status.'
         );
         addConsoleLog(`[MESHY] ${error.message}`, 'error');
     }
@@ -9589,16 +10588,13 @@ function scheduleMeshyPoll() {
 
 async function checkMeshyTask(options = {}) {
     const { keepPolling = false } = options;
-    const apiKey = getMeshyApiKey();
     const taskId = state.meshy.taskId;
-    if (!apiKey || !taskId) {
+    if (!hasMeshyCredentials() || !taskId) {
         showNotification(state.language === 'ko' ? 'Meshy 태스크 없음' : 'No Meshy Task', state.language === 'ko' ? '먼저 Image-to-3D 생성을 시작하세요.' : 'Start an Image-to-3D task first.');
         return;
     }
     try {
-        const response = await fetch(`https://api.meshy.ai/openapi/v1/image-to-3d/${encodeURIComponent(taskId)}`, {
-            headers: { Authorization: `Bearer ${apiKey}` }
-        });
+        const response = await fetchMeshyApi(`/${encodeURIComponent(taskId)}`);
         if (!response.ok) throw new Error(`Meshy status failed (${response.status})`);
         const data = await response.json();
         state.meshy.status = data.status || 'PROCESSING';
@@ -10520,17 +11516,12 @@ function initSpatialDrawingEngine() {
                     caliperLine.name = `caliper-${measurementId}-line`;
                     drawingsGroup.add(caliperLine);
                     
-                    let badge = null;
-                    if (container) {
-                        badge = document.createElement('div');
-                        badge.className = 'caliper-badge';
-                        badge.dataset.caliperId = measurementId;
-                        badge.innerHTML = `
-                            <span class="label-title">${measurementLabel} · ${state.language === 'ko' ? '3D 프로젝션 치수' : '3D DIMENSION'}</span>
-                            <span class="label-value">L: ${distanceText}</span>
-                        `;
-                        container.appendChild(badge);
-                    }
+                    const badge = createCaliperBadge(
+                        container,
+                        measurementId,
+                        `${measurementLabel} · ${state.language === 'ko' ? '3D 프로젝션 치수' : '3D DIMENSION'}`,
+                        distanceText
+                    );
                     
                     playAiComplete();
                     
@@ -12281,6 +13272,7 @@ function loadArchiveSlots() {
                 
                 state.themeColor = proto.themeColor || '#007aff';
                 state.renderMode = proto.renderMode || 'wireframe';
+                state.materialView = ['hologram', 'product', 'hybrid'].includes(proto.materialView) ? proto.materialView : 'hologram';
                 state.customImageExtrusion = proto.customImageExtrusion !== undefined ? proto.customImageExtrusion : 0.75;
                 state.activePreset = proto.activePreset || 'custom';
                 
@@ -12288,6 +13280,7 @@ function loadArchiveSlots() {
                 document.querySelectorAll('.render-mode-btn').forEach(btn => {
                     btn.classList.toggle('active', btn.getAttribute('data-mode') === state.renderMode);
                 });
+                updateMaterialViewUi();
                 
                 if (proto.activePreset === 'custom' && proto.customImageBase64) {
                     const img = new Image();
@@ -12336,6 +13329,7 @@ function loadArchiveSlots() {
                         state.customImageBase64 = proto.customImageBase64;
                         state.customImageTexture = new THREE.TextureLoader().load(proto.customImageBase64);
                         state.customImageTexture.minFilter = THREE.LinearFilter;
+                        state.customImageTexture.encoding = THREE.sRGBEncoding;
                         
                         uploadedMeshGroup = null;
                         state.imageUploaded = true;
@@ -12416,6 +13410,7 @@ function saveCurrentToArchive() {
         thermal: thermal,
         themeColor: state.themeColor,
         renderMode: state.renderMode,
+        materialView: state.materialView,
         customImageExtrusion: state.customImageExtrusion,
         activePreset: state.activePreset,
         customImageBase64: state.activePreset === 'custom' ? state.customImageBase64 : null,
@@ -12464,6 +13459,11 @@ function disposeHierarchy(obj) {
                 }
             }
         }
+        ['productMaterial', 'hologramMaterial'].forEach(key => {
+            const stored = child.userData?.[key];
+            if (!stored || stored === child.material) return;
+            visitMaterialSet(stored, mat => disposeMaterial(mat));
+        });
     });
 }
 
@@ -13026,7 +14026,7 @@ function initDynamicFluidAurora() {
 
 // --- Phase 3: Premium Glare & 3D Tilt UI Cards ---
 function initInteractiveTiltCards() {
-    const panels = document.querySelectorAll('.glass-panel');
+    const panels = document.querySelectorAll('.glass-panel:not(.tutorial-card):not(.tutorial-prompt-content)');
     
     panels.forEach(card => {
         if (!card.querySelector('.glass-panel-glare')) {
@@ -13129,6 +14129,7 @@ function createSpatialReticleRings() {
     innerRing.name = "reticle-inner";
     innerRing.rotation.x = Math.PI / 2;
     reticleGroup.add(innerRing);
+    reticleGroup.visible = state.targetingReticles && state.materialView !== 'product';
     
     scene.add(reticleGroup);
     
@@ -13169,7 +14170,7 @@ function initVolumetricLaserBeam() {
 }
 
 function updateVolumetricLaserBeam(delta, elapsedTime) {
-    if (!volumetricLaserBeam || state.isPyramidMode) {
+    if (!volumetricLaserBeam || state.isPyramidMode || state.materialView === 'product') {
         if (volumetricLaserBeam && volumetricLaserBeam.visible) volumetricLaserBeam.visible = false;
         return;
     }

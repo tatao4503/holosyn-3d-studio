@@ -32,7 +32,7 @@
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <!-- Stylesheet -->
-    <link rel="stylesheet" href="index.css?v=20260709-share-media">
+    <link rel="stylesheet" href="index.css?v=20260715-tutorialmap">
 </head>
 <body class="theme-blue">
     <!-- Ambient Vignette Background -->
@@ -49,6 +49,8 @@
     <div id="mac-toast-container"></div>
 
     <div id="app-container" class="hud-grid-layout ui-beginner" role="application">
+        <!-- Kept inside the app stacking context so mobile drawers stay interactive above it. -->
+        <div class="drawer-backdrop" id="drawer-backdrop"></div>
         <!-- HEADER PANEL -->
         <header id="hud-header" class="glass-panel" role="banner" aria-label="Main Header">
             <div class="header-left">
@@ -164,18 +166,23 @@
                         </button>
                     </div>
                 </div>
-                <div id="meshy-import-panel" class="meshy-import-panel">
+                <div id="meshy-import-panel" class="meshy-import-panel beginner-advanced">
                     <div class="meshy-import-header">
                         <span>IMAGE TO REAL 3D</span>
                         <strong id="meshy-status">READY</strong>
                     </div>
-                    <p class="meshy-import-copy">사진 한 장을 Meshy Image-to-3D 태스크로 보내 GLB 메쉬를 받아옵니다. API 키는 브라우저에만 보관됩니다.</p>
+                    <p class="meshy-import-copy">사진 한 장을 Meshy Image-to-3D 태스크로 보내 GLB 메쉬를 받아옵니다. 보안 게이트웨이가 있으면 API 키가 브라우저에 노출되지 않습니다.</p>
+                    <div class="meshy-transport-row" id="meshy-transport-row">
+                        <span>CONNECTION</span>
+                        <strong id="meshy-transport-status">CHECKING</strong>
+                        <small id="meshy-transport-detail">로컬 보안 게이트웨이를 확인하고 있습니다.</small>
+                    </div>
                     <input type="file" id="meshy-image-input" accept="image/png,image/jpeg" style="display: none;">
                     <div class="meshy-key-row">
-                        <input id="meshy-api-key" type="password" autocomplete="off" placeholder="Meshy API key">
-                        <button id="btn-meshy-save-key" class="hud-btn outline-btn" type="button" title="이 브라우저에 Meshy API 키 저장">
+                        <input id="meshy-api-key" type="password" autocomplete="off" placeholder="개발용 Meshy API key">
+                        <button id="btn-meshy-save-key" class="hud-btn outline-btn" type="button" title="현재 탭 세션에만 Meshy API 키 보관">
                             <i data-lucide="key-round"></i>
-                            <span>SAVE</span>
+                            <span>SESSION</span>
                         </button>
                         <button id="btn-meshy-clear-key" class="hud-btn outline-btn" type="button" title="Meshy API 키 삭제">
                             <i data-lucide="x"></i>
@@ -242,7 +249,7 @@
                         <span>Exo-Suit</span>
                     </button>
                 </div>
-                <div class="demo-presets-panel" id="demo-presets-panel">
+                <div class="demo-presets-panel beginner-advanced" id="demo-presets-panel">
                     <div class="demo-presets-header">
                         <span>DEMO SCENE PRESETS</span>
                         <strong id="demo-preset-status">Manual</strong>
@@ -327,7 +334,7 @@
             </div>
             
             <!-- 3. Robotic Assembly Steps (v3.6) -->
-            <div class="panel-section beginner-show">
+            <div class="panel-section">
                 <h2 class="section-title"><i data-lucide="layers"></i> <span data-i18n="assembly_steps">로봇 조립 시퀀스 가이드</span></h2>
                 <div class="assembly-steps-grid">
                     <button class="hud-btn outline-btn assembly-btn active" data-step="0">ALL UNLOAD</button>
@@ -355,7 +362,7 @@
             </div>
 
             <!-- 4. AI Auto-Scan Panel (v3.6) -->
-            <div class="panel-section beginner-show">
+            <div class="panel-section">
                 <h2 class="section-title"><i data-lucide="clipboard-check" class="glow-icon"></i> <span data-i18n="ai_diagnostics">AI SYSTEM DIAGNOSTICS</span></h2>
                 <button id="btn-ai-scan" class="hud-btn warning-btn border-flash" style="width: 100%;">
                     <i data-lucide="scan"></i> <span data-i18n="ai_scan_btn">시제품 체크 실행</span>
@@ -363,7 +370,7 @@
             </div>
 
             <!-- 4. Quick Styles presets (Beginner show) -->
-            <div class="panel-section beginner-show" id="beginner-quick-styles">
+            <div class="panel-section" id="beginner-quick-styles">
                 <h2 class="section-title"><i data-lucide="sparkles"></i> <span data-i18n="quick_styles">QUICK STYLES</span></h2>
                 <div class="quick-styles-grid">
                     <button class="style-btn" data-style="minimal" title="단색 부드러운 스튜디오 연출">
@@ -560,6 +567,37 @@
                 <p id="pres-product-sub">PROTOTYPE // UAV DEVELOPMENT</p>
             </div>
 
+            <div id="beginner-flow" class="beginner-flow" aria-label="3-step quick workflow">
+                <button id="btn-beginner-import" class="beginner-flow-command" type="button">
+                    <span class="beginner-step-index">1</span>
+                    <i data-lucide="upload"></i>
+                    <strong id="beginner-import-label">넣기</strong>
+                </button>
+                <div class="beginner-reveal-control">
+                    <div class="beginner-reveal-title">
+                        <span class="beginner-step-index">2</span>
+                        <strong id="beginner-reveal-label">보기</strong>
+                        <em id="beginner-reveal-status">HOLO</em>
+                    </div>
+                    <div class="beginner-reveal-modes" role="group" aria-label="빠른 제품 보기 모드">
+                        <button class="beginner-material-btn active" type="button" data-material-view="hologram" aria-label="홀로그램 구조" aria-pressed="true" title="홀로그램 구조">
+                            <i data-lucide="scan-line"></i><span>HOLO</span>
+                        </button>
+                        <button class="beginner-material-btn" type="button" data-material-view="product" aria-label="제품 색상" aria-pressed="false" title="제품 색상">
+                            <i data-lucide="palette"></i><span>COLOR</span>
+                        </button>
+                        <button class="beginner-material-btn" type="button" data-material-view="hybrid" aria-label="선택 부품" aria-pressed="false" title="선택 부품">
+                            <i data-lucide="layers-3"></i><span>PART</span>
+                        </button>
+                    </div>
+                </div>
+                <button id="btn-beginner-pitch" class="beginner-flow-command beginner-pitch-command" type="button">
+                    <span class="beginner-step-index">3</span>
+                    <i data-lucide="play"></i>
+                    <strong id="beginner-pitch-label">발표·공유</strong>
+                </button>
+            </div>
+
             <div id="flow-coach" class="flow-coach" aria-label="Prototype workflow">
                 <div class="flow-steps" role="list">
                     <button class="flow-step active" data-flow-step="model" type="button">
@@ -582,6 +620,10 @@
                 <button id="btn-demo-run" class="flow-demo-btn" type="button" title="자동 발표 흐름 실행">
                     <i data-lucide="wand-sparkles"></i>
                     <span data-i18n="flow_demo">데모 런</span>
+                </button>
+                <button id="btn-pitch-run" class="flow-pitch-btn" type="button" title="심사/발표용 30초 피치 흐름 실행">
+                    <i data-lucide="timer-reset"></i>
+                    <span>30s PITCH</span>
                 </button>
                 <button id="btn-final-pass" class="flow-final-btn" type="button" title="최종 데모 상태 점검">
                     <i data-lucide="badge-check"></i>
@@ -742,6 +784,27 @@
                     <button class="render-mode-btn" data-mode="xray" title="내부 구조 투과 시각화 시뮬레이터">
                         <i data-lucide="eye"></i> <span data-i18n="xray_shell">엑스레이 투과</span>
                     </button>
+                </div>
+                <div class="material-view-control" id="material-view-control">
+                    <div class="material-view-header">
+                        <span>MATERIAL REVEAL</span>
+                        <strong id="material-view-status">HOLOGRAM</strong>
+                    </div>
+                    <div class="material-view-segment" role="group" aria-label="제품 재질 표시 모드">
+                        <button class="material-view-btn active" type="button" data-material-view="hologram" aria-pressed="true" title="홀로그램 구조 표현">
+                            <i data-lucide="scan-line"></i>
+                            <span>HOLO</span>
+                        </button>
+                        <button class="material-view-btn" type="button" data-material-view="product" aria-pressed="false" title="원본 제품 색상과 PBR 재질 표시">
+                            <i data-lucide="palette"></i>
+                            <span>PRODUCT</span>
+                        </button>
+                        <button class="material-view-btn" type="button" data-material-view="hybrid" aria-pressed="false" title="선택 부품만 실제 재질로 표시">
+                            <i data-lucide="layers-3"></i>
+                            <span>HYBRID</span>
+                        </button>
+                    </div>
+                    <small id="material-view-detail">홀로그램 스타일로 구조와 실루엣을 강조합니다.</small>
                 </div>
                 <button id="btn-quality-boost" class="quality-boost-btn active" type="button" aria-pressed="true" title="고해상도 렌더링과 스펙 카드 출력 강화">
                     <i data-lucide="sparkles"></i>
@@ -928,7 +991,7 @@
                             <span>상태 JSON</span>
                         </button>
                     </div>
-                    <small id="share-link-detail">Custom GLB/이미지 원본 파일은 URL에 포함되지 않습니다.</small>
+                    <small id="share-link-detail">Custom GLB까지 전달하려면 아래 PORTABLE PROJECT 번들을 사용하세요.</small>
                 </div>
                 <div class="clip-export-panel" id="clip-export-panel">
                     <div class="clip-export-header">
@@ -1137,6 +1200,24 @@
                             <i data-lucide="file-output"></i>
                             <span>JSON</span>
                         </button>
+                    </div>
+                    <div class="portable-project-row" id="portable-project-row">
+                        <div class="portable-project-status">
+                            <span>PORTABLE PROJECT</span>
+                            <strong id="portable-project-status">READY</strong>
+                            <small id="portable-project-detail">모델과 발표 상태를 한 파일로 전달합니다.</small>
+                        </div>
+                        <div class="portable-project-actions">
+                            <button class="hud-btn glow-btn snapshot-btn" id="btn-export-portable-project" type="button" title="모델과 발표 상태를 HOLOSYN 프로젝트로 내보내기">
+                                <i data-lucide="package-open"></i>
+                                <span>번들 저장</span>
+                            </button>
+                            <button class="hud-btn outline-btn snapshot-btn" id="btn-import-portable-project" type="button" title="HOLOSYN 휴대용 프로젝트 불러오기">
+                                <i data-lucide="folder-input"></i>
+                                <span>번들 열기</span>
+                            </button>
+                            <input id="portable-project-input" type="file" accept=".holosyn,application/json" hidden>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1376,9 +1457,6 @@
         </div>
     </div>
 
-    <!-- Drawer backdrop overlay (v3.8) -->
-    <div class="drawer-backdrop" id="drawer-backdrop"></div>
-
     <!-- Mobile Bottom Quick-Action Toolbar (v3.8) -->
     <div id="mobile-toolbar">
         <button class="mobile-tool-btn" data-action="menu-left" aria-label="Controls">
@@ -1515,13 +1593,15 @@
     <!-- Interactive Guide Tour (Phase D) -->
     <!-- 1. Tutorial Prompt Modal -->
     <div id="tutorial-prompt-modal" class="modal-backdrop tutorial-prompt-dock" style="display: none; z-index: 2040;">
-        <div class="modal-content glass-panel border-flash tutorial-prompt-content" style="max-width: 360px; padding: 20px;">
+        <div class="modal-content glass-panel border-flash tutorial-prompt-content">
             <div class="modal-header" style="margin-bottom: 12px;">
                 <i data-lucide="sparkles" class="modal-icon glow-icon" style="font-size: 20px; color: var(--theme-color);"></i>
                 <h2 id="tutorial-prompt-title" style="font-size: 16px; font-weight: 700; margin: 0; letter-spacing: 0.5px;">HOLOSYN 가이드 투어</h2>
             </div>
             <div class="modal-body" style="text-align: center; padding: 8px 0; margin-bottom: 16px;">
-                <p id="tutorial-prompt-desc" style="font-size: 12px; color: var(--text-secondary); line-height: 1.6; margin: 0;">HOLOSYN의 핵심 기능(프리셋, 분해도, 타임라인, 협업, AI)을 둘러보는 2분 가이드 투어를 시작하시겠습니까?</p>
+                <p id="tutorial-prompt-desc" style="font-size: 12px; color: var(--text-secondary); line-height: 1.6; margin: 0;">모델을 고르고 공유하는 전체 흐름을 핵심 5단계로 살펴봅니다.</p>
+                <div id="tutorial-overview" class="tutorial-overview" role="list" aria-label="튜토리얼 전체 단계"></div>
+                <p id="tutorial-prompt-meta" class="tutorial-prompt-meta">5개 기능 · 약 1분</p>
             </div>
             <div class="modal-footer" style="display: flex; gap: 12px; justify-content: center; width: 100%; margin-top: 0; border: none; padding: 0;">
                 <button id="btn-tutorial-prompt-skip" class="hud-btn outline-btn" style="flex: 1; min-height: 32px; font-size: 11px;" data-i18n="tutorial_skip_btn">건너뛰기</button>
@@ -1536,6 +1616,7 @@
             <div class="tutorial-step-indicator"><span data-i18n="tutorial_step_label">STEP</span> <span id="tutorial-current-step">1</span>/5</div>
             <button id="btn-tutorial-card-skip" class="tutorial-close-btn" title="Skip Tour"><i data-lucide="x"></i></button>
         </div>
+        <div id="tutorial-progress-rail" class="tutorial-progress-rail" role="list" aria-label="튜토리얼 전체 단계"></div>
         <div class="tutorial-card-body">
             <h3 id="tutorial-title">샘플 모델 시제품 투사</h3>
             <p id="tutorial-desc">드론, 링, 전기차, 배터리 등 내장된 3D 시제품을 클릭해 다른 모델을 즉시 투사할 수 있습니다.</p>
@@ -1588,9 +1669,9 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/BokehPass.js"></script>
 
     <!-- Main Script -->
-    <script src="app.js?v=20260709-share-media"></script>
-    <script src="scripts/holosyn-timeline.js?v=20260709-share-media"></script>
-    <script src="scripts/holosyn-pro-managers.js?v=20260709-share-media"></script>
+    <script src="app.js?v=20260715-tutorialmap"></script>
+    <script src="scripts/holosyn-timeline.js?v=20260715-tutorialmap"></script>
+    <script src="scripts/holosyn-pro-managers.js?v=20260715-tutorialmap"></script>
     <script>
         // Init Lucide Icons
         lucide.createIcons();

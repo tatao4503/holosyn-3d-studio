@@ -294,7 +294,7 @@ body::before {
    ========================================================================== */
 .hud-grid-layout {
     display: grid;
-    grid-template-columns: 340px 1fr 340px;
+    grid-template-columns: 340px minmax(0, 1fr) 340px;
     grid-template-rows: 64px 1fr 140px;
     gap: 16px;
     height: 100vh;
@@ -302,6 +302,12 @@ body::before {
     position: relative;
     z-index: 5;
     transition: var(--mac-transition);
+}
+
+#hud-left-panel,
+#hud-center-stage,
+#hud-right-panel {
+    min-width: 0;
 }
 
 /* ==========================================================================
@@ -1107,6 +1113,10 @@ body::before {
     display: none !important;
 }
 
+.ui-beginner .beginner-advanced {
+    display: none !important;
+}
+
 /* ==========================================================================
    CENTRAL VIEWPORT STAGE
    ========================================================================== */
@@ -1486,6 +1496,22 @@ body::before {
 
 /* Keep the dock clickable inside the three-column viewport on laptop widths. */
 @media (max-width: 1440px) {
+    #hud-header .header-center {
+        display: none;
+    }
+
+    #hud-header {
+        gap: 12px;
+    }
+
+    #hud-header .header-left {
+        min-width: 0;
+    }
+
+    #hud-header .header-right {
+        flex: 0 0 auto;
+    }
+
     #camera-cinematic-dock {
         gap: 4px;
         padding: 6px 10px;
@@ -1513,6 +1539,175 @@ body::before {
     color: #ffffff !important;
     background: var(--orange) !important;
     box-shadow: 0 4px 12px var(--orange-glow) !important;
+}
+
+/* Beginner quick flow: import -> reveal -> pitch/share */
+.beginner-flow {
+    display: none;
+    position: absolute;
+    top: 84px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 27;
+    width: min(590px, calc(100% - 32px));
+    min-height: 58px;
+    grid-template-columns: 112px minmax(230px, 1fr) 132px;
+    align-items: stretch;
+    gap: 6px;
+    padding: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 8px;
+    background: rgba(18, 20, 28, 0.78);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(18px) saturate(150%);
+    -webkit-backdrop-filter: blur(18px) saturate(150%);
+}
+
+.ui-beginner .beginner-flow {
+    display: grid;
+}
+
+.ui-beginner .flow-coach {
+    display: none;
+}
+
+.beginner-flow-command,
+.beginner-material-btn {
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 7px;
+    color: var(--text-muted);
+    background: rgba(255, 255, 255, 0.025);
+    cursor: pointer;
+    font-family: var(--font-ui);
+    transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+}
+
+.beginner-flow-command {
+    min-width: 0;
+    min-height: 46px;
+    padding: 7px 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.beginner-flow-command > i {
+    width: 14px;
+    height: 14px;
+    flex: 0 0 auto;
+}
+
+.beginner-flow-command strong,
+.beginner-reveal-title strong {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0;
+    white-space: nowrap;
+}
+
+.beginner-step-index {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-style: normal;
+    font-weight: 700;
+}
+
+.beginner-flow-command:hover,
+.beginner-flow-command.current,
+.beginner-material-btn:hover,
+.beginner-material-btn.active {
+    color: #ffffff;
+    border-color: var(--theme-color);
+    background: rgba(255, 255, 255, 0.07);
+}
+
+.beginner-flow-command.done .beginner-step-index,
+.beginner-flow-command.is-running .beginner-step-index {
+    color: #ffffff;
+    background: var(--theme-color);
+    box-shadow: 0 0 10px var(--theme-glow);
+}
+
+.beginner-pitch-command {
+    color: #ffffff;
+    border-color: rgba(48, 209, 88, 0.25);
+    background: rgba(48, 209, 88, 0.08);
+}
+
+.beginner-pitch-command.is-running {
+    pointer-events: none;
+    opacity: 0.82;
+}
+
+.beginner-reveal-control {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 7px;
+    padding: 4px 5px;
+    border-left: 1px solid rgba(255, 255, 255, 0.06);
+    border-right: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.beginner-reveal-title {
+    display: grid;
+    grid-template-columns: auto auto;
+    align-items: center;
+    gap: 3px 5px;
+}
+
+.beginner-reveal-title em {
+    grid-column: 2;
+    color: var(--theme-color);
+    font-family: var(--font-mono);
+    font-size: 8px;
+    font-style: normal;
+}
+
+.beginner-reveal-modes {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px;
+}
+
+.beginner-material-btn {
+    min-width: 0;
+    min-height: 38px;
+    padding: 5px 3px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+}
+
+.beginner-material-btn i {
+    width: 12px;
+    height: 12px;
+    flex: 0 0 auto;
+}
+
+.beginner-material-btn span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-family: var(--font-mono);
+    font-size: 8px;
+    white-space: nowrap;
+}
+
+.beginner-material-btn.active {
+    box-shadow: 0 0 12px var(--theme-glow);
 }
 
 /* Compact workflow coach: model -> structure -> present -> export */
@@ -1543,6 +1738,7 @@ body::before {
 
 .flow-step,
 .flow-demo-btn,
+.flow-pitch-btn,
 .flow-final-btn {
     border: 1px solid transparent;
     cursor: pointer;
@@ -1580,6 +1776,7 @@ body::before {
 
 .flow-step strong,
 .flow-demo-btn span,
+.flow-pitch-btn span,
 .flow-final-btn span {
     font-size: 10px;
     font-weight: 700;
@@ -1589,6 +1786,7 @@ body::before {
 
 .flow-step:hover,
 .flow-demo-btn:hover,
+.flow-pitch-btn:hover,
 .flow-final-btn:hover {
     color: var(--text-primary);
     background: rgba(255, 255, 255, 0.06);
@@ -1625,6 +1823,26 @@ body::before {
     height: 14px;
 }
 
+.flow-pitch-btn {
+    min-height: 32px;
+    min-width: 102px;
+    padding: 4px 11px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    color: #ffffff;
+    background: linear-gradient(135deg, rgba(255, 149, 0, 0.95), rgba(0, 122, 255, 0.55));
+    border-color: rgba(255, 149, 0, 0.22);
+    box-shadow: 0 0 16px rgba(255, 149, 0, 0.18), 0 0 18px var(--theme-glow);
+}
+
+.flow-pitch-btn i {
+    width: 14px;
+    height: 14px;
+}
+
 .flow-final-btn {
     min-height: 32px;
     min-width: 102px;
@@ -1654,6 +1872,13 @@ body::before {
     pointer-events: none;
     opacity: 0.82;
     transform: scale(0.98);
+}
+
+.flow-pitch-btn.is-running {
+    pointer-events: none;
+    opacity: 0.88;
+    transform: scale(0.98);
+    animation: pulse-drawing-pencil 1.4s infinite alternate;
 }
 
 .flow-focus-ring {
@@ -1889,6 +2114,52 @@ body::before {
 
 .meshy-key-row {
     grid-template-columns: minmax(0, 1fr) auto auto;
+}
+
+.meshy-transport-row {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    gap: 3px 8px;
+    padding: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 7px;
+    background: rgba(0, 0, 0, 0.2);
+    font-family: var(--font-mono);
+}
+
+.meshy-transport-row > span,
+.meshy-transport-row > strong {
+    font-size: 9px;
+}
+
+.meshy-transport-row > strong {
+    justify-self: end;
+    color: var(--text-muted);
+}
+
+.meshy-transport-row > small {
+    grid-column: 1 / -1;
+    color: var(--text-muted);
+    font-size: 8px;
+    line-height: 1.4;
+}
+
+.meshy-transport-row.secure {
+    border-color: rgba(48, 209, 88, 0.22);
+    background: rgba(48, 209, 88, 0.055);
+}
+
+.meshy-transport-row.secure > strong {
+    color: #30d158;
+}
+
+.meshy-transport-row.session > strong {
+    color: #ff9f0a;
+}
+
+.meshy-import-panel.gateway-active .meshy-key-row {
+    display: none;
 }
 
 .meshy-key-row input,
@@ -2441,6 +2712,53 @@ body::before {
     gap: 6px;
 }
 
+.portable-project-row {
+    display: grid;
+    gap: 8px;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.portable-project-status {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 3px 8px;
+    align-items: center;
+    font-family: var(--font-mono);
+}
+
+.portable-project-status > span,
+.portable-project-status > strong {
+    font-size: 9px;
+}
+
+.portable-project-status > strong {
+    color: var(--theme-color);
+}
+
+.portable-project-status > small {
+    grid-column: 1 / -1;
+    color: var(--text-muted);
+    font-size: 8px;
+    line-height: 1.4;
+}
+
+.portable-project-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+}
+
+.portable-project-row.is-busy .portable-project-actions {
+    opacity: 0.55;
+    pointer-events: none;
+}
+
+.portable-project-row.is-ready .portable-project-status > strong {
+    color: #30d158;
+}
+
 .snapshot-btn {
     min-height: 34px;
     padding: 8px 6px;
@@ -2511,6 +2829,79 @@ body::before {
     background: rgba(255, 255, 255, 0.05);
     border-color: var(--theme-color);
     font-weight: 600;
+}
+
+.material-view-control {
+    display: grid;
+    gap: 7px;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.material-view-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: var(--text-muted);
+}
+
+.material-view-header strong {
+    color: var(--theme-color);
+    font-size: 9px;
+}
+
+.material-view-segment {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px;
+    min-height: 38px;
+}
+
+.material-view-btn {
+    min-width: 0;
+    min-height: 38px;
+    padding: 6px 3px;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 7px;
+    background: rgba(255, 255, 255, 0.025);
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    transition: var(--mac-transition);
+}
+
+.material-view-btn i {
+    width: 12px;
+    height: 12px;
+    flex: 0 0 auto;
+}
+
+.material-view-btn:hover {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.material-view-btn.active {
+    color: #ffffff;
+    border-color: var(--theme-color);
+    background: color-mix(in srgb, var(--theme-color) 20%, rgba(255, 255, 255, 0.04));
+    box-shadow: 0 0 14px var(--theme-glow);
+}
+
+#material-view-detail {
+    color: var(--text-muted);
+    font-family: var(--font-ui);
+    font-size: 9px;
+    line-height: 1.4;
 }
 
 .quality-boost-btn {
@@ -3896,6 +4287,9 @@ button:focus-visible,
 .preset-btn:focus-visible,
 .segment-btn:focus-visible,
 .render-mode-btn:focus-visible,
+.material-view-btn:focus-visible,
+.beginner-flow-command:focus-visible,
+.beginner-material-btn:focus-visible,
 .camera-dock-btn:focus-visible,
 .assembly-btn:focus-visible,
 .env-mode-btn:focus-visible,
@@ -4364,6 +4758,49 @@ input[type="range"]:focus-visible {
         display: none !important;
     }
 
+    .beginner-flow {
+        top: 10px;
+        width: calc(100% - 24px);
+        min-height: 58px;
+        grid-template-columns: 84px minmax(0, 1fr) 104px;
+        gap: 4px;
+        padding: 4px;
+    }
+
+    .beginner-flow-command {
+        min-height: 48px;
+        padding: 5px 4px;
+        gap: 4px;
+    }
+
+    .beginner-reveal-control {
+        gap: 4px;
+        padding: 3px;
+    }
+
+    .beginner-reveal-title {
+        gap: 2px 3px;
+    }
+
+    .beginner-reveal-title strong {
+        display: none;
+    }
+
+    .beginner-reveal-title em {
+        grid-column: 1;
+        font-size: 7px;
+        text-align: center;
+    }
+
+    .beginner-material-btn {
+        min-height: 40px;
+        gap: 2px;
+    }
+
+    .beginner-material-btn span {
+        font-size: 7px;
+    }
+
     .flow-coach {
         top: 10px;
         width: calc(100% - 24px);
@@ -4413,6 +4850,32 @@ input[type="range"]:focus-visible {
 }
 
 @media (max-width: 480px) {
+    .beginner-flow {
+        grid-template-columns: 68px minmax(0, 1fr) 88px;
+    }
+
+    .beginner-flow-command > i {
+        display: none;
+    }
+
+    .beginner-flow-command strong {
+        font-size: 8px;
+    }
+
+    .beginner-step-index {
+        width: 16px;
+        height: 16px;
+        font-size: 8px;
+    }
+
+    .beginner-material-btn {
+        padding: 4px 2px;
+    }
+
+    .beginner-material-btn span {
+        display: none;
+    }
+
     #hud-left-panel,
     #hud-right-panel {
         width: 100vw !important;
@@ -5626,6 +6089,148 @@ body.pyramid-cinema-active {
     padding-bottom: 8px;
 }
 
+.tutorial-overview,
+.tutorial-progress-rail {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    width: 100%;
+}
+
+.tutorial-overview {
+    margin-top: 14px;
+}
+
+.tutorial-overview::before,
+.tutorial-progress-rail::before {
+    content: '';
+    position: absolute;
+    top: 16px;
+    left: 10%;
+    right: 10%;
+    height: 1px;
+    background: rgba(255, 255, 255, 0.14);
+}
+
+.tutorial-progress-rail::before {
+    top: 13px;
+}
+
+.tutorial-map-step {
+    position: relative;
+    z-index: 1;
+    min-width: 0;
+    padding: 0 2px;
+    border: 0;
+    background: transparent;
+    color: var(--text-muted);
+    font: inherit;
+    text-align: center;
+    cursor: default;
+}
+
+button.tutorial-map-step {
+    cursor: pointer;
+}
+
+.tutorial-map-icon {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    margin: 0 auto 6px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 50%;
+    background: rgba(15, 17, 21, 0.96);
+    transition: border-color 0.2s, background 0.2s, color 0.2s, box-shadow 0.2s;
+}
+
+.tutorial-map-icon svg {
+    width: 14px;
+    height: 14px;
+}
+
+.tutorial-map-number {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #242832;
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    font-size: 8px;
+    font-weight: 700;
+}
+
+.tutorial-map-label {
+    display: block;
+    min-width: 0;
+    color: inherit;
+    font-size: 9.5px;
+    font-weight: 650;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+}
+
+.tutorial-map-step.preview .tutorial-map-icon,
+.tutorial-map-step.completed .tutorial-map-icon {
+    border-color: color-mix(in srgb, var(--theme-color) 55%, transparent);
+    color: var(--theme-color);
+    background: color-mix(in srgb, var(--theme-color) 12%, #11141a);
+}
+
+.tutorial-map-step.current {
+    color: var(--text-primary);
+}
+
+.tutorial-map-step.current .tutorial-map-icon {
+    border-color: var(--theme-color);
+    color: #080a0d;
+    background: var(--theme-color);
+    box-shadow: 0 0 14px var(--theme-glow);
+}
+
+.tutorial-map-step.current .tutorial-map-number {
+    background: var(--text-primary);
+    color: #080a0d;
+}
+
+.tutorial-map-step.upcoming {
+    opacity: 0.58;
+}
+
+.tutorial-progress-rail {
+    padding: 1px 0 2px;
+}
+
+.tutorial-progress-rail .tutorial-map-icon {
+    width: 26px;
+    height: 26px;
+    margin-bottom: 5px;
+}
+
+.tutorial-progress-rail .tutorial-map-icon svg {
+    width: 12px;
+    height: 12px;
+}
+
+.tutorial-progress-rail .tutorial-map-number {
+    width: 12px;
+    height: 12px;
+    font-size: 7px;
+}
+
+.tutorial-progress-rail .tutorial-map-label {
+    font-size: 8.5px;
+}
+
 .tutorial-step-indicator {
     font-family: var(--font-mono);
     font-size: 10px;
@@ -5681,7 +6286,18 @@ body.pyramid-cinema-active {
 
 /* Prompt Modal Extra scale anim */
 .tutorial-prompt-content {
+    width: min(460px, calc(100vw - 32px));
+    max-width: none;
+    padding: 18px;
     animation: prompt-scale-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.tutorial-prompt-meta {
+    margin: 10px 0 0;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    text-align: center;
 }
 
 #tutorial-prompt-modal.tutorial-prompt-dock {
@@ -5695,8 +6311,8 @@ body.pyramid-cinema-active {
 }
 
 #tutorial-prompt-modal.tutorial-prompt-dock .tutorial-prompt-content {
-    width: min(330px, calc(100vw - 32px));
-    border-radius: 14px;
+    width: min(460px, calc(100vw - 32px));
+    border-radius: 8px;
     pointer-events: auto;
     box-shadow: 0 18px 48px rgba(0, 0, 0, 0.48), inset 0 1px 1px rgba(255, 255, 255, 0.08);
 }
@@ -5725,6 +6341,28 @@ body.pyramid-cinema-active {
     #tutorial-prompt-modal.tutorial-prompt-dock .tutorial-prompt-content {
         max-width: calc(100vw - 24px) !important;
         padding: 16px !important;
+    }
+
+    .tutorial-card {
+        width: min(360px, calc(100vw - 24px));
+        bottom: 148px !important;
+        padding: 14px;
+        gap: 10px;
+    }
+}
+
+@media (max-width: 420px) {
+    .tutorial-overview .tutorial-map-icon {
+        width: 28px;
+        height: 28px;
+    }
+
+    .tutorial-overview::before {
+        top: 14px;
+    }
+
+    .tutorial-overview .tutorial-map-label {
+        font-size: 8.5px;
     }
 }
 

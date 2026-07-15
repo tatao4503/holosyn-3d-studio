@@ -16,13 +16,12 @@ Use this when you want to check the product without showing it to anyone yet.
 ## 30-Second Version
 
 1. Open HOLOSYN and boot the engine.
-2. Say: "This is a local 3D prototype presentation viewer."
-3. Pick a sample prototype and point out the import quality and reliability risk card.
-4. Click the card's `NEXT ACTION` button to jump into the safest next presentation step.
-5. Use a quick viewport swipe or modifier-wheel/pinch gesture to show the Gesture Pilot response.
-6. Click `SHOWCASE` for the clean presentation view.
-7. Run `FINAL PASS`, then point to Showtime Pass, Beta Preflight, Beta Launch Pack, and Beta Ops Pack.
-8. Click `리허설 런북`, `시연 패키지 생성`, or `릴리즈 패키지` and explain that it bundles the current brief, risk check, snapshot, and handoff path.
+2. Click `30s PITCH`.
+3. Say: "This is not CAD. It turns a product concept into a meeting-ready 3D presentation."
+4. Let the pitch run move through hologram structure, HYBRID component focus, PRODUCT color reveal, Showcase, and Final Pass.
+5. Point to the address bar or `SHARE`: the same view can be opened from one link.
+6. Point to `PORTABLE PROJECT`: when the real model must travel too, one `.holosyn` file carries the model and presentation state together.
+7. If more proof is needed, click `리허설 런북`, `시연 패키지 생성`, or `릴리즈 패키지` and explain that it bundles the current brief, risk check, snapshot, and handoff path.
 
 ## 3-Minute Version
 
@@ -46,9 +45,11 @@ Use this when you want to check the product without showing it to anyone yet.
    - Click a Demo Scene Preset for a ready-made camera, render, environment, and timeline setup.
    - Use `Suit Lab` when you want a powered exosuit concept experiment.
    - Save a Project Snapshot so the same setup can be restored later.
+   - Click `30s PITCH` when you need the shortest judge/investor-friendly path.
    - Click `데모 런` if you want the simple guided flow instead.
    - Open `Timeline` to stage or replay a keyframe presentation.
    - Use Showcase mode for a cleaner audience-facing view with automatic Part Scan focus.
+   - Switch `MATERIAL REVEAL` from HOLO to PRODUCT, then use HYBRID with Part Scan to reveal one component at a time.
 
 5. Pro tools
    - Use AI Assistant only when a local Gemini key is available.
@@ -69,6 +70,7 @@ Use this when you want to check the product without showing it to anyone yet.
    - Export PNG for a presentation image.
    - Export JSON for specs.
    - Export GLB for sharing the model asset.
+   - Export a Portable Project when the recipient needs the model and the exact presentation state in one file.
    - Export Client Brief Markdown when you want a human-readable summary with Part Map talking points.
    - Export Rehearsal Runbook Markdown when you want a quick private practice checklist.
    - Export Handoff Manifest for the demo setup, quality state, Part Map summary, and recommended deliverables.

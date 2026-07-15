@@ -11,13 +11,21 @@ const requiredFiles = [
   'README.md',
   'DEMO_SCRIPT.md',
   'HOLOSYN 실행.command',
+  'server.mjs',
+  '.env.example',
+  'scripts/server-check.mjs',
 ];
 
 const htmlSelectors = [
   'btn-boot-system',
   'btn-demo-run',
+  'btn-pitch-run',
   'btn-final-pass',
   'flow-coach',
+  'beginner-flow',
+  'btn-beginner-import',
+  'beginner-reveal-status',
+  'btn-beginner-pitch',
   'timeline-editor',
   'btn-toggle-timeline',
   'btn-collab-toggle',
@@ -29,7 +37,12 @@ const htmlSelectors = [
   'mobile-toolbar',
   'btn-quality-boost',
   'quality-boost-status',
+  'material-view-control',
+  'material-view-status',
+  'material-view-detail',
   'tutorial-prompt-modal',
+  'tutorial-overview',
+  'tutorial-progress-rail',
   'btn-header-share-link',
   'import-quality-card',
   'import-quality-status',
@@ -47,6 +60,9 @@ const htmlSelectors = [
   'import-quality-action-button-label',
   'meshy-import-panel',
   'meshy-status',
+  'meshy-transport-row',
+  'meshy-transport-status',
+  'meshy-transport-detail',
   'meshy-api-key',
   'meshy-image-input',
   'meshy-image-name',
@@ -148,6 +164,12 @@ const htmlSelectors = [
   'btn-save-project-snapshot',
   'btn-restore-project-snapshot',
   'btn-export-project-snapshot',
+  'portable-project-row',
+  'portable-project-status',
+  'portable-project-detail',
+  'btn-export-portable-project',
+  'btn-import-portable-project',
+  'portable-project-input',
   'btn-part-scan',
   'btn-part-scan-card',
   'btn-part-scan-prev',
@@ -224,17 +246,43 @@ const appNeedles = [
   'function restoreProjectSnapshot',
   'function exportProjectSnapshot',
   'function applyProjectSnapshot',
+  'function setMaterialView',
+  'function applyMaterialView',
+  'function updateMaterialViewUi',
+  'function cloneMaterialSet',
+  'function captureMaterialOpacity',
+  'function restoreMaterialOpacity',
+  'productMaterial',
+  'hologramMaterial',
+  'productColor: o.pc ||',
+  "state.materialView === 'product'",
+  'function exportPortableProjectBundle',
+  'function importPortableProjectBundle',
+  'function exportActiveModelGlb',
+  'function sha256ArrayBuffer',
+  'function updatePortableProjectPanel',
+  "holosynBundle: 'portable-project-v1'",
+  'function runThirtySecondPitch',
+  'function updateBeginnerFlowUi',
+  'function preparePitchShareUrl',
   'function buildShareState',
+  'function buildCompactShareSnapshot',
   'function copyShareLink',
   'function applyShareStateFromUrl',
   'function recordViewportClip',
   'function startMeshyImageTo3D',
   'function checkMeshyTask',
+  'function checkMeshyGateway',
+  'function fetchMeshyApi',
+  'function migrateLegacyMeshyApiKey',
   'function importMeshyGlbUrl',
   'function savePresenterNote',
   'function buildPresenterNotesMarkdown',
   'function exportMeasurements',
   'function rebuildSavedMeasurementVisuals',
+  'function normalizePresenterNotes',
+  'function normalizeSavedMeasurements',
+  'function createCaliperBadge',
   'presenterNotes: state.presenterNotes',
   'savedMeasurements: state.savedMeasurements',
   'function createForgeExoSuitGeometry',
@@ -292,6 +340,7 @@ const timelineNeedles = [
   'function playTimeline',
   'function pauseTimeline',
   'function updateTimelinePlayback',
+  'materialView: state.materialView',
   'markHandoffExportReady',
   'function handleRemoteTimeline',
   'function handleRemoteKeyframes',
@@ -309,7 +358,9 @@ const managerNeedles = [
   'updateKeyStatus()',
   'markTourSignal(value)',
   'dismissPrompt()',
+  'renderTourMap(containerId, steps, currentIndex = null)',
   'window.CollabManager = CollabManager',
+  'materialView: state.materialView',
   'window.AiAssistantManager = AiAssistantManager',
   'window.TutorialManager = TutorialManager',
 ];
@@ -317,6 +368,7 @@ const managerNeedles = [
 const cssNeedles = [
   '.timeline-editor-panel.panel-open',
   '#tutorial-prompt-modal.tutorial-prompt-dock',
+  '.tutorial-progress-rail',
   '.collab-module-status.unavailable',
   '.ai-key-status.session',
   '#viewport-annotation-hint',
@@ -328,7 +380,13 @@ const cssNeedles = [
   '.meshy-import-panel',
   '.meshy-key-row',
   '.meshy-actions',
+  '.meshy-transport-row.secure',
+  '.meshy-import-panel.gateway-active .meshy-key-row',
   '.demo-presets-panel',
+  '.flow-pitch-btn',
+  '.beginner-flow',
+  '.ui-beginner .flow-coach',
+  '.beginner-material-btn.active',
   '.demo-pack-panel',
   '.demo-pack-copy',
   '.rehearsal-pack-panel',
@@ -361,6 +419,9 @@ const cssNeedles = [
   '.beta-ops-actions',
   '.project-snapshot-panel',
   '.project-snapshot-actions',
+  '.portable-project-row',
+  '.portable-project-actions',
+  '.portable-project-row.is-busy',
   '.part-scan-panel.active',
   '.part-scan-map-chip.active',
   '.part-scan-map-track',
@@ -371,6 +432,9 @@ const cssNeedles = [
   '.gesture-pilot-panel.active',
   '.gesture-pilot-readouts',
   '.quality-boost-btn.active',
+  '.material-view-control',
+  '.material-view-segment',
+  '.material-view-btn.active',
   '.quality-boost-btn:focus-visible',
   '.flow-final-btn.locked',
   '.final-pass-panel.locked',
@@ -440,24 +504,24 @@ async function main() {
     assert(html.includes(`id="${id}"`), `Missing #${id} in index.html`);
   }
   assert(html.includes('data-action="timeline"'), 'Missing mobile timeline action');
-  assert(html.includes('index.css?v=20260709-share-media'), 'CSS cache version is stale');
-  assert(html.includes('app.js?v=20260709-share-media'), 'Core JS cache version is stale');
-  assert(html.includes('scripts/holosyn-timeline.js?v=20260709-share-media'), 'Timeline script tag is missing or stale');
-  assert(html.includes('scripts/holosyn-pro-managers.js?v=20260709-share-media'), 'Pro managers script tag is missing or stale');
+  assert(html.includes('index.css?v=20260715-tutorialmap'), 'CSS cache version is stale');
+  assert(html.includes('app.js?v=20260715-tutorialmap'), 'Core JS cache version is stale');
+  assert(html.includes('scripts/holosyn-timeline.js?v=20260715-tutorialmap'), 'Timeline script tag is missing or stale');
+  assert(html.includes('scripts/holosyn-pro-managers.js?v=20260715-tutorialmap'), 'Pro managers script tag is missing or stale');
   assert(html.includes('id="handoff-next-action" class="handoff-next-action" type="button"'), 'Handoff next action should be clickable');
   assert(html.includes('id="final-readiness-panel" class="final-readiness-panel setup"'), 'Final readiness panel is missing');
   assert(html.includes('data-handoff-action="model"'), 'Handoff model jump action is missing');
   assert(html.includes('data-handoff-action="demo"'), 'Handoff demo jump action is missing');
   assert(html.includes('data-handoff-action="timeline"'), 'Handoff timeline jump action is missing');
   assert(html.includes('data-handoff-action="export"'), 'Handoff export jump action is missing');
-  assert(html.includes('class="demo-presets-panel"'), 'Demo presets panel is missing');
+  assert(html.includes('id="demo-presets-panel"'), 'Demo presets panel is missing');
   assert(html.includes('class="demo-pack-panel"'), 'Demo pack panel is missing');
   assert(html.includes('class="rehearsal-pack-panel"'), 'Rehearsal pack panel is missing');
   assert(html.includes('class="share-link-panel"'), 'Share link panel is missing');
   assert(html.includes('class="clip-export-panel"'), 'Clip export panel is missing');
   assert(html.includes('class="presenter-notes-panel"'), 'Presenter notes panel is missing');
   assert(html.includes('class="measurements-panel"'), 'Measurements panel is missing');
-  assert(html.includes('class="meshy-import-panel"'), 'Meshy import panel is missing');
+  assert(html.includes('id="meshy-import-panel"'), 'Meshy import panel is missing');
   assert(html.includes('class="handoff-pack-panel"'), 'Handoff pack panel is missing');
   assert(html.includes('class="client-brief-panel"'), 'Client brief panel is missing');
   assert(html.includes('class="beta-readiness-panel"'), 'Beta readiness panel is missing');
@@ -470,6 +534,8 @@ async function main() {
   for (const needle of appNeedles) {
     assert(appJs.includes(needle), `Missing app.js checkpoint: ${needle}`);
   }
+  assert(appJs.includes(".glass-panel:not(.tutorial-card):not(.tutorial-prompt-content)"), 'Tutorial overlays must stay out of the shared tilt effect');
+  assert(!appJs.includes('list.innerHTML = state.savedMeasurements.map'), 'Saved measurements must not render imported text through innerHTML');
 
   const publicBundles = {
     'index.html': html,
@@ -515,6 +581,13 @@ async function main() {
       encoding: 'utf8',
     });
     assert(check.status === 0, check.stderr || check.stdout || `${file} syntax check failed`);
+  }
+
+  for (const file of ['server.mjs', 'scripts/server-check.mjs']) {
+    const check = spawnSync('node', ['--check', file], {
+      encoding: 'utf8',
+    });
+    assert(check.status === 0, `JavaScript syntax check failed for ${file}:\n${check.stderr}`);
   }
 
   console.log('HOLOSYN smoke check passed.');

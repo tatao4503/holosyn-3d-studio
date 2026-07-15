@@ -4,4 +4,5 @@ node_modules/
 USER_GUIDE.html
 Thumbs.db
 .claude/
+.env.local
 *_holosyn_share_state.json

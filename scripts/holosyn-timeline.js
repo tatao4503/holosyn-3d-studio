@@ -198,6 +198,7 @@ function captureKeyframe() {
         },
         explodedLevel: state.explodedLevel,
         renderMode: state.renderMode,
+        materialView: state.materialView,
         themeColor: state.themeColor,
         assemblyStep: getActiveAssemblyStep(),
         environment: state.studioEnvironment,
@@ -401,6 +402,10 @@ function interpolateKeyframeState(kfA, kfB, t) {
             });
         }
 
+        if (kfB.materialView && state.materialView !== kfB.materialView && typeof setMaterialView === 'function') {
+            setMaterialView(kfB.materialView, { notify: false, broadcast: false, autoFocus: false });
+        }
+
         // Switch theme color
         if (state.themeColor !== kfB.themeColor) {
             const colorBtn = document.querySelector('.color-select-btn[data-color]');
@@ -471,6 +476,9 @@ function applyKeyframeState(kf) {
         document.querySelectorAll('.render-mode-btn').forEach(btn => {
             btn.classList.toggle('active', btn.dataset.mode === kf.renderMode);
         });
+    }
+    if (kf.materialView && state.materialView !== kf.materialView && typeof setMaterialView === 'function') {
+        setMaterialView(kf.materialView, { notify: false, broadcast: false, autoFocus: false });
     }
 
     state.explodedLevel = kf.explodedLevel;

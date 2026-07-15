@@ -448,6 +448,7 @@ const CollabManager = {
             state: {
                 activePreset: state.activePreset,
                 renderMode: state.renderMode,
+                materialView: state.materialView,
                 explodedLevel: state.explodedLevel,
                 themeColor: state.themeColor,
                 themeColorGlow: state.themeColorGlow,
@@ -528,6 +529,9 @@ const CollabManager = {
             toggleRenderVisibility();
             updateRenderModeUISelection(syncedState.renderMode);
         }
+        if (syncedState.materialView && syncedState.materialView !== state.materialView && typeof setMaterialView === 'function') {
+            setMaterialView(syncedState.materialView, { notify: false, broadcast: false, autoFocus: false });
+        }
         
         if (syncedState.themeColor !== state.themeColor) {
             updateThemeUIColors(syncedState.themeColor);
@@ -565,6 +569,11 @@ const CollabManager = {
                     state.renderMode = value;
                     toggleRenderVisibility();
                     updateRenderModeUISelection(value);
+                }
+                break;
+            case 'materialView':
+                if (value !== state.materialView && typeof setMaterialView === 'function') {
+                    setMaterialView(value, { notify: false, broadcast: false, autoFocus: false });
                 }
                 break;
             case 'themeColor':
@@ -1395,6 +1404,8 @@ const TutorialManager = {
     beginnerSteps: [
         {
             target: '.presets-grid.mini-presets',
+            icon: 'box',
+            label: { ko: '모델', en: 'Model' },
             title: { ko: '1. 모델 고르기', en: '1. Pick a Model' },
             desc: {
                 ko: '샘플 모델을 누르거나, 위쪽 영역에 내 3D 파일(.glb/.gltf/.obj)이나 이미지를 드롭하세요. ST,AND처럼 실제 시제품도 바로 띄울 수 있어요.',
@@ -1403,6 +1414,8 @@ const TutorialManager = {
         },
         {
             target: '#tuner-exploded',
+            icon: 'layers',
+            label: { ko: '구조', en: 'Structure' },
             title: { ko: '2. 분해도로 구조 보여주기', en: '2. Show Structure with Exploded View' },
             desc: {
                 ko: '슬라이더를 움직이면 부품이 분리되며 내부 구조와 부품 라벨이 드러납니다. 발표할 때 가장 강력한 기능이에요.',
@@ -1420,6 +1433,8 @@ const TutorialManager = {
         },
         {
             target: '.quick-styles-grid',
+            icon: 'palette',
+            label: { ko: '스타일', en: 'Style' },
             title: { ko: '3. 색과 스타일 바꾸기', en: '3. Change Color & Style' },
             desc: {
                 ko: '퀵 스타일과 색상으로 분위기를 바꿔보세요. ST,AND라면 BASIC·CLEAR·CUSTOM 라인업으로 재질도 비교할 수 있어요.',
@@ -1428,6 +1443,8 @@ const TutorialManager = {
         },
         {
             target: '#btn-showcase-toggle',
+            icon: 'presentation',
+            label: { ko: '발표', en: 'Present' },
             title: { ko: '4. 발표 모드 (Showcase)', en: '4. Showcase Mode' },
             desc: {
                 ko: 'HUD를 모두 숨기고 제품만 깔끔하게 띄우는 발표 모드입니다. 하단 도크의 ▶ Play Show로 자동 시연도 됩니다.',
@@ -1436,6 +1453,8 @@ const TutorialManager = {
         },
         {
             target: '.export-buttons-grid',
+            icon: 'share-2',
+            label: { ko: '공유', en: 'Share' },
             title: { ko: '5. 내보내기 & 다음 단계', en: '5. Export & Next' },
             desc: {
                 ko: 'PNG 캡처·GLB 모델·사양 JSON으로 내보내 사업계획서나 SNS에 바로 쓰세요. 상단 [프로] 모드로 바꾸면 타임라인·협업·AI 고급 튜토리얼이 열립니다.',
@@ -1448,6 +1467,8 @@ const TutorialManager = {
     proSteps: [
         {
             target: '.render-mode-selector',
+            icon: 'scan',
+            label: { ko: '렌더', en: 'Render' },
             title: { ko: '1. 렌더 모드', en: '1. Render Modes' },
             desc: {
                 ko: '와이어프레임·솔리드·포인트 클라우드·엑스레이·열화상까지. 같은 모델을 용도에 맞게 다르게 보여줍니다.',
@@ -1457,6 +1478,8 @@ const TutorialManager = {
         },
         {
             target: '#btn-toggle-timeline',
+            icon: 'clapperboard',
+            label: { ko: '타임라인', en: 'Timeline' },
             title: { ko: '2. 타임라인 디렉터', en: '2. Timeline Director' },
             desc: {
                 ko: '키프레임으로 카메라·분해도·자막을 시간축에 배치해 Keynote 같은 자동 발표 시퀀스를 연출합니다.',
@@ -1469,6 +1492,8 @@ const TutorialManager = {
         },
         {
             target: '#btn-collab-toggle',
+            icon: 'users',
+            label: { ko: '협업', en: 'Collab' },
             title: { ko: '3. 실시간 협업', en: '3. Live Collaboration' },
             desc: {
                 ko: '코드를 공유하면 다른 사람이 같은 3D 무대를 함께 보고 조작합니다. 원격 미팅·심사에서 화면을 같이 돌려볼 수 있어요.',
@@ -1481,6 +1506,8 @@ const TutorialManager = {
         },
         {
             target: '#btn-ai-chat-toggle',
+            icon: 'bot',
+            label: { ko: 'AI', en: 'AI' },
             title: { ko: '4. AI 어시스턴트', en: '4. AI Assistant' },
             desc: {
                 ko: '내 Gemini 키를 넣으면 제품 설명·발표 카피·사양 정리를 AI가 도와줍니다. 키는 SESSION/SAVE/CLEAR로 안전하게 관리돼요.',
@@ -1497,6 +1524,8 @@ const TutorialManager = {
         },
         {
             target: '#btn-play-showcase',
+            icon: 'play',
+            label: { ko: '시네마틱', en: 'Cinematic' },
             title: { ko: '5. 자동 시네마틱 발표', en: '5. Auto Cinematic Show' },
             desc: {
                 ko: 'Play Show / Director가 카메라를 알아서 돌리며 제품을 시네마틱하게 시연합니다. 음성 명령(상단 마이크)으로 핸즈프리 제어도 가능해요.',
@@ -1526,6 +1555,65 @@ const TutorialManager = {
         });
     },
 
+    renderTourMap(containerId, steps, currentIndex = null) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+
+        const lang = state.language === 'ko' ? 'ko' : 'en';
+        const isInteractive = Number.isInteger(currentIndex);
+        container.replaceChildren();
+        container.setAttribute('role', isInteractive ? 'group' : 'list');
+        container.setAttribute('aria-label', lang === 'ko' ? '튜토리얼 전체 단계' : 'Tutorial overview');
+
+        steps.forEach((step, index) => {
+            const item = document.createElement(isInteractive ? 'button' : 'div');
+            const status = !isInteractive
+                ? 'preview'
+                : index < currentIndex
+                    ? 'completed'
+                    : index === currentIndex
+                        ? 'current'
+                        : 'upcoming';
+            item.className = `tutorial-map-step ${status}`;
+            if (!isInteractive) item.setAttribute('role', 'listitem');
+
+            const label = step.label?.[lang] || step.label?.en || `${index + 1}`;
+            const title = step.title?.[lang] || step.title?.en || label;
+            item.title = title;
+
+            if (isInteractive) {
+                item.type = 'button';
+                item.setAttribute('aria-label', title);
+                if (index === currentIndex) item.setAttribute('aria-current', 'step');
+                item.addEventListener('click', () => this.showStep(index));
+            }
+
+            const iconWrap = document.createElement('span');
+            iconWrap.className = 'tutorial-map-icon';
+            const icon = document.createElement('i');
+            icon.setAttribute('data-lucide', step.icon || 'circle');
+            iconWrap.appendChild(icon);
+
+            const number = document.createElement('span');
+            number.className = 'tutorial-map-number';
+            number.textContent = `${index + 1}`;
+            iconWrap.appendChild(number);
+
+            const labelEl = document.createElement('span');
+            labelEl.className = 'tutorial-map-label';
+            labelEl.textContent = label;
+
+            item.append(iconWrap, labelEl);
+            container.appendChild(item);
+        });
+
+        if (window.lucide) {
+            window.lucide.createIcons({
+                nodes: Array.from(container.querySelectorAll('[data-lucide]'))
+            });
+        }
+    },
+
     showPrompt() {
         const promptModal = document.getElementById('tutorial-prompt-modal');
         if (promptModal) {
@@ -1534,15 +1622,19 @@ const TutorialManager = {
             const lang = state.language === 'ko' ? 'ko' : 'en';
             const titleEl = document.getElementById('tutorial-prompt-title');
             const descEl = document.getElementById('tutorial-prompt-desc');
+            const metaEl = document.getElementById('tutorial-prompt-meta');
+            const steps = isPro ? this.proSteps : this.beginnerSteps;
             const copy = isPro ? {
-                ko: { t: 'HOLOSYN 프로 가이드 투어', d: '프로 전용 기능(렌더 모드, 타임라인 디렉터, 실시간 협업, AI 어시스턴트, 자동 시네마틱)을 둘러보는 가이드 투어를 시작할까요?' },
-                en: { t: 'HOLOSYN Pro Guide Tour', d: 'Tour the Pro-only features — render modes, timeline director, live collaboration, AI assistant, and auto cinematic. Start now?' }
+                ko: { t: 'HOLOSYN 프로 가이드', d: '고급 연출과 협업 흐름을 핵심 5단계로 빠르게 살펴봅니다.', m: '5개 기능 · 약 1분' },
+                en: { t: 'HOLOSYN Pro Guide', d: 'See the advanced directing and collaboration workflow in five quick stages.', m: '5 features · About 1 min' }
             } : {
-                ko: { t: 'HOLOSYN 비기너 가이드 투어', d: '핵심 5단계(모델 고르기 → 분해도 → 색·스타일 → 발표 모드 → 내보내기)를 둘러보는 가이드 투어를 시작할까요?' },
-                en: { t: 'HOLOSYN Beginner Guide Tour', d: 'Walk through the 5 essentials — pick a model, exploded view, color & style, showcase, and export. Start now?' }
+                ko: { t: 'HOLOSYN 비기너 가이드', d: '모델을 고르고 공유하는 전체 흐름을 핵심 5단계로 살펴봅니다.', m: '5개 기능 · 약 1분' },
+                en: { t: 'HOLOSYN Beginner Guide', d: 'See the complete workflow from picking a model to sharing it in five quick stages.', m: '5 features · About 1 min' }
             };
             if (titleEl) titleEl.textContent = copy[lang].t;
             if (descEl) descEl.textContent = copy[lang].d;
+            if (metaEl) metaEl.textContent = copy[lang].m;
+            this.renderTourMap('tutorial-overview', steps);
 
             promptModal.style.display = 'flex';
             if (state.isSoundOn) playSynthSweep(200, 800, 0.4);
@@ -1628,6 +1720,7 @@ const TutorialManager = {
         if (descEl) descEl.textContent = descText;
         if (stepNumEl) stepNumEl.textContent = index + 1;
         if (stepTotalEl) stepTotalEl.textContent = steps.length;
+        this.renderTourMap('tutorial-progress-rail', steps, index);
 
         const btnBack = document.getElementById('btn-tutorial-back');
         const btnNext = document.getElementById('btn-tutorial-next');
