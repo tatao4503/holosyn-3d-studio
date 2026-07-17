@@ -1,5 +1,12 @@
 # HOLOSYN — 3D 시제품 공간 발표 스튜디오
 
+[![CI](https://github.com/tatao4503/holosyn-3d-studio/actions/workflows/ci.yml/badge.svg)](https://github.com/tatao4503/holosyn-3d-studio/actions/workflows/ci.yml)
+[![Deploy](https://github.com/tatao4503/holosyn-3d-studio/actions/workflows/pages.yml/badge.svg)](https://github.com/tatao4503/holosyn-3d-studio/actions/workflows/pages.yml)
+[![Release](https://img.shields.io/github/v/release/tatao4503/holosyn-3d-studio)](https://github.com/tatao4503/holosyn-3d-studio/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-30d158.svg)](LICENSE)
+
+**[Live Demo](https://tatao4503.github.io/holosyn-3d-studio/)** · [User Guide](USER_GUIDE.md) · [Demo Script](DEMO_SCRIPT.md)
+
 > Import a 3D model or image, present it as a clean hologram, walk through its
 > parts, measure it, and hand off a brief — all in the browser. No install or
 > build step; an optional local gateway keeps third-party API keys off the page.
@@ -37,6 +44,10 @@ coding tools (concept, direction, review, and iteration by the author; implement
 via AI pair-programming). Built as the presentation tool for a real prototype —
 a social-venture ramen-shelf nameplate — and grown from a weekend experiment into a
 full spatial presentation studio. See [`USER_GUIDE.md`](USER_GUIDE.md) for the full manual.
+
+The hosted demo includes the complete local-first presentation workflow. Secure
+Meshy generation requires the local `server.mjs` gateway so that an API key never
+ships with the public site.
 
 ## Quick Start
 
