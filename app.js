@@ -400,18 +400,6 @@ const state = {
     },
     presenterNotes: [],
     savedMeasurements: [],
-    meshy: {
-        selectedImageDataUri: null,
-        selectedImageName: null,
-        taskId: null,
-        status: 'READY',
-        progress: 0,
-        glbUrl: null,
-        lastCheckedAt: null,
-        gatewayStatus: 'CHECKING',
-        gatewayConfigured: false,
-        transport: 'checking'
-    },
     diagnosticsLog: [],
     runtimeErrors: [],
     partScanActive: false,
@@ -493,7 +481,6 @@ let activeCalloutClickPoint = null; // Temp holder for raycast point before popu
 let isCaliperActive = false;
 let caliperStartPoint = null;
 let calipersList = [];       // Cache of { line, badgeEl, start, end, id }
-let meshyPollTimer = null;
 let environmentGroup = new THREE.Group();
 let envParticles = null;
 let envLines = [];           // Cache for windtunnel line objects
@@ -4908,14 +4895,6 @@ function buildProjectSnapshot() {
         betaOps: getBetaOpsSummary(),
         presenterNotes: state.presenterNotes,
         savedMeasurements: state.savedMeasurements,
-        meshy: {
-            taskId: state.meshy.taskId,
-            status: state.meshy.status,
-            progress: state.meshy.progress,
-            glbUrl: state.meshy.glbUrl,
-            selectedImageName: state.meshy.selectedImageName,
-            lastCheckedAt: state.meshy.lastCheckedAt
-        },
         annotations: partAnnotations[state.activePreset] || []
     };
 }
@@ -5107,21 +5086,9 @@ function applyProjectSnapshot(snapshot, options = {}) {
     };
     state.presenterNotes = normalizePresenterNotes(snapshot.presenterNotes);
     state.savedMeasurements = normalizeSavedMeasurements(snapshot.savedMeasurements);
-    if (snapshot.meshy) {
-        state.meshy = {
-            ...state.meshy,
-            taskId: snapshot.meshy.taskId || null,
-            status: snapshot.meshy.status || state.meshy.status,
-            progress: Number.isFinite(snapshot.meshy.progress) ? snapshot.meshy.progress : state.meshy.progress,
-            glbUrl: snapshot.meshy.glbUrl || null,
-            selectedImageName: snapshot.meshy.selectedImageName || state.meshy.selectedImageName,
-            lastCheckedAt: snapshot.meshy.lastCheckedAt || null
-        };
-    }
     rebuildSavedMeasurementVisuals();
     updatePresenterNotesPanel();
     updatePartScanPanel();
-    updateMeshyPanel();
     updateHandoffPackStatus();
     updateProjectSnapshotStatus(snapshot);
     updateBetaReadinessPanel();
@@ -6070,34 +6037,12 @@ function initProductizationControls() {
     if (exportMeasurementsBtn) exportMeasurementsBtn.addEventListener('click', exportMeasurements);
     const clearMeasurementsBtn = document.getElementById('btn-clear-measurements');
     if (clearMeasurementsBtn) clearMeasurementsBtn.addEventListener('click', clearAllSavedMeasurements);
-    const meshyPickBtn = document.getElementById('btn-meshy-pick-image');
-    const meshyInput = document.getElementById('meshy-image-input');
-    if (meshyPickBtn && meshyInput) {
-        meshyPickBtn.addEventListener('click', () => meshyInput.click());
-        meshyInput.addEventListener('change', event => selectMeshyImageFile(event.target.files?.[0]));
-    }
-    const meshyUseCurrentBtn = document.getElementById('btn-meshy-use-current-image');
-    if (meshyUseCurrentBtn) meshyUseCurrentBtn.addEventListener('click', useCurrentImageForMeshy);
-    const meshyStartBtn = document.getElementById('btn-meshy-start');
-    if (meshyStartBtn) meshyStartBtn.addEventListener('click', startMeshyImageTo3D);
-    const meshyCheckBtn = document.getElementById('btn-meshy-check');
-    if (meshyCheckBtn) meshyCheckBtn.addEventListener('click', () => checkMeshyTask());
-    const meshyImportBtn = document.getElementById('btn-meshy-import-glb');
-    if (meshyImportBtn) meshyImportBtn.addEventListener('click', importMeshyGlbUrl);
-    const meshyDownloadBtn = document.getElementById('btn-meshy-download-glb');
-    if (meshyDownloadBtn) meshyDownloadBtn.addEventListener('click', downloadMeshyGlb);
-    const meshySaveKeyBtn = document.getElementById('btn-meshy-save-key');
-    if (meshySaveKeyBtn) meshySaveKeyBtn.addEventListener('click', saveMeshyApiKey);
-    const meshyClearKeyBtn = document.getElementById('btn-meshy-clear-key');
-    if (meshyClearKeyBtn) meshyClearKeyBtn.addEventListener('click', clearMeshyApiKey);
     updateImportQualityForSample(state.activePreset);
     updateProjectSnapshotStatus();
     updatePortableProjectPanel();
     updateShareLinkPanel();
     updatePresenterNotesPanel();
     updateMeasurementsPanel();
-    updateMeshyPanel();
-    checkMeshyGateway();
     updateHandoffPackStatus();
     updateBetaReadinessPanel();
     updateFinalPassPanel();
@@ -7415,13 +7360,7 @@ function processCustomImage(file) {
             state.customImageTexture = new THREE.TextureLoader().load(event.target.result);
             state.customImageTexture.minFilter = THREE.LinearFilter;
             state.customImageTexture.encoding = THREE.sRGBEncoding;
-            state.meshy.selectedImageDataUri = event.target.result;
-            state.meshy.selectedImageName = file.name;
-            state.meshy.status = 'IMAGE READY';
-            state.meshy.progress = 0;
-            state.meshy.glbUrl = null;
-            updateMeshyPanel();
-            
+
             // Reset uploaded GLB mesh group if using image fallback
             uploadedMeshGroup = null;
             state.imageUploaded = true;
@@ -10357,328 +10296,6 @@ function clearAllSavedMeasurements() {
         state.language === 'ko' ? '저장된 치수와 뷰포트 측정 표시를 지웠습니다.' : 'Cleared saved dimensions and viewport measurement marks.'
     );
     addConsoleLog('[MEASURE] Saved dimensions cleared.', 'info');
-}
-
-function getMeshyStorageKey() {
-    return 'holosyn_meshy_api_key';
-}
-
-function getMeshySessionStorage() {
-    try {
-        return window.sessionStorage;
-    } catch (error) {
-        addConsoleLog(`[MESHY] Session storage unavailable: ${error.message}`, 'warning');
-        return null;
-    }
-}
-
-function migrateLegacyMeshyApiKey() {
-    const legacyStorage = getBrowserStorage();
-    const sessionStorage = getMeshySessionStorage();
-    if (!legacyStorage || !sessionStorage) return;
-    const legacyKey = legacyStorage.getItem(getMeshyStorageKey());
-    if (legacyKey && !sessionStorage.getItem(getMeshyStorageKey())) {
-        sessionStorage.setItem(getMeshyStorageKey(), legacyKey);
-    }
-    if (legacyKey) {
-        legacyStorage.removeItem(getMeshyStorageKey());
-        addConsoleLog('[MESHY] Migrated legacy saved key to this tab session.', 'info');
-    }
-}
-
-function getMeshyApiKey() {
-    const input = document.getElementById('meshy-api-key');
-    const typed = input?.value.trim();
-    if (typed) return typed;
-    const storage = getMeshySessionStorage();
-    return storage?.getItem(getMeshyStorageKey()) || '';
-}
-
-function updateMeshyPanel() {
-    const panel = document.getElementById('meshy-import-panel');
-    const status = document.getElementById('meshy-status');
-    const progress = document.getElementById('meshy-progress');
-    const imageName = document.getElementById('meshy-image-name');
-    const transportRow = document.getElementById('meshy-transport-row');
-    const transportStatus = document.getElementById('meshy-transport-status');
-    const transportDetail = document.getElementById('meshy-transport-detail');
-    if (status) status.textContent = state.meshy.status || 'READY';
-    if (progress) progress.textContent = `${Math.round(state.meshy.progress || 0)}%`;
-    if (imageName) imageName.textContent = state.meshy.selectedImageName || (state.customImageBase64 ? 'Current HOLOSYN image available' : 'No image selected');
-    if (panel) panel.classList.toggle('gateway-active', state.meshy.transport === 'gateway');
-    if (transportRow) {
-        transportRow.classList.toggle('secure', state.meshy.transport === 'gateway');
-        transportRow.classList.toggle('session', state.meshy.transport === 'direct');
-    }
-    if (transportStatus) {
-        transportStatus.textContent = state.meshy.transport === 'gateway'
-            ? 'SECURE GATEWAY'
-            : (state.meshy.transport === 'direct' ? 'SESSION KEY' : 'CHECKING');
-    }
-    if (transportDetail) {
-        transportDetail.textContent = state.meshy.transport === 'gateway'
-            ? '서버가 Meshy 인증을 처리합니다. API 키는 브라우저로 전달되지 않습니다.'
-            : (state.meshy.transport === 'direct'
-                ? '게이트웨이 키가 없어 개발용 세션 키를 사용합니다. 탭을 닫으면 키가 사라집니다.'
-                : '로컬 보안 게이트웨이를 확인하고 있습니다.');
-    }
-}
-
-async function checkMeshyGateway() {
-    migrateLegacyMeshyApiKey();
-    try {
-        const response = await fetch('/api/health', { cache: 'no-store' });
-        if (!response.ok) throw new Error(`Health check failed (${response.status})`);
-        const health = await response.json();
-        if (health.service !== 'holosyn-local-gateway') throw new Error('Gateway signature missing');
-        state.meshy.gatewayStatus = health.meshyConfigured ? 'READY' : 'NO KEY';
-        state.meshy.gatewayConfigured = Boolean(health.meshyConfigured);
-        state.meshy.transport = health.meshyConfigured ? 'gateway' : 'direct';
-        addConsoleLog(
-            health.meshyConfigured
-                ? '[MESHY] Secure local gateway ready.'
-                : '[MESHY] Local gateway is running without a Meshy key; session fallback enabled.',
-            health.meshyConfigured ? 'success' : 'info'
-        );
-    } catch (error) {
-        state.meshy.gatewayStatus = 'UNAVAILABLE';
-        state.meshy.gatewayConfigured = false;
-        state.meshy.transport = 'direct';
-        addConsoleLog(`[MESHY] Gateway unavailable; session fallback enabled: ${error.message}`, 'warning');
-    }
-    updateMeshyPanel();
-}
-
-function hasMeshyCredentials() {
-    return state.meshy.gatewayConfigured || Boolean(getMeshyApiKey());
-}
-
-function fetchMeshyApi(path = '', options = {}) {
-    const useGateway = state.meshy.gatewayConfigured;
-    const apiKey = getMeshyApiKey();
-    const url = useGateway
-        ? `/api/meshy/image-to-3d${path}`
-        : `https://api.meshy.ai/openapi/v1/image-to-3d${path}`;
-    const headers = {
-        ...(options.body ? { 'Content-Type': 'application/json' } : {}),
-        ...(!useGateway && apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
-        ...(options.headers || {})
-    };
-    return fetch(url, { ...options, headers });
-}
-
-function saveMeshyApiKey() {
-    const key = document.getElementById('meshy-api-key')?.value.trim();
-    if (!key) {
-        showNotification(state.language === 'ko' ? '키 없음' : 'No Key', state.language === 'ko' ? 'Meshy API 키를 입력하세요.' : 'Enter a Meshy API key first.');
-        return;
-    }
-    const storage = getMeshySessionStorage();
-    if (storage) storage.setItem(getMeshyStorageKey(), key);
-    state.meshy.transport = 'direct';
-    updateMeshyPanel();
-    showNotification(state.language === 'ko' ? 'Meshy 세션 키 준비' : 'Meshy Session Key Ready', state.language === 'ko' ? '현재 탭 세션에만 키를 보관합니다. 탭을 닫으면 삭제됩니다.' : 'The key is held only for this tab session and disappears when the tab closes.');
-    addConsoleLog('[MESHY] API key stored for this tab session only.', 'success');
-}
-
-function clearMeshyApiKey() {
-    const sessionStorage = getMeshySessionStorage();
-    const legacyStorage = getBrowserStorage();
-    if (sessionStorage) sessionStorage.removeItem(getMeshyStorageKey());
-    if (legacyStorage) legacyStorage.removeItem(getMeshyStorageKey());
-    const input = document.getElementById('meshy-api-key');
-    if (input) input.value = '';
-    showNotification(state.language === 'ko' ? 'Meshy 키 삭제' : 'Meshy Key Cleared', state.language === 'ko' ? '현재 탭과 이전 브라우저 저장소의 Meshy 키를 지웠습니다.' : 'Cleared the Meshy key from this tab and legacy browser storage.');
-    addConsoleLog('[MESHY] API key cleared.', 'info');
-}
-
-function selectMeshyImageFile(file) {
-    if (!file || !file.type.startsWith('image/')) return;
-    const reader = new FileReader();
-    reader.onload = event => {
-        state.meshy.selectedImageDataUri = event.target.result;
-        state.meshy.selectedImageName = file.name;
-        state.meshy.status = 'IMAGE READY';
-        state.meshy.progress = 0;
-        state.meshy.glbUrl = null;
-        updateMeshyPanel();
-        showNotification(
-            state.language === 'ko' ? 'Meshy 이미지 준비' : 'Meshy Image Ready',
-            state.language === 'ko' ? `${file.name} 이미지를 3D 생성 입력으로 준비했습니다.` : `${file.name} is ready for image-to-3D.`
-        );
-        addConsoleLog(`[MESHY] Image selected: ${file.name}.`, 'info');
-    };
-    reader.onerror = () => {
-        showNotification(state.language === 'ko' ? '이미지 읽기 실패' : 'Image Read Failed', state.language === 'ko' ? 'Meshy 입력 이미지를 읽지 못했습니다.' : 'Could not read the Meshy input image.');
-    };
-    reader.readAsDataURL(file);
-}
-
-function useCurrentImageForMeshy() {
-    if (!state.customImageBase64) {
-        showNotification(
-            state.language === 'ko' ? '현재 이미지 없음' : 'No Current Image',
-            state.language === 'ko' ? '먼저 이미지를 HOLOSYN에 임포트하거나 Meshy 이미지 선택을 사용하세요.' : 'Import an image into HOLOSYN first, or pick a Meshy image.'
-        );
-        return;
-    }
-    state.meshy.selectedImageDataUri = state.customImageBase64;
-    state.meshy.selectedImageName = `${getProductName()} current image`;
-    state.meshy.status = 'IMAGE READY';
-    state.meshy.progress = 0;
-    updateMeshyPanel();
-    showNotification(
-        state.language === 'ko' ? '현재 이미지 연결' : 'Current Image Linked',
-        state.language === 'ko' ? '현재 HOLOSYN 이미지 투사를 Meshy 입력으로 사용합니다.' : 'Using the current HOLOSYN image projection as Meshy input.'
-    );
-}
-
-async function startMeshyImageTo3D() {
-    const imageUrl = state.meshy.selectedImageDataUri || state.customImageBase64;
-    if (!hasMeshyCredentials()) {
-        showNotification(state.language === 'ko' ? 'Meshy 연결 필요' : 'Meshy Connection Required', state.language === 'ko' ? '.env.local에 서버 키를 설정하거나 현재 탭에 세션 키를 입력하세요.' : 'Set a server key in .env.local or enter a key for this tab session.');
-        return;
-    }
-    if (!imageUrl) {
-        showNotification(state.language === 'ko' ? '이미지 필요' : 'Image Required', state.language === 'ko' ? '사진을 선택하거나 현재 이미지를 연결하세요.' : 'Pick an image or link the current image first.');
-        return;
-    }
-    state.meshy.status = 'SUBMITTING';
-    state.meshy.progress = 1;
-    updateMeshyPanel();
-    try {
-        const response = await fetchMeshyApi('', {
-            method: 'POST',
-            body: JSON.stringify({
-                image_url: imageUrl,
-                enable_pbr: true,
-                should_texture: true,
-                should_remesh: true,
-                target_formats: ['glb']
-            })
-        });
-        if (!response.ok) throw new Error(`Meshy create failed (${response.status})`);
-        const data = await response.json();
-        state.meshy.taskId = data.result;
-        state.meshy.status = 'PROCESSING';
-        state.meshy.progress = 5;
-        state.meshy.glbUrl = null;
-        updateMeshyPanel();
-        showNotification(
-            state.language === 'ko' ? 'Meshy 생성 시작' : 'Meshy Task Started',
-            state.language === 'ko' ? 'Image-to-3D 태스크를 만들었습니다. 자동으로 상태를 확인합니다.' : 'Created an Image-to-3D task. HOLOSYN will poll its status.'
-        );
-        addConsoleLog(`[MESHY] Task created: ${state.meshy.taskId}.`, 'success');
-        scheduleMeshyPoll();
-    } catch (error) {
-        state.meshy.status = 'ERROR';
-        updateMeshyPanel();
-        showNotification(
-            state.language === 'ko' ? 'Meshy 요청 실패' : 'Meshy Request Failed',
-            state.language === 'ko' ? '게이트웨이 설정, API 키, 네트워크, 과금 상태를 확인하세요.' : 'Check gateway setup, API key, network, and billing status.'
-        );
-        addConsoleLog(`[MESHY] ${error.message}`, 'error');
-    }
-}
-
-function scheduleMeshyPoll() {
-    if (meshyPollTimer) clearTimeout(meshyPollTimer);
-    meshyPollTimer = setTimeout(() => checkMeshyTask({ keepPolling: true }), 4000);
-}
-
-async function checkMeshyTask(options = {}) {
-    const { keepPolling = false } = options;
-    const taskId = state.meshy.taskId;
-    if (!hasMeshyCredentials() || !taskId) {
-        showNotification(state.language === 'ko' ? 'Meshy 태스크 없음' : 'No Meshy Task', state.language === 'ko' ? '먼저 Image-to-3D 생성을 시작하세요.' : 'Start an Image-to-3D task first.');
-        return;
-    }
-    try {
-        const response = await fetchMeshyApi(`/${encodeURIComponent(taskId)}`);
-        if (!response.ok) throw new Error(`Meshy status failed (${response.status})`);
-        const data = await response.json();
-        state.meshy.status = data.status || 'PROCESSING';
-        state.meshy.progress = Number.isFinite(data.progress) ? data.progress : state.meshy.progress;
-        state.meshy.lastCheckedAt = new Date().toISOString();
-        if (data.model_urls?.glb) state.meshy.glbUrl = data.model_urls.glb;
-        updateMeshyPanel();
-        addConsoleLog(`[MESHY] Task ${taskId}: ${state.meshy.status} ${Math.round(state.meshy.progress || 0)}%.`, state.meshy.status === 'SUCCEEDED' ? 'success' : 'info');
-        if (state.meshy.status === 'SUCCEEDED') {
-            showNotification(
-                state.language === 'ko' ? 'Meshy GLB 준비 완료' : 'Meshy GLB Ready',
-                state.language === 'ko' ? '생성된 GLB를 바로 불러오거나 다운로드할 수 있습니다.' : 'The generated GLB can now be imported or downloaded.'
-            );
-            return;
-        }
-        if (state.meshy.status === 'FAILED' || state.meshy.status === 'EXPIRED') {
-            showNotification(state.language === 'ko' ? 'Meshy 생성 실패' : 'Meshy Task Failed', state.language === 'ko' ? `상태: ${state.meshy.status}` : `Status: ${state.meshy.status}`);
-            return;
-        }
-        if (keepPolling) scheduleMeshyPoll();
-    } catch (error) {
-        state.meshy.status = 'ERROR';
-        updateMeshyPanel();
-        showNotification(state.language === 'ko' ? 'Meshy 상태 확인 실패' : 'Meshy Check Failed', state.language === 'ko' ? '태스크 상태를 확인하지 못했습니다.' : 'Could not check Meshy task status.');
-        addConsoleLog(`[MESHY] ${error.message}`, 'error');
-    }
-}
-
-function importMeshyGlbUrl() {
-    if (!state.meshy.glbUrl) {
-        showNotification(state.language === 'ko' ? 'GLB 없음' : 'No GLB', state.language === 'ko' ? 'Meshy 생성이 완료된 뒤 불러올 수 있습니다.' : 'Wait until Meshy generation succeeds.');
-        return;
-    }
-    if (!state.engineBooted) {
-        showNotification(state.language === 'ko' ? '엔진 기동 필요' : 'Boot Required', state.language === 'ko' ? '먼저 HOLOSYN 엔진을 기동하세요.' : 'Boot HOLOSYN first.');
-        return;
-    }
-    const loader = new THREE.GLTFLoader();
-    state.meshy.status = 'IMPORTING';
-    updateMeshyPanel();
-    loader.load(state.meshy.glbUrl, gltf => {
-        uploadedMeshGroup = gltf.scene;
-        applyWorkspaceMaterialsToLoadedMesh(uploadedMeshGroup);
-        state.imageUploaded = false;
-        state.customImageParticles = null;
-        state.activePreset = 'custom';
-        const nameInput = document.getElementById('spec-name');
-        if (nameInput && state.meshy.selectedImageName) {
-            nameInput.value = state.meshy.selectedImageName.replace(/\.[^/.]+$/, '');
-        }
-        loadPresetModel('custom');
-        updateImportQualityFromModel(uploadedMeshGroup, {
-            source: `Meshy · ${state.meshy.taskId || 'image-to-3d'}`,
-            type: '3d',
-            extension: 'glb',
-            fileSize: 0
-        });
-        state.meshy.status = 'IMPORTED';
-        state.meshy.progress = 100;
-        updateMeshyPanel();
-        showNotification(state.language === 'ko' ? 'Meshy GLB 불러오기 완료' : 'Meshy GLB Imported', state.language === 'ko' ? '생성된 3D 메쉬를 HOLOSYN 뷰포트에 투사했습니다.' : 'Imported the generated 3D mesh into HOLOSYN.');
-        addConsoleLog('[MESHY] Generated GLB imported into HOLOSYN.', 'success');
-    }, undefined, error => {
-        state.meshy.status = 'IMPORT ERROR';
-        updateMeshyPanel();
-        showNotification(state.language === 'ko' ? 'GLB 불러오기 실패' : 'GLB Import Failed', state.language === 'ko' ? '생성된 GLB URL을 불러오지 못했습니다.' : 'Could not load the generated GLB URL.');
-        addConsoleLog(`[MESHY] GLB import failed: ${error.message || error}`, 'error');
-    });
-}
-
-async function downloadMeshyGlb() {
-    if (!state.meshy.glbUrl) {
-        showNotification(state.language === 'ko' ? 'GLB 없음' : 'No GLB', state.language === 'ko' ? 'Meshy 생성 완료 후 다운로드하세요.' : 'Wait until Meshy generation succeeds.');
-        return;
-    }
-    try {
-        const response = await fetch(state.meshy.glbUrl);
-        if (!response.ok) throw new Error(`GLB download failed (${response.status})`);
-        const blob = await response.blob();
-        triggerBlobDownload(blob, `${getExportBaseName(getProductName())}_meshy_generated.glb`);
-    } catch (error) {
-        window.open(state.meshy.glbUrl, '_blank', 'noopener');
-        addConsoleLog(`[MESHY] Direct download blocked, opened generated GLB URL instead: ${error.message}`, 'warning');
-    }
 }
 
 async function recordViewportClip(durationMs = 5000) {

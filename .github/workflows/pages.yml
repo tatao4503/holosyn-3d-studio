@@ -28,9 +28,7 @@ jobs:
           node-version: 24
 
       - name: Validate public build
-        run: |
-          node scripts/smoke-check.mjs
-          node scripts/server-check.mjs
+        run: node scripts/smoke-check.mjs
 
       - name: Prepare static demo
         run: |

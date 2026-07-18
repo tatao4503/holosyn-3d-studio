@@ -6,9 +6,9 @@ cd "$(dirname "$0")"
 PORT="${HOLOSYN_PORT:-4173}"
 HOST="127.0.0.1"
 
-if ! command -v node >/dev/null 2>&1; then
-  echo "Node.js 18 or newer is required to run HOLOSYN."
-  echo "Install Node.js, then run this launcher again."
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "python3 is required to run HOLOSYN."
+  echo "Install Python 3, then run this launcher again."
   read -r -p "Press Enter to close..."
   exit 1
 fi
@@ -27,7 +27,7 @@ echo "Keep this window open while using HOLOSYN."
 echo "Press Control+C to stop the local server."
 echo
 
-node server.mjs --port "$PORT" --host "$HOST" &
+python3 -m http.server "$PORT" --bind "$HOST" &
 SERVER_PID=$!
 
 cleanup() {

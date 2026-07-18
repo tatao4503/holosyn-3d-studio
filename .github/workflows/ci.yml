@@ -27,13 +27,9 @@ jobs:
           node --check app.js
           node --check scripts/holosyn-timeline.js
           node --check scripts/holosyn-pro-managers.js
-          node --check server.mjs
 
       - name: Run smoke check
         run: node scripts/smoke-check.mjs
-
-      - name: Check local server boundary
-        run: node scripts/server-check.mjs
 
       - name: Check launcher syntax
         run: bash -n "HOLOSYN 실행.command"

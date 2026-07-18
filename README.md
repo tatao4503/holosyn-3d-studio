@@ -8,8 +8,8 @@
 **[Live Demo](https://tatao4503.github.io/holosyn-3d-studio/)** · [User Guide](USER_GUIDE.md) · [Demo Script](DEMO_SCRIPT.md)
 
 > Import a 3D model or image, present it as a clean hologram, walk through its
-> parts, measure it, and hand off a brief — all in the browser. No install or
-> build step; an optional local gateway keeps third-party API keys off the page.
+> parts, measure it, and hand off a brief — all in the browser. No install,
+> build step, or backend — a pure static site.
 
 ![HOLOSYN](og-image.png)
 
@@ -28,15 +28,14 @@
 - **Portable project** — pack the actual model, camera, timeline, notes, and dimensions into one `.holosyn` file
 - **Clip recorder** — export 3-second or 5-second rotating/exploded WebM clips from the viewport
 - **30s Pitch Run** — one button stages hero view, exploded structure, Part Scan, Showcase, Final Pass, and a share URL
-- **Meshy Image-to-3D bridge** — optional secure local-gateway workflow for turning one photo into a real GLB mesh
 - **Export suite** — GLB, spec JSON, HQ PNG, client brief, rehearsal runbook, demo/handoff pack, presenter notes, measurements, beta launch/ops packages
 - **Pepper's Ghost** 4-way split for a physical acrylic-pyramid display
 - Beginner / Pro modes · guided tours · mobile touch gestures · i18n (KO/EN)
 
 ### 🛠 Tech
 Vanilla JavaScript · **Three.js** (WebGL, post-processing bloom, GLTF/OBJ loaders) ·
-Web Audio API · IndexedDB · PeerJS (optional live collaboration) · Node.js local
-gateway — no framework and no build step.
+Web Audio API · IndexedDB · PeerJS (optional live collaboration) — no framework,
+no build step, no backend.
 
 ### 📌 About
 A solo project exploring how far a single person can take an idea by directing AI
@@ -45,9 +44,8 @@ via AI pair-programming). Built as the presentation tool for a real prototype �
 a social-venture ramen-shelf nameplate — and grown from a weekend experiment into a
 full spatial presentation studio. See [`USER_GUIDE.md`](USER_GUIDE.md) for the full manual.
 
-The hosted demo includes the complete local-first presentation workflow. Secure
-Meshy generation requires the local `server.mjs` gateway so that an API key never
-ships with the public site.
+The hosted demo includes the complete local-first presentation workflow, and
+runs entirely in the browser with no backend.
 
 ## Quick Start
 
@@ -67,13 +65,13 @@ In Beginner mode, use the three controls over the viewport:
 1 IMPORT -> 2 REVEAL (HOLO / COLOR / PART) -> 3 PITCH & SHARE
 ```
 
-Switch to Pro only when you need Meshy, timeline, measurements, diagnostics, or detailed export controls.
+Switch to Pro only when you need the timeline, measurements, diagnostics, or detailed export controls.
 
 ### Terminal
 
 ```bash
 cd path/to/hologram-viewer
-node server.mjs
+python3 -m http.server 4173 --bind 127.0.0.1
 ```
 
 Then open:
@@ -91,25 +89,6 @@ node scripts/smoke-check.mjs
 ```
 
 It checks the core files, key UI hooks, import reliability diagnostics, productization panels, final readiness controls, beta launch/ops controls, timeline module, AI/collaboration safeguards, cache tags, and JavaScript syntax.
-
-Check the local server and secure API boundary too:
-
-```bash
-node scripts/server-check.mjs
-```
-
-### Secure Meshy Setup
-
-Meshy works through the local gateway when a server-side key is configured:
-
-```bash
-cp .env.example .env.local
-```
-
-Add your key to `.env.local`, then restart `HOLOSYN 실행.command`. The app will show
-`SECURE GATEWAY`, and the key will never be sent to the browser. Without a server
-key, HOLOSYN keeps a development fallback that stores a key only in the current
-tab session.
 
 ## Cold QA
 
@@ -132,8 +111,6 @@ Use this after leaving the project alone for a few days:
 - `scripts/holosyn-timeline.js` owns Timeline Keyframe Director playback, keyframes, export/import, and remote timeline sync.
 - `scripts/holosyn-pro-managers.js` owns Pro interaction layers: collaboration, AI assistant, and tutorial flow.
 - `scripts/smoke-check.mjs` verifies the handoff-critical hooks after edits.
-- `server.mjs` serves the app and keeps optional Meshy credentials on the local server.
-- `scripts/server-check.mjs` verifies the server health route, static shell, and no-key API guard.
 
 ## Demo Flow
 
@@ -175,7 +152,6 @@ Use this after leaving the project alone for a few days:
 - Portable `.holosyn` project export/import with a color-preserving GLB, SHA-256 integrity check, and 80MB model safety limit
 - URL Share Link for restoring the same presentation state from one copied link
 - Viewport Clip Recorder for short rotating/exploded WebM exports
-- Optional Meshy Image-to-3D bridge for generating a real GLB mesh from a selected image
 - Multi-measurement 3D caliper with saved dimension list and JSON export
 - Presenter Notes for scene-by-scene rehearsal copy and Markdown export
 - Beta Preflight panel for WebGL, CDN, storage, model, and snapshot readiness
@@ -207,7 +183,6 @@ Multi-part 3D models work best for exploded views and part labels. HOLOSYN reads
 
 - The app loads Three.js, Lucide icons, and Google Fonts from CDNs, so an internet connection is recommended.
 - The AI assistant is optional. Use `SESSION` for temporary demo keys, `SAVE` only for your own device, and `CLEAR` before handoff.
-- Meshy Image-to-3D is optional. Prefer `.env.local` so the local gateway owns the key; the browser session-key input is a development fallback only. API billing, quota, and upstream availability still belong to Meshy.
 - Collaboration requires the PeerJS CDN to load. If it is offline, HOLOSYN keeps the local presentation tools available.
 - Exports are handled by the browser download system.
 - Share Links embed presentation state only. Use the Portable Project controls when the model binary must be included; `.holosyn` bundles embed a normalized GLB up to 80MB.

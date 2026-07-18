@@ -11,9 +11,6 @@ const requiredFiles = [
   'README.md',
   'DEMO_SCRIPT.md',
   'HOLOSYN 실행.command',
-  'server.mjs',
-  '.env.example',
-  'scripts/server-check.mjs',
 ];
 
 const htmlSelectors = [
@@ -58,23 +55,6 @@ const htmlSelectors = [
   'import-quality-action-text',
   'btn-import-quality-action',
   'import-quality-action-button-label',
-  'meshy-import-panel',
-  'meshy-status',
-  'meshy-transport-row',
-  'meshy-transport-status',
-  'meshy-transport-detail',
-  'meshy-api-key',
-  'meshy-image-input',
-  'meshy-image-name',
-  'meshy-progress',
-  'btn-meshy-pick-image',
-  'btn-meshy-use-current-image',
-  'btn-meshy-start',
-  'btn-meshy-check',
-  'btn-meshy-import-glb',
-  'btn-meshy-download-glb',
-  'btn-meshy-save-key',
-  'btn-meshy-clear-key',
   'demo-preset-status',
   'demo-pack-panel',
   'demo-pack-status',
@@ -270,12 +250,6 @@ const appNeedles = [
   'function copyShareLink',
   'function applyShareStateFromUrl',
   'function recordViewportClip',
-  'function startMeshyImageTo3D',
-  'function checkMeshyTask',
-  'function checkMeshyGateway',
-  'function fetchMeshyApi',
-  'function migrateLegacyMeshyApiKey',
-  'function importMeshyGlbUrl',
   'function savePresenterNote',
   'function buildPresenterNotesMarkdown',
   'function exportMeasurements',
@@ -377,11 +351,6 @@ const cssNeedles = [
   '.import-quality-next-action',
   '.import-quality-action-copy',
   '.import-quality-action-btn',
-  '.meshy-import-panel',
-  '.meshy-key-row',
-  '.meshy-actions',
-  '.meshy-transport-row.secure',
-  '.meshy-import-panel.gateway-active .meshy-key-row',
   '.demo-presets-panel',
   '.flow-pitch-btn',
   '.beginner-flow',
@@ -504,10 +473,10 @@ async function main() {
     assert(html.includes(`id="${id}"`), `Missing #${id} in index.html`);
   }
   assert(html.includes('data-action="timeline"'), 'Missing mobile timeline action');
-  assert(html.includes('index.css?v=20260715-tutorialmap'), 'CSS cache version is stale');
-  assert(html.includes('app.js?v=20260715-tutorialmap'), 'Core JS cache version is stale');
-  assert(html.includes('scripts/holosyn-timeline.js?v=20260715-tutorialmap'), 'Timeline script tag is missing or stale');
-  assert(html.includes('scripts/holosyn-pro-managers.js?v=20260715-tutorialmap'), 'Pro managers script tag is missing or stale');
+  assert(html.includes('index.css?v=20260718-static'), 'CSS cache version is stale');
+  assert(html.includes('app.js?v=20260718-static'), 'Core JS cache version is stale');
+  assert(html.includes('scripts/holosyn-timeline.js?v=20260718-static'), 'Timeline script tag is missing or stale');
+  assert(html.includes('scripts/holosyn-pro-managers.js?v=20260718-static'), 'Pro managers script tag is missing or stale');
   assert(html.includes('id="handoff-next-action" class="handoff-next-action" type="button"'), 'Handoff next action should be clickable');
   assert(html.includes('id="final-readiness-panel" class="final-readiness-panel setup"'), 'Final readiness panel is missing');
   assert(html.includes('data-handoff-action="model"'), 'Handoff model jump action is missing');
@@ -521,7 +490,6 @@ async function main() {
   assert(html.includes('class="clip-export-panel"'), 'Clip export panel is missing');
   assert(html.includes('class="presenter-notes-panel"'), 'Presenter notes panel is missing');
   assert(html.includes('class="measurements-panel"'), 'Measurements panel is missing');
-  assert(html.includes('id="meshy-import-panel"'), 'Meshy import panel is missing');
   assert(html.includes('class="handoff-pack-panel"'), 'Handoff pack panel is missing');
   assert(html.includes('class="client-brief-panel"'), 'Client brief panel is missing');
   assert(html.includes('class="beta-readiness-panel"'), 'Beta readiness panel is missing');
@@ -581,13 +549,6 @@ async function main() {
       encoding: 'utf8',
     });
     assert(check.status === 0, check.stderr || check.stdout || `${file} syntax check failed`);
-  }
-
-  for (const file of ['server.mjs', 'scripts/server-check.mjs']) {
-    const check = spawnSync('node', ['--check', file], {
-      encoding: 'utf8',
-    });
-    assert(check.status === 0, `JavaScript syntax check failed for ${file}:\n${check.stderr}`);
   }
 
   console.log('HOLOSYN smoke check passed.');
