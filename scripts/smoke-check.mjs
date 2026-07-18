@@ -167,6 +167,21 @@ const htmlSelectors = [
   'gesture-pilot-spin',
   'gesture-pilot-explode',
   'presentation-mode-status',
+  'btn-share-qr',
+  'qr-share-modal',
+  'qr-canvas-holder',
+  'btn-qr-copy',
+  'stage-tools',
+  'btn-stage-pointer',
+  'btn-stage-timer',
+  'pointer-hud',
+  'btn-pointer-clear',
+  'pitch-timer',
+  'pitch-timer-time',
+  'btn-timer-start',
+  'btn-timer-reset',
+  'btn-narrate-notes',
+  'btn-narrate-stop',
 ];
 
 const appNeedles = [
@@ -303,6 +318,14 @@ const appNeedles = [
   'palm-emitter-r',
   'boot-jet-r',
   "preset: 'exosuit'",
+  'function openQrShareModal',
+  'function tryBuildQr',
+  'function toggleStagePointer',
+  'function renderStagePointer',
+  'function startPitchTimer',
+  'function updatePitchTimerDisplay',
+  'function narratePresenterNotes',
+  'function initStageTools',
 ];
 
 const timelineNeedles = [
@@ -409,6 +432,15 @@ const cssNeedles = [
   '.final-pass-panel.locked',
   '.final-pass-checks span.pass',
   '#presentation-mode-status',
+  '.stage-tools',
+  '.stage-tool-btn[aria-pressed="true"]',
+  '#stage-pointer-canvas.active',
+  '.pointer-hud',
+  '.pointer-mode-btn.active',
+  '.pitch-timer',
+  '.pitch-timer.pace-over .pitch-timer-time',
+  '.qr-modal-content',
+  '.qr-canvas-holder',
 ];
 
 const forbiddenPublicNeedles = [
@@ -473,10 +505,10 @@ async function main() {
     assert(html.includes(`id="${id}"`), `Missing #${id} in index.html`);
   }
   assert(html.includes('data-action="timeline"'), 'Missing mobile timeline action');
-  assert(html.includes('index.css?v=20260718-static'), 'CSS cache version is stale');
-  assert(html.includes('app.js?v=20260718-static'), 'Core JS cache version is stale');
-  assert(html.includes('scripts/holosyn-timeline.js?v=20260718-static'), 'Timeline script tag is missing or stale');
-  assert(html.includes('scripts/holosyn-pro-managers.js?v=20260718-static'), 'Pro managers script tag is missing or stale');
+  assert(html.includes('index.css?v=20260718-stage'), 'CSS cache version is stale');
+  assert(html.includes('app.js?v=20260718-stage'), 'Core JS cache version is stale');
+  assert(html.includes('scripts/holosyn-timeline.js?v=20260718-stage'), 'Timeline script tag is missing or stale');
+  assert(html.includes('scripts/holosyn-pro-managers.js?v=20260718-stage'), 'Pro managers script tag is missing or stale');
   assert(html.includes('id="handoff-next-action" class="handoff-next-action" type="button"'), 'Handoff next action should be clickable');
   assert(html.includes('id="final-readiness-panel" class="final-readiness-panel setup"'), 'Final readiness panel is missing');
   assert(html.includes('data-handoff-action="model"'), 'Handoff model jump action is missing');

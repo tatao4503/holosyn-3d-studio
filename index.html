@@ -32,7 +32,7 @@
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <!-- Stylesheet -->
-    <link rel="stylesheet" href="index.css?v=20260718-static">
+    <link rel="stylesheet" href="index.css?v=20260718-stage">
 </head>
 <body class="theme-blue">
     <!-- Ambient Vignette Background -->
@@ -598,6 +598,54 @@
             <!-- Floating Part Annotations Overlays (New v3.2) -->
             <div id="annotations-container"></div>
 
+            <!-- Stage Tools: live pointer + pitch timer (발표 현장용) -->
+            <div id="stage-tools" class="stage-tools" role="toolbar" aria-label="Stage tools">
+                <button id="btn-stage-pointer" class="stage-tool-btn" type="button" title="라이브 포인터 / 화면에 표시 (P)" aria-pressed="false">
+                    <i data-lucide="mouse-pointer-2"></i>
+                    <span>포인터</span>
+                </button>
+                <button id="btn-stage-timer" class="stage-tool-btn" type="button" title="피칭 타이머 / 페이싱 (T)" aria-pressed="false">
+                    <i data-lucide="timer"></i>
+                    <span>타이머</span>
+                </button>
+            </div>
+
+            <!-- Live pointer HUD (활성 시 표시) -->
+            <div id="pointer-hud" class="pointer-hud" hidden>
+                <button class="pointer-mode-btn active" data-pointer-mode="laser" type="button" title="레이저 포인터">
+                    <i data-lucide="dot"></i><span>레이저</span>
+                </button>
+                <button class="pointer-mode-btn" data-pointer-mode="draw" type="button" title="자유 드로잉 (몇 초 뒤 사라짐)">
+                    <i data-lucide="pencil"></i><span>드로잉</span>
+                </button>
+                <button class="pointer-mode-btn" data-pointer-mode="arrow" type="button" title="화살표 (드래그해서 가리키기)">
+                    <i data-lucide="move-up-right"></i><span>화살표</span>
+                </button>
+                <button id="btn-pointer-clear" class="pointer-mode-btn ghost" type="button" title="표시 모두 지우기">
+                    <i data-lucide="eraser"></i><span>지우기</span>
+                </button>
+            </div>
+
+            <!-- Pitch timer overlay -->
+            <div id="pitch-timer" class="pitch-timer" hidden role="timer" aria-live="off">
+                <div class="pitch-timer-time" id="pitch-timer-time">0:30</div>
+                <div class="pitch-timer-bar"><span id="pitch-timer-fill"></span></div>
+                <div class="pitch-timer-hint" id="pitch-timer-hint">30초 피칭 · 시작을 누르세요</div>
+                <div class="pitch-timer-controls">
+                    <button id="btn-timer-start" class="pitch-timer-btn primary" type="button" title="시작 / 일시정지">
+                        <i data-lucide="play"></i>
+                    </button>
+                    <button id="btn-timer-reset" class="pitch-timer-btn" type="button" title="리셋">
+                        <i data-lucide="rotate-ccw"></i>
+                    </button>
+                    <div class="pitch-timer-targets" role="group" aria-label="목표 시간">
+                        <button class="pitch-timer-target active" data-timer-target="30" type="button">30초</button>
+                        <button class="pitch-timer-target" data-timer-target="180" type="button">3분</button>
+                        <button class="pitch-timer-target" data-timer-target="300" type="button">5분</button>
+                    </div>
+                </div>
+            </div>
+
             <!-- Component Focus / Part Scan overlay -->
             <div id="part-scan-panel" class="part-scan-panel" aria-live="polite">
                 <div class="part-scan-header">
@@ -934,6 +982,10 @@
                             <i data-lucide="file-output"></i>
                             <span>상태 JSON</span>
                         </button>
+                        <button class="hud-btn outline-btn export-btn" id="btn-share-qr" type="button" title="발표 중 화면에 QR을 띄워 관객이 폰으로 바로 열기">
+                            <i data-lucide="qr-code"></i>
+                            <span>QR 띄우기</span>
+                        </button>
                     </div>
                     <small id="share-link-detail">Custom GLB까지 전달하려면 아래 PORTABLE PROJECT 번들을 사용하세요.</small>
                 </div>
@@ -968,6 +1020,14 @@
                         <button class="hud-btn outline-btn export-btn" id="btn-export-presenter-notes" type="button" title="발표자 노트 Markdown 내보내기">
                             <i data-lucide="file-text"></i>
                             <span>노트 Markdown</span>
+                        </button>
+                        <button class="hud-btn outline-btn export-btn" id="btn-narrate-notes" type="button" title="저장된 노트를 음성으로 낭독 (무인 전시·리허설용)">
+                            <i data-lucide="volume-2"></i>
+                            <span>음성 낭독</span>
+                        </button>
+                        <button class="hud-btn outline-btn export-btn" id="btn-narrate-stop" type="button" title="음성 낭독 중지" hidden>
+                            <i data-lucide="square"></i>
+                            <span>낭독 중지</span>
                         </button>
                     </div>
                 </div>
@@ -1222,6 +1282,31 @@
     </div>
 
     <!-- Voice Command Help Modal (v5.0) -->
+    <!-- QR share modal: 관객이 폰으로 발표 씬을 바로 여는 QR -->
+    <div id="qr-share-modal" class="modal-backdrop" style="display: none; z-index: 2020;" role="dialog" aria-modal="true" aria-label="Share QR">
+        <div class="modal-content glass-panel border-flash qr-modal-content">
+            <div class="modal-header" style="align-items: flex-start;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <i data-lucide="qr-code" class="glow-icon" style="color: var(--theme-color); width: 22px; height: 22px;"></i>
+                    <h2 style="font-family: var(--font-ui); font-size: 16px; font-weight: 700; color: var(--text-primary); margin: 0;">SCAN TO OPEN // 폰으로 열기</h2>
+                </div>
+                <button id="btn-qr-close" class="hud-btn outline-btn" type="button" title="닫기" style="padding: 6px 10px;">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="modal-body qr-modal-body">
+                <div id="qr-canvas-holder" class="qr-canvas-holder" aria-label="QR code"></div>
+                <p id="qr-share-note" class="qr-share-note">공유 링크를 QR로 변환했습니다. 관객이 카메라로 스캔하면 같은 발표 장면이 폰에서 열립니다.</p>
+                <div class="qr-share-url-row">
+                    <input id="qr-share-url" class="qr-share-url" type="text" readonly aria-label="Share URL">
+                    <button id="btn-qr-copy" class="hud-btn outline-btn export-btn" type="button" title="URL 복사">
+                        <i data-lucide="copy"></i><span>복사</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div id="voice-help-modal" class="modal-backdrop" style="display: none; z-index: 2010;" role="dialog" aria-modal="true" aria-label="Voice Command Guide">
         <div class="modal-content glass-panel border-flash" style="max-width: 480px; text-align: left; padding: 25px;">
             <div class="modal-header" style="align-items: flex-start; margin-bottom: 15px;">
@@ -1612,10 +1697,13 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/BokehShader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/BokehPass.js"></script>
 
+    <!-- QR code generator (image→3D 아님, 공유 링크 QR 렌더링용) -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+
     <!-- Main Script -->
-    <script src="app.js?v=20260718-static"></script>
-    <script src="scripts/holosyn-timeline.js?v=20260718-static"></script>
-    <script src="scripts/holosyn-pro-managers.js?v=20260718-static"></script>
+    <script src="app.js?v=20260718-stage"></script>
+    <script src="scripts/holosyn-timeline.js?v=20260718-stage"></script>
+    <script src="scripts/holosyn-pro-managers.js?v=20260718-stage"></script>
     <script>
         // Init Lucide Icons
         lucide.createIcons();
