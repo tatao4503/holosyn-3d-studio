@@ -28,6 +28,7 @@
 - **Portable project** — pack the actual model, camera, timeline, notes, and dimensions into one `.holosyn` file
 - **Clip recorder** — export 3-second or 5-second rotating/exploded WebM clips from the viewport
 - **30s Pitch Run** — one button stages hero view, exploded structure, Part Scan, Showcase, Final Pass, and a share URL
+- **Stage tools** — show a scannable QR, point or draw over the viewport, rehearse to a 30s/3m/5m timer, and narrate saved presenter notes
 - **Export suite** — GLB, spec JSON, HQ PNG, client brief, rehearsal runbook, demo/handoff pack, presenter notes, measurements, beta launch/ops packages
 - **Pepper's Ghost** 4-way split for a physical acrylic-pyramid display
 - Beginner / Pro modes · guided tours · mobile touch gestures · i18n (KO/EN)
@@ -120,15 +121,17 @@ Use this after leaving the project alone for a few days:
 4. Use viewport gestures or `Part Scan` to isolate one component while the rest of the assembly stays translucent.
 5. Use `MATERIAL REVEAL` to compare HOLO, PRODUCT color, and focused-part HYBRID views.
 6. Click `30s PITCH` when you need the shortest judge/investor-friendly path; it now ends with a product-color reveal.
-7. Apply a Demo Scene Preset such as Investor Pitch or Exploded Tech when you want a longer staged flow.
-8. Save a Project Snapshot if you want to restore the same presentation setup later.
-9. Use `Timeline` or `Showcase` for a cleaner audience-facing presentation pass.
-10. Edit the product name or part labels if needed.
-11. Save presenter notes or multiple 3D dimensions if the demo needs exact talking points.
-12. Copy a Share Link or record a short WebM clip when you need to send the same angle or motion pass.
-13. Use `PORTABLE PROJECT` when the custom model itself must travel with the presentation state.
-14. Review Beta Preflight, Beta Launch Pack, and Beta Ops Pack, then export the Rehearsal Runbook or click `시연 패키지 생성` for the one-click Demo Pack.
-15. Export PNG, JSON, GLB, Client Brief Markdown, or the Handoff Manifest separately when needed.
+7. Use the live pointer (`Shift+P`) and 30s/3m/5m timer (`T`) while presenting or rehearsing.
+8. Show the QR when the audience should open the current scene on a phone, or narrate saved presenter notes for a self-running display.
+9. Apply a Demo Scene Preset such as Investor Pitch or Exploded Tech when you want a longer staged flow.
+10. Save a Project Snapshot if you want to restore the same presentation setup later.
+11. Use `Timeline` or `Showcase` for a cleaner audience-facing presentation pass.
+12. Edit the product name or part labels if needed.
+13. Save presenter notes or multiple 3D dimensions if the demo needs exact talking points.
+14. Copy a Share Link or record a short WebM clip when you need to send the same angle or motion pass.
+15. Use `PORTABLE PROJECT` when the custom model itself must travel with the presentation state.
+16. Review Beta Preflight, Beta Launch Pack, and Beta Ops Pack, then export the Rehearsal Runbook or click `시연 패키지 생성` for the one-click Demo Pack.
+17. Export PNG, JSON, GLB, Client Brief Markdown, or the Handoff Manifest separately when needed.
 
 ## Main Features
 
@@ -152,6 +155,10 @@ Use this after leaving the project alone for a few days:
 - Portable `.holosyn` project export/import with a color-preserving GLB, SHA-256 integrity check, and 80MB model safety limit
 - URL Share Link for restoring the same presentation state from one copied link
 - Viewport Clip Recorder for short rotating/exploded WebM exports
+- QR Share for opening the current presentation scene from an audience phone
+- Live viewport pointer with laser, fading freehand, and arrow modes
+- Pitch timer with 30-second, 3-minute, and 5-minute pacing targets
+- Browser TTS narration for saved presenter notes
 - Multi-measurement 3D caliper with saved dimension list and JSON export
 - Presenter Notes for scene-by-scene rehearsal copy and Markdown export
 - Beta Preflight panel for WebGL, CDN, storage, model, and snapshot readiness

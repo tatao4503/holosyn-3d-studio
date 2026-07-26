@@ -9,6 +9,7 @@ const requiredFiles = [
   'scripts/holosyn-timeline.js',
   'scripts/holosyn-pro-managers.js',
   'README.md',
+  'USER_GUIDE.md',
   'DEMO_SCRIPT.md',
   'HOLOSYN 실행.command',
 ];
@@ -320,12 +321,15 @@ const appNeedles = [
   "preset: 'exosuit'",
   'function openQrShareModal',
   'function tryBuildQr',
+  'matrix.getModuleCount() > maxQrModules',
   'function toggleStagePointer',
   'function renderStagePointer',
   'function startPitchTimer',
   'function updatePitchTimerDisplay',
   'function narratePresenterNotes',
   'function initStageTools',
+  "event.shiftKey && event.key.toLowerCase() === 'p'",
+  'if (e.shiftKey) break;',
 ];
 
 const timelineNeedles = [
@@ -505,10 +509,11 @@ async function main() {
     assert(html.includes(`id="${id}"`), `Missing #${id} in index.html`);
   }
   assert(html.includes('data-action="timeline"'), 'Missing mobile timeline action');
-  assert(html.includes('index.css?v=20260718-stage'), 'CSS cache version is stale');
-  assert(html.includes('app.js?v=20260718-stage'), 'Core JS cache version is stale');
-  assert(html.includes('scripts/holosyn-timeline.js?v=20260718-stage'), 'Timeline script tag is missing or stale');
-  assert(html.includes('scripts/holosyn-pro-managers.js?v=20260718-stage'), 'Pro managers script tag is missing or stale');
+  assert(html.includes('라이브 포인터 / 화면에 표시 (Shift+P)'), 'Live pointer shortcut label is stale');
+  assert(html.includes('index.css?v=20260726-v110'), 'CSS cache version is stale');
+  assert(html.includes('app.js?v=20260726-v110'), 'Core JS cache version is stale');
+  assert(html.includes('scripts/holosyn-timeline.js?v=20260726-v110'), 'Timeline script tag is missing or stale');
+  assert(html.includes('scripts/holosyn-pro-managers.js?v=20260726-v110'), 'Pro managers script tag is missing or stale');
   assert(html.includes('id="handoff-next-action" class="handoff-next-action" type="button"'), 'Handoff next action should be clickable');
   assert(html.includes('id="final-readiness-panel" class="final-readiness-panel setup"'), 'Final readiness panel is missing');
   assert(html.includes('data-handoff-action="model"'), 'Handoff model jump action is missing');

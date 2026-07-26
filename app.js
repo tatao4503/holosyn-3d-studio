@@ -10169,27 +10169,27 @@ function openQrShareModal() {
         return;
     }
     const built = buildShareUrl();
-    let target = built.url;
+    let qrTarget = built.url;
     let note = state.language === 'ko'
         ? '공유 링크를 QR로 변환했습니다. 관객이 카메라로 스캔하면 같은 발표 장면이 폰에서 열립니다.'
         : 'Scan this to open the exact presentation scene on a phone.';
-    let matrix = null;
-    // 긴 씬 상태 URL은 QR로 담기 어렵다 → 배포 URL로 폴백
-    matrix = tryBuildQr(target);
-    if (!matrix) {
+    const maxQrModules = 101;
+    // A QR that technically encodes but is too dense to scan is not useful on stage.
+    let matrix = tryBuildQr(qrTarget);
+    if (!matrix || matrix.getModuleCount() > maxQrModules) {
         const base = `${window.location.origin}${window.location.pathname}`;
         matrix = tryBuildQr(base);
-        target = base;
+        qrTarget = base;
         note = state.language === 'ko'
-            ? '발표 장면 링크가 길어 QR에는 앱 주소만 담았습니다. 장면까지 전달하려면 "공유 링크 복사"의 URL을 쓰세요.'
-            : 'The scene link was too long for a QR, so this opens the app itself. Use the copied link to carry the exact scene.';
+            ? '발표 장면 링크가 길어 QR에는 앱 주소만 담았습니다. 아래 복사 버튼은 정확한 장면 링크를 복사합니다.'
+            : 'The scene link was too long for a reliable QR, so the code opens the app. The copy button keeps the exact scene link.';
     }
     const holder = document.getElementById('qr-canvas-holder');
     if (holder) {
         holder.innerHTML = matrix ? matrix.createImgTag(6, 8) : '';
     }
     const urlInput = document.getElementById('qr-share-url');
-    if (urlInput) urlInput.value = target;
+    if (urlInput) urlInput.value = built.url;
     const noteEl = document.getElementById('qr-share-note');
     if (noteEl) noteEl.textContent = note;
     modal.style.display = 'flex';
@@ -10197,8 +10197,8 @@ function openQrShareModal() {
         window.history.replaceState(null, '', built.url);
     } catch (error) { /* ignore */ }
     markHandoffExportReady();
-    addConsoleLog(`[SHARE] QR generated (${target.length} chars).`, 'success');
-    verifyQrScannable(matrix, target);
+    addConsoleLog(`[SHARE] QR generated (${qrTarget.length} chars).`, 'success');
+    verifyQrScannable(matrix, qrTarget);
 }
 
 function tryBuildQr(text) {
@@ -10618,8 +10618,11 @@ function initStageTools() {
     if (narrateStop) narrateStop.addEventListener('click', stopNarration);
 
     document.addEventListener('keydown', event => {
-        if (event.target && /^(INPUT|TEXTAREA)$/.test(event.target.tagName)) return;
-        if (event.key === 'p' || event.key === 'P') toggleStagePointer();
+        if (event.target && (/^(INPUT|TEXTAREA|SELECT)$/.test(event.target.tagName) || event.target.isContentEditable)) return;
+        if (event.shiftKey && event.key.toLowerCase() === 'p') {
+            event.preventDefault();
+            toggleStagePointer();
+        }
         else if (event.key === 't' || event.key === 'T') toggleStageTimer();
         else if (event.key === 'Escape') { closeQrShareModal(); if (state.stageTools.pointerActive) toggleStagePointer(false); }
     });
@@ -12370,6 +12373,7 @@ function initKeyboardShortcuts() {
                 updateLanguageHTML(newLang);
                 break;
             case 'p': // Showcase mode
+                if (e.shiftKey) break;
                 e.preventDefault();
                 const showcaseBtn = document.getElementById('btn-showcase-toggle');
                 if (showcaseBtn) showcaseBtn.click();

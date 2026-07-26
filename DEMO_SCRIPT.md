@@ -19,9 +19,10 @@ Use this when you want to check the product without showing it to anyone yet.
 2. Click `30s PITCH`.
 3. Say: "This is not CAD. It turns a product concept into a meeting-ready 3D presentation."
 4. Let the pitch run move through hologram structure, HYBRID component focus, PRODUCT color reveal, Showcase, and Final Pass.
-5. Point to the address bar or `SHARE`: the same view can be opened from one link.
-6. Point to `PORTABLE PROJECT`: when the real model must travel too, one `.holosyn` file carries the model and presentation state together.
-7. If more proof is needed, click `리허설 런북`, `시연 패키지 생성`, or `릴리즈 패키지` and explain that it bundles the current brief, risk check, snapshot, and handoff path.
+5. Turn on the 30-second timer and use `Shift+P` to point at one component without leaving the viewport.
+6. Open `QR 띄우기`: the audience can scan the current scene from a phone.
+7. Point to `PORTABLE PROJECT`: when the real model must travel too, one `.holosyn` file carries the model and presentation state together.
+8. If more proof is needed, click `리허설 런북`, `시연 패키지 생성`, or `릴리즈 패키지` and explain that it bundles the current brief, risk check, snapshot, and handoff path.
 
 ## 3-Minute Version
 
@@ -50,6 +51,8 @@ Use this when you want to check the product without showing it to anyone yet.
    - Open `Timeline` to stage or replay a keyframe presentation.
    - Use Showcase mode for a cleaner audience-facing view with automatic Part Scan focus.
    - Switch `MATERIAL REVEAL` from HOLO to PRODUCT, then use HYBRID with Part Scan to reveal one component at a time.
+   - Use the live pointer (`Shift+P`) and 3-minute timer (`T`) to keep the walkthrough focused.
+   - Show the current scene as a QR, or narrate saved presenter notes for rehearsal and unattended display.
 
 5. Pro tools
    - Use AI Assistant only when a local Gemini key is available.

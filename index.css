@@ -6709,11 +6709,11 @@ body.power-core-active .pulse-dot {
 }
 
 /* QR share modal */
-.qr-modal-content { max-width: 380px; text-align: left; padding: 22px; }
+.qr-modal-content { max-width: 420px; text-align: left; padding: 22px; }
 .qr-modal-body { display: flex; flex-direction: column; align-items: center; gap: 14px; margin-top: 8px; }
 .qr-canvas-holder {
-    width: 244px;
-    height: 244px;
+    width: min(284px, 72vw);
+    aspect-ratio: 1;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -6732,6 +6732,7 @@ body.power-core-active .pulse-dot {
     margin: 0;
 }
 .qr-share-url-row { display: flex; gap: 6px; width: 100%; }
+.qr-share-url-row .hud-btn { flex: 0 0 auto; padding: 7px 11px; }
 .qr-share-url {
     flex: 1;
     min-width: 0;

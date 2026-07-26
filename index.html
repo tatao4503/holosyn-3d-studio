@@ -32,7 +32,7 @@
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <!-- Stylesheet -->
-    <link rel="stylesheet" href="index.css?v=20260718-stage">
+    <link rel="stylesheet" href="index.css?v=20260726-v110">
 </head>
 <body class="theme-blue">
     <!-- Ambient Vignette Background -->
@@ -600,7 +600,7 @@
 
             <!-- Stage Tools: live pointer + pitch timer (발표 현장용) -->
             <div id="stage-tools" class="stage-tools" role="toolbar" aria-label="Stage tools">
-                <button id="btn-stage-pointer" class="stage-tool-btn" type="button" title="라이브 포인터 / 화면에 표시 (P)" aria-pressed="false">
+                <button id="btn-stage-pointer" class="stage-tool-btn" type="button" title="라이브 포인터 / 화면에 표시 (Shift+P)" aria-pressed="false">
                     <i data-lucide="mouse-pointer-2"></i>
                     <span>포인터</span>
                 </button>
@@ -1283,7 +1283,7 @@
 
     <!-- Voice Command Help Modal (v5.0) -->
     <!-- QR share modal: 관객이 폰으로 발표 씬을 바로 여는 QR -->
-    <div id="qr-share-modal" class="modal-backdrop" style="display: none; z-index: 2020;" role="dialog" aria-modal="true" aria-label="Share QR">
+    <div id="qr-share-modal" class="modal-backdrop" style="display: none; z-index: 10020;" role="dialog" aria-modal="true" aria-label="Share QR">
         <div class="modal-content glass-panel border-flash qr-modal-content">
             <div class="modal-header" style="align-items: flex-start;">
                 <div style="display: flex; align-items: center; gap: 8px;">
@@ -1299,7 +1299,7 @@
                 <p id="qr-share-note" class="qr-share-note">공유 링크를 QR로 변환했습니다. 관객이 카메라로 스캔하면 같은 발표 장면이 폰에서 열립니다.</p>
                 <div class="qr-share-url-row">
                     <input id="qr-share-url" class="qr-share-url" type="text" readonly aria-label="Share URL">
-                    <button id="btn-qr-copy" class="hud-btn outline-btn export-btn" type="button" title="URL 복사">
+                    <button id="btn-qr-copy" class="hud-btn outline-btn" type="button" title="URL 복사">
                         <i data-lucide="copy"></i><span>복사</span>
                     </button>
                 </div>
@@ -1697,13 +1697,13 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/BokehShader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/BokehPass.js"></script>
 
-    <!-- QR code generator (image→3D 아님, 공유 링크 QR 렌더링용) -->
+    <!-- QR code generator for presentation share links -->
     <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 
     <!-- Main Script -->
-    <script src="app.js?v=20260718-stage"></script>
-    <script src="scripts/holosyn-timeline.js?v=20260718-stage"></script>
-    <script src="scripts/holosyn-pro-managers.js?v=20260718-stage"></script>
+    <script src="app.js?v=20260726-v110"></script>
+    <script src="scripts/holosyn-timeline.js?v=20260726-v110"></script>
+    <script src="scripts/holosyn-pro-managers.js?v=20260726-v110"></script>
     <script>
         // Init Lucide Icons
         lucide.createIcons();
