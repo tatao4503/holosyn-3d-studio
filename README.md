@@ -17,6 +17,22 @@
 설명하고, 치수를 재고, 발표용 자료까지 내보내는 **브라우저 기반 공간 발표 스튜디오**입니다.
 제작 도구(CAD)도 임베드 뷰어도 아닌, **"발표·시연 전용"** 이라는 빈 자리를 채웁니다.
 
+## V2 Viewer Mode
+
+V2는 제작 화면과 관람 화면을 분리합니다. 스튜디오에서 만든 공유 링크에는
+`?viewer=1`이 자동으로 붙고, 받는 사람은 부팅이나 편집 패널 없이 같은 모델·카메라·조명·
+재질·부품 상태를 바로 봅니다.
+
+- 전체 화면 3D 뷰와 마우스/터치 궤도 조작
+- 자동 발표 재생·정지와 카메라 원위치
+- 이전/다음 부품 탐색
+- HOLO / COLOR / PART 재질 전환
+- 전체화면과 동일 장면 `Open Studio`
+- 공유 URL의 `#hs=` 장면 상태 유지
+
+직접 확인하려면 `index.html?viewer=1`을 열면 됩니다. Viewer에서 `Open Studio`를 누르면
+`viewer` 옵션만 제거되고 같은 장면 상태는 유지됩니다.
+
 ### ✨ Highlights
 - **Import anything** — `.glb` / `.gltf` / `.obj`, or a flat image projected as a 3D holographic relief
 - **Part Scan** — step through each component with auto-generated talking points
@@ -24,7 +40,7 @@
 - **3D Measure** — click two points for a real-world dimension readout
 - **Exploded view · Assembly steps · Timeline director** for staged walkthroughs
 - **Showcase mode** — hide all HUD, product only; Play Show for an auto cinematic pass
-- **Share link** — pack model, lighting, color, camera, timeline, notes, and saved dimensions into one URL
+- **Audience Viewer link** — pack model, lighting, color, camera, timeline, notes, and saved dimensions into a clean read-only URL
 - **Portable project** — pack the actual model, camera, timeline, notes, and dimensions into one `.holosyn` file
 - **Clip recorder** — export 3-second or 5-second rotating/exploded WebM clips from the viewport
 - **30s Pitch Run** — one button stages hero view, exploded structure, Part Scan, Showcase, Final Pass, and a share URL
@@ -79,6 +95,12 @@ Then open:
 
 ```text
 http://127.0.0.1:4173/index.html
+```
+
+Audience Viewer:
+
+```text
+http://127.0.0.1:4173/index.html?viewer=1
 ```
 
 ## Smoke Check

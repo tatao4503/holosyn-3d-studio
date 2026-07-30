@@ -183,6 +183,16 @@ const htmlSelectors = [
   'btn-timer-reset',
   'btn-narrate-notes',
   'btn-narrate-stop',
+  'viewer-shell',
+  'viewer-product-name',
+  'viewer-status',
+  'btn-viewer-play',
+  'btn-viewer-reset-camera',
+  'btn-viewer-part-prev',
+  'viewer-part-label',
+  'btn-viewer-part-next',
+  'btn-viewer-fullscreen',
+  'btn-viewer-open-studio',
 ];
 
 const appNeedles = [
@@ -330,6 +340,15 @@ const appNeedles = [
   'function initStageTools',
   "event.shiftKey && event.key.toLowerCase() === 'p'",
   'if (e.shiftKey) break;',
+  'function isViewerModeRequested',
+  'function initViewerMode',
+  'function refreshViewerModeUi',
+  'function getStudioUrlFromViewer',
+  "url.searchParams.set('viewer', '1')",
+  "baseUrl.searchParams.set('viewer', '1')",
+  'if (state.viewerMode) return;',
+  'if (!state.viewerMode) savePreferences();',
+  'if (!copied) {',
 ];
 
 const timelineNeedles = [
@@ -445,6 +464,11 @@ const cssNeedles = [
   '.pitch-timer.pace-over .pitch-timer-time',
   '.qr-modal-content',
   '.qr-canvas-holder',
+  'body.viewer-mode #app-container',
+  'body.viewer-mode #hud-center-stage',
+  '.viewer-topbar',
+  '.viewer-controlbar',
+  '.viewer-material-btn.active',
 ];
 
 const forbiddenPublicNeedles = [
@@ -510,10 +534,14 @@ async function main() {
   }
   assert(html.includes('data-action="timeline"'), 'Missing mobile timeline action');
   assert(html.includes('라이브 포인터 / 화면에 표시 (Shift+P)'), 'Live pointer shortcut label is stale');
-  assert(html.includes('index.css?v=20260726-v110'), 'CSS cache version is stale');
-  assert(html.includes('app.js?v=20260726-v110'), 'Core JS cache version is stale');
-  assert(html.includes('scripts/holosyn-timeline.js?v=20260726-v110'), 'Timeline script tag is missing or stale');
-  assert(html.includes('scripts/holosyn-pro-managers.js?v=20260726-v110'), 'Pro managers script tag is missing or stale');
+  assert(html.includes('index.css?v=20260730-v2viewer'), 'CSS cache version is stale');
+  assert(html.includes('app.js?v=20260730-v2viewer'), 'Core JS cache version is stale');
+  assert(html.includes('scripts/holosyn-timeline.js?v=20260730-v2viewer'), 'Timeline script tag is missing or stale');
+  assert(html.includes('scripts/holosyn-pro-managers.js?v=20260730-v2viewer'), 'Pro managers script tag is missing or stale');
+  assert(html.includes("get('viewer') === '1'"), 'Viewer mode must be detected before first paint');
+  assert(html.includes('data-viewer-material="hologram"'), 'Viewer hologram material control is missing');
+  assert(html.includes('data-viewer-material="product"'), 'Viewer product material control is missing');
+  assert(html.includes('data-viewer-material="hybrid"'), 'Viewer hybrid material control is missing');
   assert(html.includes('id="handoff-next-action" class="handoff-next-action" type="button"'), 'Handoff next action should be clickable');
   assert(html.includes('id="final-readiness-panel" class="final-readiness-panel setup"'), 'Final readiness panel is missing');
   assert(html.includes('data-handoff-action="model"'), 'Handoff model jump action is missing');
@@ -574,6 +602,11 @@ async function main() {
   }
   assert(!appJs.includes('typeof AIManager') && !managerJs.includes('typeof AIManager'), 'Stale AIManager reference found');
   assert(!appJs.includes('setupUI()'), 'Stale setupUI initializer reference found');
+  const qrShareSection = appJs.slice(
+    appJs.indexOf('function openQrShareModal'),
+    appJs.indexOf('function tryBuildQr')
+  );
+  assert(!qrShareSection.includes('window.history.replaceState'), 'Opening the QR modal must not replace the Studio URL');
 
   for (const needle of cssNeedles) {
     assert(css.includes(needle), `Missing CSS checkpoint: ${needle}`);

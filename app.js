@@ -291,6 +291,7 @@ const translations = {
 // Global Application State
 const state = {
     uiMode: 'beginner',           // 'beginner' or 'pro' - Beginner is default clean mode
+    viewerMode: false,            // V2 audience-facing, read-only shared scene
     gyroActive: false,
     language: 'ko',
     themeColor: '#007aff',         // Studio blue as default
@@ -1490,6 +1491,7 @@ function updateMaterialViewUi() {
         btn.setAttribute('aria-pressed', String(active));
     });
     updateBeginnerFlowUi();
+    refreshViewerModeUi();
 
     if (!detail) return;
     const ko = state.language === 'ko';
@@ -1595,7 +1597,8 @@ function setMaterialView(mode, options = {}) {
         toggleRenderVisibility();
     }
     updateMaterialViewUi();
-    savePreferences();
+    if (!state.viewerMode) savePreferences();
+    refreshViewerModeUi();
 
     if (broadcast && typeof CollabManager !== 'undefined' && CollabManager.isActive) {
         CollabManager.broadcast({ type: 'state_update', key: 'materialView', value: mode });
@@ -1710,6 +1713,7 @@ function setPartScanActive(active, requestedIndex = state.partScanIndex) {
     }
 
     syncPartScanLayout();
+    refreshViewerModeUi();
 }
 
 function cyclePartScan(delta) {
@@ -1723,6 +1727,7 @@ function cyclePartScan(delta) {
     const ann = getCurrentPartScanAnnotation();
     addConsoleLog(`[PART SCAN] Component ${state.partScanIndex + 1}/${scanList.length}: ${ann ? getPartScanTitle(ann) : 'component'}.`, 'info');
     syncPartScanLayout();
+    refreshViewerModeUi();
 }
 
 function jumpToPartScanIndex(index) {
@@ -1737,6 +1742,7 @@ function jumpToPartScanIndex(index) {
     const ann = getCurrentPartScanAnnotation();
     addConsoleLog(`[PART SCAN] Map jump ${state.partScanIndex + 1}/${scanList.length}: ${ann ? getPartScanTitle(ann) : 'component'}.`, 'info');
     syncPartScanLayout();
+    refreshViewerModeUi();
 }
 
 function initPartScanControls() {
@@ -1782,9 +1788,145 @@ function initPartScanControls() {
     updatePartScanPanel();
 }
 
+function isViewerModeRequested() {
+    return new URLSearchParams(window.location.search).get('viewer') === '1';
+}
+
+function getStudioUrlFromViewer() {
+    const url = new URL(window.location.href);
+    url.searchParams.delete('viewer');
+    return url.toString();
+}
+
+function refreshViewerModeUi() {
+    if (!state.viewerMode) return;
+
+    const productName = getProductName();
+    const productEl = document.getElementById('viewer-product-name');
+    if (productEl) productEl.textContent = productName;
+    document.title = `${productName} — HOLOSYN Viewer`;
+
+    const scanList = getPartScanList();
+    const annotation = state.partScanActive ? getCurrentPartScanAnnotation() : null;
+    const partLabel = document.getElementById('viewer-part-label');
+    if (partLabel) {
+        partLabel.textContent = annotation
+            ? getPartScanTitle(annotation)
+            : (scanList.length ? `${scanList.length} parts` : 'Overview');
+    }
+
+    ['btn-viewer-part-prev', 'btn-viewer-part-next'].forEach(id => {
+        const button = document.getElementById(id);
+        if (button) button.disabled = !state.engineBooted || scanList.length === 0;
+    });
+
+    document.querySelectorAll('[data-viewer-material]').forEach(button => {
+        const active = button.dataset.viewerMaterial === state.materialView;
+        button.classList.toggle('active', active);
+        button.setAttribute('aria-pressed', String(active));
+    });
+
+    const playButton = document.getElementById('btn-viewer-play');
+    if (playButton) {
+        playButton.setAttribute('aria-pressed', String(state.isShowcaseMode));
+        playButton.setAttribute('aria-label', state.isShowcaseMode ? '자동 발표 일시정지' : '자동 발표 재생');
+        playButton.title = state.isShowcaseMode ? '자동 발표 일시정지' : '자동 발표 재생';
+    }
+
+    const status = document.getElementById('viewer-status');
+    if (status) {
+        if (!state.engineBooted) {
+            status.textContent = 'LOADING SCENE';
+        } else if (state.isShowcaseMode) {
+            status.textContent = 'PLAYING';
+        } else if (annotation) {
+            status.textContent = `PART ${state.partScanIndex + 1}/${scanList.length}`;
+        } else {
+            const labels = { hologram: 'HOLOGRAM', product: 'PRODUCT COLOR', hybrid: 'HYBRID REVEAL' };
+            status.textContent = labels[state.materialView] || 'READY';
+        }
+    }
+
+    const fullscreenButton = document.getElementById('btn-viewer-fullscreen');
+    if (fullscreenButton) {
+        const fullscreen = !!document.fullscreenElement;
+        fullscreenButton.setAttribute('aria-pressed', String(fullscreen));
+        fullscreenButton.title = fullscreen ? '전체화면 종료' : '전체화면';
+    }
+}
+
+function initViewerMode() {
+    state.viewerMode = isViewerModeRequested();
+    document.documentElement.classList.toggle('viewer-requested', state.viewerMode);
+    document.body.classList.toggle('viewer-mode', state.viewerMode);
+    if (!state.viewerMode) return;
+
+    state.isSoundOn = false;
+    const welcome = document.getElementById('welcome-modal');
+    if (welcome) {
+        welcome.classList.add('hidden-stage');
+        welcome.setAttribute('aria-hidden', 'true');
+    }
+
+    const playButton = document.getElementById('btn-viewer-play');
+    if (playButton) {
+        playButton.addEventListener('click', () => {
+            if (!state.engineBooted) return;
+            if (state.isShowcaseMode) stopCinematicPresentation();
+            else startCinematicPresentation();
+            refreshViewerModeUi();
+        });
+    }
+
+    const resetButton = document.getElementById('btn-viewer-reset-camera');
+    if (resetButton) {
+        resetButton.addEventListener('click', () => {
+            if (!state.engineBooted) return;
+            applyCameraView('orbit', false);
+            refreshViewerModeUi();
+        });
+    }
+
+    const previousButton = document.getElementById('btn-viewer-part-prev');
+    if (previousButton) previousButton.addEventListener('click', () => cyclePartScan(-1));
+    const nextButton = document.getElementById('btn-viewer-part-next');
+    if (nextButton) nextButton.addEventListener('click', () => cyclePartScan(1));
+
+    document.querySelectorAll('[data-viewer-material]').forEach(button => {
+        button.addEventListener('click', () => {
+            if (!state.engineBooted) return;
+            setMaterialView(button.dataset.viewerMaterial, { notify: false });
+        });
+    });
+
+    const fullscreenButton = document.getElementById('btn-viewer-fullscreen');
+    if (fullscreenButton) {
+        fullscreenButton.addEventListener('click', async () => {
+            try {
+                if (document.fullscreenElement) await document.exitFullscreen();
+                else await document.documentElement.requestFullscreen();
+            } catch (error) {
+                console.warn('Fullscreen request was blocked:', error);
+            }
+            refreshViewerModeUi();
+        });
+    }
+
+    const studioButton = document.getElementById('btn-viewer-open-studio');
+    if (studioButton) {
+        studioButton.addEventListener('click', () => {
+            window.location.assign(getStudioUrlFromViewer());
+        });
+    }
+
+    document.addEventListener('fullscreenchange', refreshViewerModeUi);
+    refreshViewerModeUi();
+}
+
 // Start the welcome modal boot sequence
 document.addEventListener('DOMContentLoaded', () => {
     loadPreferences(); // v3.8: Restore saved settings from localStorage
+    initViewerMode();
     registerRuntimeErrorCapture();
     applyAnnotationLabelOverrides();
     initLanguageEngine();
@@ -1811,26 +1953,34 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // Setup initial UI layout
             toggleUIMode(state.uiMode);
+            document.body.classList.toggle('viewer-ready', state.viewerMode);
+            refreshViewerModeUi();
+            setTimeout(onWindowResize, 0);
             
             // Hide overlay modal
             const modal = document.getElementById('welcome-modal');
             if (modal) {
-                modal.style.opacity = '0';
-                setTimeout(() => {
+                if (state.viewerMode) {
                     modal.classList.add('hidden-stage');
-                    // Automatically slide in welcome notification toast
-                    showNotification(
-                        state.language === 'ko' ? "HOLOSYN 스튜디오 부팅 성공" : "HOLOSYN Studio Boot Successful",
-                        state.language === 'ko' ? "시제품 3D 발표 스튜디오가 준비되었습니다." : "The 3D prototype presentation studio is ready."
-                    );
-
-                    // Proactively prompt the user for the guide tour (Phase D)
+                    modal.setAttribute('aria-hidden', 'true');
+                } else {
+                    modal.style.opacity = '0';
                     setTimeout(() => {
-                        if (typeof TutorialManager !== 'undefined') {
-                            TutorialManager.showPrompt();
-                        }
-                    }, 1200);
-                }, 600);
+                        modal.classList.add('hidden-stage');
+                        // Automatically slide in welcome notification toast
+                        showNotification(
+                            state.language === 'ko' ? "HOLOSYN 스튜디오 부팅 성공" : "HOLOSYN Studio Boot Successful",
+                            state.language === 'ko' ? "시제품 3D 발표 스튜디오가 준비되었습니다." : "The 3D prototype presentation studio is ready."
+                        );
+
+                        // Proactively prompt the user for the guide tour (Phase D)
+                        setTimeout(() => {
+                            if (typeof TutorialManager !== 'undefined') {
+                                TutorialManager.showPrompt();
+                            }
+                        }, 1200);
+                    }, 600);
+                }
             }
             
             // Auto-run continuous diagnostic log timer
@@ -1839,9 +1989,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     applyShareStateFromUrl();
+    if (state.viewerMode) {
+        requestAnimationFrame(() => {
+            if (bootBtn && !bootBtn.disabled && !state.engineBooted) bootBtn.click();
+        });
+    }
 
     // Initialize Tutorial Manager (Phase D)
-    if (typeof TutorialManager !== 'undefined') {
+    if (!state.viewerMode && typeof TutorialManager !== 'undefined') {
         TutorialManager.init();
     }
 });
@@ -1913,8 +2068,10 @@ function updateTelemetryBarText() {
 let proTourOffered = false; // session flag: offer the Pro guide tour once
 function toggleUIMode(mode) {
     state.uiMode = mode;
-    localStorage.setItem('holosyn_uimode', mode);
-    savePreferences();
+    if (!state.viewerMode) {
+        localStorage.setItem('holosyn_uimode', mode);
+        savePreferences();
+    }
     
     const containerLayout = document.getElementById('app-container');
     const beginnerBtn = document.getElementById('btn-mode-beginner');
@@ -3147,6 +3304,7 @@ function loadPresetModel(presetName) {
     syncPartScanLayout();
     setWorkflowProgress('structure', ['model']);
     updateHandoffPackStatus();
+    refreshViewerModeUi();
 
     // ST,AND-only demo controls (fold state + product lineup) — show/reset (v10.0)
     syncStandControls(presetName);
@@ -5101,6 +5259,7 @@ function applyProjectSnapshot(snapshot, options = {}) {
     updateHandoffPackStatus();
     updateProjectSnapshotStatus(snapshot);
     updateBetaReadinessPanel();
+    refreshViewerModeUi();
     showNotification(
         state.language === 'ko' ? '프로젝트 스냅샷 복원' : 'Project Snapshot Restored',
         state.language === 'ko' ? '발표 세팅, 렌더 모드, 타임라인을 복원했습니다.' : 'Restored presentation setup, render mode, and timeline.'
@@ -7835,6 +7994,7 @@ function renderAnnotations() {
             
             // Add double-click listener for interactive edit
             badge.addEventListener('dblclick', () => {
+                if (state.viewerMode) return;
                 editAnnotation(ann, badge);
             });
             
@@ -8736,6 +8896,7 @@ function startCinematicPresentation(options = {}) {
     presentationInterval = setInterval(runPresentationStep, 6000); // 6 seconds per phase
     
     setTimeout(onWindowResize, 550);
+    refreshViewerModeUi();
 }
 
 function stopCinematicPresentation() {
@@ -8780,6 +8941,7 @@ function stopCinematicPresentation() {
     // Re-apply Beginner/Pro sizing
     toggleUIMode(state.uiMode);
     setTimeout(onWindowResize, 550);
+    refreshViewerModeUi();
 }
 
 // Glitch logo easter egg handler (New v3.2)
@@ -9873,10 +10035,13 @@ function buildShareState() {
     return shareState;
 }
 
-function buildShareUrl() {
+function buildShareUrl(options = {}) {
+    const { viewer = true } = options;
     const payload = buildShareState();
     const encoded = encodeSharePayload(payload);
     const url = new URL(window.location.href);
+    if (viewer) url.searchParams.set('viewer', '1');
+    else url.searchParams.delete('viewer');
     url.hash = `hs=${encoded}`;
     return {
         url: url.toString(),
@@ -9887,13 +10052,15 @@ function buildShareUrl() {
 
 async function copyShareLink() {
     const result = buildShareUrl();
-    try {
-        window.history.replaceState(null, '', result.url);
-    } catch (error) {
-        window.location.hash = new URL(result.url).hash;
-    }
     markHandoffExportReady();
     const copied = await copyTextToClipboard(result.url);
+    if (!copied) {
+        try {
+            window.history.replaceState(null, '', result.url);
+        } catch (error) {
+            window.location.hash = new URL(result.url).hash;
+        }
+    }
     const detail = document.getElementById('share-link-detail');
     const status = document.getElementById('share-link-status');
     if (status) status.textContent = copied ? 'COPIED' : 'URL IN BAR';
@@ -9980,6 +10147,7 @@ function applyShareState(payload) {
     const detail = document.getElementById('share-link-detail');
     if (status) status.textContent = 'RESTORED';
     if (detail) detail.textContent = '공유 링크의 발표 장면을 이 브라우저에 복원했습니다.';
+    refreshViewerModeUi();
     showNotification(
         state.language === 'ko' ? '공유 장면 복원 완료' : 'Shared Scene Restored',
         state.language === 'ko' ? '링크에 담긴 모델, 조명, 카메라, 노트, 치수 상태를 복원했습니다.' : 'Restored the linked model, lighting, camera, notes, and measurements.'
@@ -10177,7 +10345,11 @@ function openQrShareModal() {
     // A QR that technically encodes but is too dense to scan is not useful on stage.
     let matrix = tryBuildQr(qrTarget);
     if (!matrix || matrix.getModuleCount() > maxQrModules) {
-        const base = `${window.location.origin}${window.location.pathname}`;
+        const baseUrl = new URL(window.location.href);
+        baseUrl.search = '';
+        baseUrl.searchParams.set('viewer', '1');
+        baseUrl.hash = '';
+        const base = baseUrl.toString();
         matrix = tryBuildQr(base);
         qrTarget = base;
         note = state.language === 'ko'
@@ -10193,9 +10365,6 @@ function openQrShareModal() {
     const noteEl = document.getElementById('qr-share-note');
     if (noteEl) noteEl.textContent = note;
     modal.style.display = 'flex';
-    try {
-        window.history.replaceState(null, '', built.url);
-    } catch (error) { /* ignore */ }
     markHandoffExportReady();
     addConsoleLog(`[SHARE] QR generated (${qrTarget.length} chars).`, 'success');
     verifyQrScannable(matrix, qrTarget);
@@ -11349,7 +11518,7 @@ function initSpatialDrawingEngine() {
     
     // Double click to add 3D Pin Callout (Pro mode only, drawing inactive)
     vp.addEventListener('dblclick', (e) => {
-        if (state.uiMode !== 'pro' || drawModeToggled || isCaliperActive || !activeModelGroup || activeModelGroup.children.length === 0) return;
+        if (state.viewerMode || state.uiMode !== 'pro' || drawModeToggled || isCaliperActive || !activeModelGroup || activeModelGroup.children.length === 0) return;
         
         updateMouseCoordinates(e);
         raycaster.setFromCamera(mouse, camera);

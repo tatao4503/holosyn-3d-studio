@@ -15,6 +15,9 @@ Use this when you want to check the product without showing it to anyone yet.
 
 ## 30-Second Version
 
+Before presenting, copy a Share Link and open it in a separate tab. Confirm the audience-facing
+Viewer loads the same scene without the studio panels, then use its play, part, and material controls.
+
 1. Open HOLOSYN and boot the engine.
 2. Click `30s PITCH`.
 3. Say: "This is not CAD. It turns a product concept into a meeting-ready 3D presentation."

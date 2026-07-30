@@ -3,6 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script>
+        if (new URLSearchParams(window.location.search).get('viewer') === '1') {
+            document.documentElement.classList.add('viewer-requested');
+        }
+    </script>
     <title>HOLOSYN — 3D 시제품 공간 발표 스튜디오</title>
     <meta name="description" content="브라우저에서 3D 시제품을 입체로 띄우고, 분해도·치수 측정·발표 모드로 보여주고, GLB·PNG로 내보내는 공간 발표 스튜디오. Import, exploded view, measure, showcase, export — all in the browser.">
     <meta name="theme-color" content="#0a84ff">
@@ -32,7 +37,7 @@
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <!-- Stylesheet -->
-    <link rel="stylesheet" href="index.css?v=20260726-v110">
+    <link rel="stylesheet" href="index.css?v=20260730-v2viewer">
 </head>
 <body class="theme-blue">
     <!-- Ambient Vignette Background -->
@@ -1242,6 +1247,66 @@
         </footer>
     </div>
 
+    <!-- V2 audience viewer: a compact read-only shell over the shared scene. -->
+    <section id="viewer-shell" aria-label="HOLOSYN Viewer controls">
+        <header class="viewer-topbar">
+            <div class="viewer-identity">
+                <div class="viewer-mark" aria-hidden="true">
+                    <i data-lucide="sparkles"></i>
+                </div>
+                <div class="viewer-title-group">
+                    <span>HOLOSYN VIEWER</span>
+                    <strong id="viewer-product-name">Loading prototype</strong>
+                </div>
+            </div>
+            <div class="viewer-top-actions">
+                <span id="viewer-status" class="viewer-status" aria-live="polite">LOADING SCENE</span>
+                <button id="btn-viewer-fullscreen" class="viewer-icon-btn" type="button" title="전체화면" aria-label="전체화면">
+                    <i data-lucide="maximize-2"></i>
+                </button>
+                <button id="btn-viewer-open-studio" class="viewer-command-btn" type="button" title="같은 장면을 스튜디오에서 열기">
+                    <i data-lucide="sliders-horizontal"></i>
+                    <span>Open Studio</span>
+                </button>
+            </div>
+        </header>
+
+        <nav class="viewer-controlbar" aria-label="Scene controls">
+            <div class="viewer-control-group viewer-playback-group">
+                <button id="btn-viewer-play" class="viewer-icon-btn viewer-primary-btn" type="button" title="자동 발표 재생" aria-label="자동 발표 재생" aria-pressed="false">
+                    <i class="viewer-play-icon" data-lucide="play"></i>
+                    <i class="viewer-pause-icon" data-lucide="pause"></i>
+                </button>
+                <button id="btn-viewer-reset-camera" class="viewer-icon-btn" type="button" title="카메라 원위치" aria-label="카메라 원위치">
+                    <i data-lucide="rotate-ccw"></i>
+                </button>
+            </div>
+
+            <div class="viewer-control-group viewer-parts-group">
+                <span class="viewer-control-label">PARTS</span>
+                <button id="btn-viewer-part-prev" class="viewer-icon-btn" type="button" title="이전 부품" aria-label="이전 부품">
+                    <i data-lucide="chevron-left"></i>
+                </button>
+                <strong id="viewer-part-label">Overview</strong>
+                <button id="btn-viewer-part-next" class="viewer-icon-btn" type="button" title="다음 부품" aria-label="다음 부품">
+                    <i data-lucide="chevron-right"></i>
+                </button>
+            </div>
+
+            <div class="viewer-material-control" role="group" aria-label="Material view">
+                <button class="viewer-material-btn active" type="button" data-viewer-material="hologram" title="홀로그램 구조" aria-pressed="true">
+                    <i data-lucide="scan-line"></i><span>HOLO</span>
+                </button>
+                <button class="viewer-material-btn" type="button" data-viewer-material="product" title="제품 색상" aria-pressed="false">
+                    <i data-lucide="palette"></i><span>COLOR</span>
+                </button>
+                <button class="viewer-material-btn" type="button" data-viewer-material="hybrid" title="선택 부품 재질" aria-pressed="false">
+                    <i data-lucide="layers-3"></i><span>PART</span>
+                </button>
+            </div>
+        </nav>
+    </section>
+
     <!-- PEPPER'S GHOST 4-WAY FULLSCREEN OVERLAY -->
     <div id="pyramid-overlay" class="hidden-stage">
         <button id="btn-pyramid-exit" class="hud-btn warning-btn">
@@ -1701,9 +1766,9 @@
     <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 
     <!-- Main Script -->
-    <script src="app.js?v=20260726-v110"></script>
-    <script src="scripts/holosyn-timeline.js?v=20260726-v110"></script>
-    <script src="scripts/holosyn-pro-managers.js?v=20260726-v110"></script>
+    <script src="app.js?v=20260730-v2viewer"></script>
+    <script src="scripts/holosyn-timeline.js?v=20260730-v2viewer"></script>
+    <script src="scripts/holosyn-pro-managers.js?v=20260730-v2viewer"></script>
     <script>
         // Init Lucide Icons
         lucide.createIcons();
