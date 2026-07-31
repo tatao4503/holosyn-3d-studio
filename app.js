@@ -3334,8 +3334,9 @@ function initThreeEngine() {
     scene = new THREE.Scene();
     
     // Camera setup
-    camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 100);
+    camera = new THREE.PerspectiveCamera(STAGE_BASE_FOV, container.clientWidth / container.clientHeight, 0.1, 100);
     camera.position.set(0, 4, 10);
+    applyResponsiveStageFraming();
     
     // WebGL Renderer with WebXR Support
     renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
@@ -3739,11 +3740,39 @@ function updateHolographicMaterials() {
     applyPartScanVisuals();
 }
 
+// The stage (model + targeting rings + hologram base) is composed for a
+// landscape screen. A PerspectiveCamera's fov is vertical, so on a portrait
+// phone the horizontal view collapses and the composition gets cut at both
+// edges — which is exactly what an audience sees after scanning the share QR.
+// Widen the vertical fov on narrow viewports until the stage fits again.
+const STAGE_DESIGN_ASPECT = 16 / 9;
+const STAGE_BASE_FOV = 45;
+const STAGE_TARGET_H_HALF_DEG = 21; // covers the widest ring group with margin
+const STAGE_MAX_FOV = 70; // past this the product reads too small to be the subject
+
+function getResponsiveStageFov(aspect) {
+    if (!Number.isFinite(aspect) || aspect <= 0) return STAGE_BASE_FOV;
+    if (aspect >= STAGE_DESIGN_ASPECT) return STAGE_BASE_FOV;
+    const targetHalf = THREE.MathUtils.degToRad(STAGE_TARGET_H_HALF_DEG);
+    const neededFov = THREE.MathUtils.radToDeg(Math.atan(Math.tan(targetHalf) / aspect)) * 2;
+    return Math.min(STAGE_MAX_FOV, Math.max(STAGE_BASE_FOV, neededFov));
+}
+
+// Derived purely from aspect, so repeated resizes stay idempotent.
+function applyResponsiveStageFraming() {
+    if (!camera) return;
+    const fov = getResponsiveStageFov(camera.aspect);
+    if (Math.abs(camera.fov - fov) < 0.01) return;
+    camera.fov = fov;
+    camera.updateProjectionMatrix();
+}
+
 function onWindowResize() {
     clearTimeout(resizeDebounceTimer);
     resizeDebounceTimer = setTimeout(() => {
         if (!camera || !renderer) return;
         camera.aspect = container.clientWidth / container.clientHeight;
+        applyResponsiveStageFraming();
         camera.updateProjectionMatrix();
         renderer.setSize(container.clientWidth, container.clientHeight);
         renderer.setPixelRatio(getRenderPixelRatio());

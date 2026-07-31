@@ -710,10 +710,10 @@ async function main() {
   }
   assert(html.includes('data-action="timeline"'), 'Missing mobile timeline action');
   assert(html.includes('라이브 포인터 / 화면에 표시 (Shift+P)'), 'Live pointer shortcut label is stale');
-  assert(html.includes('index.css?v=20260730-v2beta-session6'), 'CSS cache version is stale');
-  assert(html.includes('app.js?v=20260730-v2beta-session6'), 'Core JS cache version is stale');
-  assert(html.includes('scripts/holosyn-timeline.js?v=20260730-v2beta-session6'), 'Timeline script tag is missing or stale');
-  assert(html.includes('scripts/holosyn-pro-managers.js?v=20260730-v2beta-session6'), 'Pro managers script tag is missing or stale');
+  assert(html.includes('index.css?v=20260731-portrait'), 'CSS cache version is stale');
+  assert(html.includes('app.js?v=20260731-portrait'), 'Core JS cache version is stale');
+  assert(html.includes('scripts/holosyn-timeline.js?v=20260731-portrait'), 'Timeline script tag is missing or stale');
+  assert(html.includes('scripts/holosyn-pro-managers.js?v=20260731-portrait'), 'Pro managers script tag is missing or stale');
   assert(html.includes('vendor/three/three.min.js'), 'Bundled Three.js runtime is missing');
   assert(html.includes('vendor/lucide/lucide.min.js'), 'Bundled Lucide runtime is missing');
   assert(html.includes('vendor/qrcode/qrcode.js'), 'Bundled QR runtime is missing');
