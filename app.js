@@ -291,6 +291,14 @@ const translations = {
 // Global Application State
 const state = {
     uiMode: 'beginner',           // 'beginner' or 'pro' - Beginner is default clean mode
+    viewerMode: false,            // V2 audience-facing, read-only shared scene
+    exhibitionMode: false,        // V2 offline-ready, unattended viewer loop
+    exhibitionPaused: false,
+    revealMode: false,            // V2 one-shot cinematic product reveal
+    revealRunning: false,
+    revealCompleted: false,
+    revealPhase: 'standby',
+    revealPhaseIndex: 0,
     gyroActive: false,
     language: 'ko',
     themeColor: '#007aff',         // Studio blue as default
@@ -389,8 +397,27 @@ const state = {
         lastBenchmark: null,
         lastReportAt: null
     },
+    betaSession: {
+        active: false,
+        startedAt: null,
+        completedAt: null,
+        shareBaseline: null,
+        rating: null,
+        friction: '',
+        tasks: {
+            scene: null,
+            material: null,
+            part: null,
+            structure: null,
+            handoff: null
+        }
+    },
     shareStateLastBuilt: null,
     pendingShareState: null,
+    comparison: {
+        scenes: { a: null, b: null },
+        activeSlot: null
+    },
     portableProject: {
         status: 'READY',
         detail: '모델과 발표 상태를 한 파일로 전달합니다.',
@@ -525,6 +552,21 @@ function savePreferences() {
     }
 }
 
+const bodyThemeClasses = [
+    'theme-blue',
+    'theme-green',
+    'theme-orange',
+    'theme-purple',
+    'theme-silver',
+    'theme-crimson',
+    'theme-gold'
+];
+
+function applyBodyThemeClass(themeName) {
+    document.body.classList.remove(...bodyThemeClasses);
+    document.body.classList.add(`theme-${themeName}`);
+}
+
 function loadPreferences() {
     try {
         const raw = localStorage.getItem('holosyn_prefs');
@@ -555,7 +597,7 @@ function loadPreferences() {
             '#ffca28': 'gold', '#8e8e93': 'silver'
         };
         const themeClass = colorMap[state.themeColor];
-        if (themeClass) document.body.className = `theme-${themeClass}`;
+        if (themeClass) applyBodyThemeClass(themeClass);
     } catch (e) {
         // Silently fail if parse errors
     }
@@ -1490,6 +1532,7 @@ function updateMaterialViewUi() {
         btn.setAttribute('aria-pressed', String(active));
     });
     updateBeginnerFlowUi();
+    refreshViewerModeUi();
 
     if (!detail) return;
     const ko = state.language === 'ko';
@@ -1595,7 +1638,8 @@ function setMaterialView(mode, options = {}) {
         toggleRenderVisibility();
     }
     updateMaterialViewUi();
-    savePreferences();
+    if (!state.viewerMode) savePreferences();
+    refreshViewerModeUi();
 
     if (broadcast && typeof CollabManager !== 'undefined' && CollabManager.isActive) {
         CollabManager.broadcast({ type: 'state_update', key: 'materialView', value: mode });
@@ -1710,6 +1754,7 @@ function setPartScanActive(active, requestedIndex = state.partScanIndex) {
     }
 
     syncPartScanLayout();
+    refreshViewerModeUi();
 }
 
 function cyclePartScan(delta) {
@@ -1723,6 +1768,7 @@ function cyclePartScan(delta) {
     const ann = getCurrentPartScanAnnotation();
     addConsoleLog(`[PART SCAN] Component ${state.partScanIndex + 1}/${scanList.length}: ${ann ? getPartScanTitle(ann) : 'component'}.`, 'info');
     syncPartScanLayout();
+    refreshViewerModeUi();
 }
 
 function jumpToPartScanIndex(index) {
@@ -1737,6 +1783,583 @@ function jumpToPartScanIndex(index) {
     const ann = getCurrentPartScanAnnotation();
     addConsoleLog(`[PART SCAN] Map jump ${state.partScanIndex + 1}/${scanList.length}: ${ann ? getPartScanTitle(ann) : 'component'}.`, 'info');
     syncPartScanLayout();
+    refreshViewerModeUi();
+}
+
+function getComparisonModelKey() {
+    return `${state.activePreset}:${state.imageUploaded ? 'image' : 'mesh'}`;
+}
+
+function normalizeComparisonScene(scene) {
+    if (!scene || scene.holosynComparisonScene !== 'comparison-scene-v1') return null;
+    if (!scene.modelKey || !scene.presentation || !scene.camera) return null;
+    return scene;
+}
+
+function normalizeComparisonPayload(payload) {
+    if (!payload || payload.holosynComparison !== 'scene-comparison-v1') return null;
+    const sceneA = normalizeComparisonScene(payload.scenes?.a);
+    const sceneB = normalizeComparisonScene(payload.scenes?.b);
+    if (!sceneA || !sceneB || sceneA.modelKey !== sceneB.modelKey) return null;
+    return {
+        holosynComparison: 'scene-comparison-v1',
+        activeSlot: payload.activeSlot === 'b' ? 'b' : 'a',
+        scenes: { a: sceneA, b: sceneB }
+    };
+}
+
+function hasCompleteComparison() {
+    return !!normalizeComparisonPayload({
+        holosynComparison: 'scene-comparison-v1',
+        activeSlot: state.comparison.activeSlot,
+        scenes: state.comparison.scenes
+    });
+}
+
+function getComparisonSceneSummary(scene) {
+    if (!scene) return state.language === 'ko' ? '장면 미저장' : 'Scene not saved';
+    const presentation = scene.presentation || {};
+    const materialLabels = { hologram: 'HOLO', product: 'COLOR', hybrid: 'PART' };
+    const material = materialLabels[presentation.materialView] || 'HOLO';
+    const cameraLabel = String(presentation.cameraMode || 'orbit').toUpperCase();
+    const exploded = Math.round(clampValue(Number(presentation.explodedLevel) || 0, 0, 1) * 100);
+    return `${material} · ${cameraLabel} · ${exploded}%`;
+}
+
+function updateComparisonPanel() {
+    const scenes = state.comparison.scenes;
+    const savedCount = Number(!!scenes.a) + Number(!!scenes.b);
+    const status = document.getElementById('compare-scenes-status');
+    const detail = document.getElementById('compare-scenes-detail');
+    if (status) status.textContent = `${savedCount} / 2 SAVED`;
+
+    ['a', 'b'].forEach(slot => {
+        const scene = scenes[slot];
+        const summary = document.getElementById(`compare-scene-${slot}-summary`);
+        const preview = document.getElementById(`btn-preview-compare-${slot}`);
+        const row = document.querySelector(`[data-compare-slot="${slot}"]`);
+        if (summary) summary.textContent = getComparisonSceneSummary(scene);
+        if (preview) preview.disabled = !scene;
+        if (row) {
+            row.classList.toggle('is-saved', !!scene);
+            row.classList.toggle('is-active', !!scene && state.comparison.activeSlot === slot);
+        }
+    });
+
+    const copyButton = document.getElementById('btn-copy-compare-link');
+    if (copyButton) copyButton.disabled = !hasCompleteComparison();
+    if (detail && savedCount < 2) {
+        detail.textContent = state.language === 'ko'
+            ? 'A와 B를 저장하면 비교 링크를 만들 수 있습니다.'
+            : 'Save both A and B to create a comparison link.';
+    }
+}
+
+function captureComparisonScene(slot) {
+    if (!['a', 'b'].includes(slot) || !state.engineBooted) {
+        showNotification(
+            state.language === 'ko' ? '엔진 기동 필요' : 'Boot Required',
+            state.language === 'ko' ? '먼저 엔진을 기동한 뒤 비교 장면을 저장하세요.' : 'Boot the engine before saving a comparison scene.'
+        );
+        return false;
+    }
+
+    const modelKey = getComparisonModelKey();
+    const otherSlot = slot === 'a' ? 'b' : 'a';
+    const otherScene = state.comparison.scenes[otherSlot];
+    if (otherScene && otherScene.modelKey !== modelKey) {
+        showNotification(
+            state.language === 'ko' ? '같은 시제품이 필요합니다' : 'Same Prototype Required',
+            state.language === 'ko' ? 'A와 B는 같은 모델의 연출 상태만 비교할 수 있습니다.' : 'A and B must use the same prototype model.'
+        );
+        return false;
+    }
+
+    state.comparison.scenes[slot] = {
+        holosynComparisonScene: 'comparison-scene-v1',
+        capturedAt: new Date().toISOString(),
+        modelKey,
+        presentation: {
+            renderMode: state.renderMode,
+            materialView: state.materialView,
+            partScanActive: !!state.partScanActive,
+            partScanIndex: state.partScanIndex,
+            cameraMode: state.cameraMode,
+            environment: state.studioEnvironment,
+            lighting: { ...state.lighting },
+            explodedLevel: state.explodedLevel,
+            rotationSpeed: state.rotationSpeed,
+            themeColor: state.themeColor,
+            themeColorGlow: state.themeColorGlow
+        },
+        camera: getCameraShareState()
+    };
+    state.comparison.activeSlot = slot;
+    updateComparisonPanel();
+    refreshViewerModeUi();
+    showNotification(
+        state.language === 'ko' ? `${slot.toUpperCase()} 장면 저장` : `Scene ${slot.toUpperCase()} Saved`,
+        state.language === 'ko' ? '현재 카메라와 연출 상태를 비교 슬롯에 저장했습니다.' : 'Saved the current camera and presentation state.'
+    );
+    addConsoleLog(`[COMPARE] Scene ${slot.toUpperCase()} captured.`, 'success');
+    return true;
+}
+
+function applyComparisonScene(slot, options = {}) {
+    const { notify = true } = options;
+    const scene = normalizeComparisonScene(state.comparison.scenes[slot]);
+    if (!scene || !state.engineBooted || scene.modelKey !== getComparisonModelKey()) return false;
+
+    if (state.isShowcaseMode && typeof stopCinematicPresentation === 'function') {
+        stopCinematicPresentation();
+    }
+
+    const presentation = scene.presentation || {};
+    if (presentation.environment) applyStudioEnvironmentPreset(presentation.environment);
+    if (presentation.lighting) {
+        const mood = LIGHTING_MOODS[presentation.lighting.mood] ? presentation.lighting.mood : 'studio';
+        const brightness = Number.isFinite(presentation.lighting.brightness)
+            ? clampValue(presentation.lighting.brightness, 0.2, 2)
+            : 1;
+        applyLighting(mood, brightness);
+        updateLightingUi();
+    }
+    if (presentation.themeColor) {
+        applyThemeColorFromHex(presentation.themeColor, presentation.themeColorGlow);
+    }
+    if (Number.isFinite(presentation.rotationSpeed)) {
+        state.rotationSpeed = clampValue(presentation.rotationSpeed, 0, 5);
+        syncRotationControlsFromState();
+    }
+
+    const scanList = getPartScanList();
+    state.partScanActive = !!presentation.partScanActive && scanList.length > 0;
+    state.partScanIndex = scanList.length
+        ? ((Number(presentation.partScanIndex) || 0) % scanList.length + scanList.length) % scanList.length
+        : 0;
+
+    const renderMode = ['points', 'wireframe', 'solid', 'thermal', 'xray'].includes(presentation.renderMode)
+        ? presentation.renderMode
+        : 'wireframe';
+    state.renderMode = renderMode;
+    document.querySelectorAll('.render-mode-btn').forEach(button => {
+        button.classList.toggle('active', button.dataset.mode === renderMode);
+    });
+    const materialView = ['hologram', 'product', 'hybrid'].includes(presentation.materialView)
+        ? presentation.materialView
+        : 'hologram';
+    setMaterialView(materialView, { notify: false, broadcast: false, autoFocus: false });
+
+    if (Number.isFinite(presentation.explodedLevel)) {
+        animateExplodedLevel(clampValue(presentation.explodedLevel, 0, 1), 360);
+    }
+    if (presentation.cameraMode) applyCameraView(presentation.cameraMode, false);
+    restoreCameraShareState(scene.camera);
+    syncPartScanLayout();
+
+    state.comparison.activeSlot = slot;
+    updateComparisonPanel();
+    refreshViewerModeUi();
+    if (notify) {
+        showNotification(
+            state.language === 'ko' ? `${slot.toUpperCase()} 장면` : `Scene ${slot.toUpperCase()}`,
+            state.language === 'ko' ? '저장된 비교 장면으로 전환했습니다.' : 'Switched to the saved comparison scene.'
+        );
+    }
+    addConsoleLog(`[COMPARE] Scene ${slot.toUpperCase()} applied.`, 'info');
+    return true;
+}
+
+async function copyComparisonLink() {
+    if (!hasCompleteComparison()) {
+        showNotification(
+            state.language === 'ko' ? 'A/B 저장 필요' : 'Save A and B',
+            state.language === 'ko' ? '두 장면을 모두 저장한 뒤 비교 링크를 만드세요.' : 'Save both scenes before creating a comparison link.'
+        );
+        return false;
+    }
+    if (state.comparison.scenes.a.modelKey !== getComparisonModelKey()) {
+        showNotification(
+            state.language === 'ko' ? '모델이 변경되었습니다' : 'Prototype Changed',
+            state.language === 'ko' ? '현재 모델에서 A와 B를 다시 저장하세요.' : 'Capture A and B again for the current model.'
+        );
+        return false;
+    }
+
+    const result = buildShareUrl({ viewer: true, includeComparison: true });
+    const copied = await copyTextToClipboard(result.url);
+    if (!copied) {
+        try {
+            window.history.replaceState(null, '', result.url);
+        } catch (error) {
+            window.location.hash = new URL(result.url).hash;
+        }
+    }
+    markHandoffExportReady();
+    const status = document.getElementById('compare-scenes-status');
+    const detail = document.getElementById('compare-scenes-detail');
+    if (status) status.textContent = copied ? 'LINK COPIED' : 'URL IN BAR';
+    if (detail) {
+        detail.textContent = copied
+            ? `A/B Viewer URL ${result.url.length}자 · 두 장면 상태가 함께 저장되었습니다.`
+            : '클립보드가 막혀 주소창에 A/B Viewer URL을 표시했습니다.';
+    }
+    showNotification(
+        state.language === 'ko' ? 'A/B 비교 링크 준비' : 'A/B Link Ready',
+        copied
+            ? (state.language === 'ko' ? '관객용 A/B 비교 링크를 복사했습니다.' : 'Copied the audience A/B comparison link.')
+            : (state.language === 'ko' ? '주소창에 A/B 비교 링크를 표시했습니다.' : 'Placed the A/B comparison link in the address bar.')
+    );
+    addConsoleLog(`[COMPARE] A/B viewer URL packed (${result.url.length} chars).`, copied ? 'success' : 'warning');
+    return true;
+}
+
+let exhibitionIdleTimer = null;
+let exhibitionSceneInterval = null;
+let revealSequenceTimers = [];
+
+const revealPhaseCopy = {
+    standby: {
+        kicker: 'SPATIAL PROTOTYPE SYSTEM',
+        titleKo: '시스템 대기',
+        titleEn: 'SYSTEM STANDBY',
+        detailKo: '공간 안에서 제품의 이야기를 준비합니다.',
+        detailEn: 'Preparing a product story in space.'
+    },
+    ignition: {
+        kicker: 'SIGNAL / 01',
+        titleKo: '코어 점등',
+        titleEn: 'CORE ONLINE',
+        detailKo: '첫 번째 신호가 제품의 중심을 깨웁니다.',
+        detailEn: 'The first signal wakes the center of the product.'
+    },
+    silhouette: {
+        kicker: 'FORM / 02',
+        titleKo: '실루엣 포착',
+        titleEn: 'FORM ACQUIRED',
+        detailKo: '세부보다 먼저, 제품의 존재감과 비례를 보여줍니다.',
+        detailEn: 'Presence and proportion arrive before the details.'
+    },
+    scan: {
+        kicker: 'GEOMETRY / 03',
+        titleKo: '구조 스캔',
+        titleEn: 'GEOMETRY SCAN',
+        detailKo: '표면 아래의 선과 결합 구조를 읽어냅니다.',
+        detailEn: 'Reading the lines and connections beneath the surface.'
+    },
+    exploded: {
+        kicker: 'ARCHITECTURE / 04',
+        titleKo: '부품 전개',
+        titleEn: 'SYSTEMS DEPLOYED',
+        detailKo: '결합된 제품을 설명 가능한 부품 체계로 펼칩니다.',
+        detailEn: 'Opening the assembly into an explainable system.'
+    },
+    component: {
+        kicker: 'INTELLIGENCE / 05',
+        titleKo: '핵심 부품 포커스',
+        titleEn: 'COMPONENT FOCUS',
+        detailKo: '가장 중요한 부품 하나에 실제 재질과 맥락을 연결합니다.',
+        detailEn: 'Connecting one critical component to material and context.'
+    },
+    material: {
+        kicker: 'MATERIAL / 06',
+        titleKo: '제품 컬러 공개',
+        titleEn: 'MATERIAL REVEAL',
+        detailKo: '홀로그램 구조에서 실제 색상과 소재감으로 전환합니다.',
+        detailEn: 'Moving from hologram structure to product color and finish.'
+    },
+    hero: {
+        kicker: 'PRODUCT / 07',
+        titleKo: 'HERO SHOT',
+        titleEn: 'HERO SHOT',
+        detailKo: '이제 구조와 색을 이해한 상태로 제품 전체를 봅니다.',
+        detailEn: 'The complete product, now understood in structure and color.'
+    },
+    signature: {
+        kicker: 'HOLOSYN / 08',
+        titleKo: 'HOLOSYN',
+        titleEn: 'HOLOSYN',
+        detailKo: '보이기 위한 3D가 아니라, 이해시키기 위한 공간 발표.',
+        detailEn: 'Spatial presentation designed to make products understood.'
+    }
+};
+
+function isRevealModeRequested() {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('viewer') === '1'
+        && params.get('reveal') === '1'
+        && params.get('exhibit') !== '1';
+}
+
+function clearRevealSequenceTimers() {
+    revealSequenceTimers.forEach(timer => clearTimeout(timer));
+    revealSequenceTimers = [];
+}
+
+function getRevealFocusIndex() {
+    const parts = getPartScanList();
+    if (!parts.length) return 0;
+    const priority = /(reactor|core|hinge|chassis|body|gyro|camera)/i;
+    const index = parts.findIndex(part => priority.test(`${part.name || ''} ${part.label || ''}`));
+    return index >= 0 ? index : 0;
+}
+
+function updateRevealOverlay(phase, phaseIndex) {
+    const overlay = document.getElementById('reveal-experience');
+    const copy = revealPhaseCopy[phase] || revealPhaseCopy.standby;
+    if (!overlay) return;
+
+    state.revealPhase = phase;
+    state.revealPhaseIndex = phaseIndex;
+    overlay.dataset.phase = phase;
+    overlay.setAttribute('aria-hidden', 'false');
+
+    const count = document.getElementById('reveal-phase-count');
+    const kicker = document.getElementById('reveal-kicker');
+    const title = document.getElementById('reveal-title');
+    const detail = document.getElementById('reveal-detail');
+    const progress = overlay.querySelector('.reveal-progress');
+    if (count) count.textContent = `${String(phaseIndex).padStart(2, '0')} / 08`;
+    if (kicker) kicker.textContent = copy.kicker;
+    if (title) {
+        title.textContent = phase === 'hero'
+            ? getProductName()
+            : (state.language === 'ko' ? copy.titleKo : copy.titleEn);
+    }
+    if (detail) detail.textContent = state.language === 'ko' ? copy.detailKo : copy.detailEn;
+    if (progress) {
+        progress.setAttribute('aria-valuenow', String(phaseIndex));
+        progress.querySelectorAll('[data-reveal-progress]').forEach(step => {
+            const stepIndex = Number(step.dataset.revealProgress || 0);
+            step.classList.toggle('is-complete', stepIndex < phaseIndex);
+            step.classList.toggle('is-active', stepIndex === phaseIndex);
+        });
+    }
+    refreshViewerModeUi();
+}
+
+function setRevealRenderMode(mode) {
+    state.renderMode = mode;
+    toggleRenderVisibility();
+}
+
+function applyRevealPhase(phase, phaseIndex) {
+    if (!state.revealRunning) return;
+    updateRevealOverlay(phase, phaseIndex);
+
+    switch (phase) {
+        case 'standby':
+            if (activeModelGroup) {
+                activeModelGroup.visible = false;
+                activeModelGroup.rotation.set(0, 0, 0);
+            }
+            if (state.partScanActive) setPartScanActive(false);
+            setGestureExplodedLevel(0);
+            setMaterialView('hologram', { notify: false, broadcast: false, autoFocus: false });
+            setRevealRenderMode('wireframe');
+            applyLighting('dramatic', 0.08);
+            applyCameraView('front', false);
+            state.rotationSpeed = 0;
+            break;
+        case 'ignition':
+            applyLighting('dramatic', 0.16);
+            break;
+        case 'silhouette':
+            if (activeModelGroup) activeModelGroup.visible = true;
+            setRevealRenderMode('solid');
+            applyLighting('dramatic', 0.28);
+            break;
+        case 'scan':
+            setMaterialView('hologram', { notify: false, broadcast: false, autoFocus: false });
+            setRevealRenderMode('wireframe');
+            animateExplodedLevel(0.14, 900);
+            applyLighting('dramatic', 0.48);
+            break;
+        case 'exploded':
+            state.cameraMode = 'front';
+            targetCameraPosition.set(3.4, 2.2, 7.4);
+            targetCameraTarget.set(0, 0.1, 0);
+            animateExplodedLevel(0.68, 1800);
+            state.rotationSpeed = 0.08;
+            break;
+        case 'component':
+            if (getPartScanList().length > 0) {
+                setPartScanActive(true, getRevealFocusIndex());
+            }
+            setMaterialView('hybrid', { notify: false, broadcast: false, autoFocus: false });
+            applyCameraView('macro', false);
+            animateExplodedLevel(0.46, 1000);
+            break;
+        case 'material':
+            if (state.partScanActive) setPartScanActive(false);
+            setMaterialView('product', { notify: false, broadcast: false, autoFocus: false });
+            animateExplodedLevel(0, 1400);
+            applyLighting('dramatic', 1.0);
+            applyCameraView('front', false);
+            break;
+        case 'hero':
+            setMaterialView('product', { notify: false, broadcast: false, autoFocus: false });
+            setGestureExplodedLevel(0);
+            applyLighting('dramatic', 1.08);
+            state.cameraMode = 'orbit';
+            targetCameraPosition.set(3.8, 2.3, 8.2);
+            targetCameraTarget.set(0, 0.1, 0);
+            if (controls) {
+                controls.autoRotate = true;
+                controls.autoRotateSpeed = 0.45;
+            }
+            state.rotationSpeed = 0.22;
+            break;
+        case 'signature':
+            state.rotationSpeed = 0.12;
+            break;
+    }
+}
+
+function finishRevealExperience(options = {}) {
+    const { skipped = false } = options;
+    clearRevealSequenceTimers();
+    state.revealRunning = false;
+    state.revealCompleted = true;
+    state.revealPhase = 'complete';
+    state.revealPhaseIndex = 8;
+
+    if (activeModelGroup) activeModelGroup.visible = true;
+    if (state.partScanActive) setPartScanActive(false);
+    setMaterialView('product', { notify: false, broadcast: false, autoFocus: false });
+    setGestureExplodedLevel(0);
+    applyLighting('dramatic', 1.0);
+    applyCameraView('orbit', false);
+    state.rotationSpeed = 0.28;
+    if (controls) controls.enabled = true;
+
+    document.body.classList.remove('reveal-running');
+    document.body.classList.add('reveal-complete');
+    const overlay = document.getElementById('reveal-experience');
+    if (overlay) {
+        overlay.setAttribute('aria-hidden', 'true');
+        overlay.dataset.phase = 'complete';
+    }
+    refreshViewerModeUi();
+    addConsoleLog(`[REVEAL] Product reveal ${skipped ? 'skipped to hero state' : 'completed'}.`, 'success');
+}
+
+function startRevealExperience() {
+    if (!state.revealMode || !state.engineBooted || !activeModelGroup || state.revealRunning) return false;
+    if (state.isShowcaseMode) stopCinematicPresentation();
+    clearRevealSequenceTimers();
+    state.revealRunning = true;
+    state.revealCompleted = false;
+    document.body.classList.remove('reveal-complete');
+    document.body.classList.add('reveal-mode', 'reveal-running');
+    if (controls) controls.enabled = false;
+
+    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    const timingScale = reducedMotion ? 0.2 : 1;
+    const schedule = (delay, phase, index) => {
+        const timer = setTimeout(() => applyRevealPhase(phase, index), Math.round(delay * timingScale));
+        revealSequenceTimers.push(timer);
+    };
+
+    schedule(0, 'standby', 0);
+    schedule(1100, 'ignition', 1);
+    schedule(2700, 'silhouette', 2);
+    schedule(4500, 'scan', 3);
+    schedule(6500, 'exploded', 4);
+    schedule(8800, 'component', 5);
+    schedule(11200, 'material', 6);
+    schedule(13600, 'hero', 7);
+    schedule(15900, 'signature', 8);
+    revealSequenceTimers.push(setTimeout(() => finishRevealExperience(), Math.round(18000 * timingScale)));
+    addConsoleLog('[REVEAL] HOLOSYN cinematic product reveal started.', 'success');
+    return true;
+}
+
+window.HolosynReveal = {
+    start: startRevealExperience,
+    finish: finishRevealExperience,
+    getState: () => ({
+        mode: state.revealMode,
+        running: state.revealRunning,
+        completed: state.revealCompleted,
+        phase: state.revealPhase,
+        phaseIndex: state.revealPhaseIndex
+    })
+};
+
+function isExhibitionModeRequested() {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('viewer') === '1' && params.get('exhibit') === '1';
+}
+
+function showExhibitionControls() {
+    if (!state.exhibitionMode) return;
+    document.body.classList.remove('exhibition-idle');
+    if (exhibitionIdleTimer) clearTimeout(exhibitionIdleTimer);
+    exhibitionIdleTimer = setTimeout(() => {
+        if (state.exhibitionMode) document.body.classList.add('exhibition-idle');
+    }, 4200);
+}
+
+function scheduleExhibitionComparisonCycle() {
+    if (exhibitionSceneInterval) clearInterval(exhibitionSceneInterval);
+    exhibitionSceneInterval = null;
+    if (!state.exhibitionMode || state.exhibitionPaused || !hasCompleteComparison()) return;
+    exhibitionSceneInterval = setInterval(() => {
+        const nextSlot = state.comparison.activeSlot === 'a' ? 'b' : 'a';
+        applyComparisonScene(nextSlot, { notify: false });
+    }, 10000);
+}
+
+function startExhibitionMode() {
+    if (!state.exhibitionMode || !state.engineBooted) return false;
+    state.exhibitionPaused = false;
+    document.body.classList.add('exhibition-mode');
+    showExhibitionControls();
+
+    if (hasCompleteComparison()) {
+        if (state.isShowcaseMode) stopCinematicPresentation();
+        const slot = ['a', 'b'].includes(state.comparison.activeSlot) ? state.comparison.activeSlot : 'a';
+        applyComparisonScene(slot, { notify: false });
+        scheduleExhibitionComparisonCycle();
+    } else if (!state.isShowcaseMode) {
+        startCinematicPresentation();
+    }
+    refreshViewerModeUi();
+    addConsoleLog('[EXHIBIT] Offline exhibition loop started.', 'success');
+    return true;
+}
+
+function toggleExhibitionPlayback() {
+    if (!state.exhibitionMode) return false;
+    state.exhibitionPaused = !state.exhibitionPaused;
+    if (hasCompleteComparison()) {
+        scheduleExhibitionComparisonCycle();
+    } else if (state.exhibitionPaused) {
+        if (state.isShowcaseMode) stopCinematicPresentation();
+    } else if (!state.isShowcaseMode) {
+        startCinematicPresentation();
+    }
+    showExhibitionControls();
+    refreshViewerModeUi();
+    return true;
+}
+
+function initExhibitionModeControls() {
+    if (!state.exhibitionMode) return;
+    const reveal = () => showExhibitionControls();
+    document.addEventListener('pointermove', reveal, { passive: true });
+    document.addEventListener('pointerdown', reveal, { passive: true });
+    document.addEventListener('touchstart', reveal, { passive: true });
+    document.addEventListener('keydown', reveal);
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden && exhibitionSceneInterval) {
+            clearInterval(exhibitionSceneInterval);
+            exhibitionSceneInterval = null;
+        } else if (!document.hidden && !state.exhibitionPaused) {
+            scheduleExhibitionComparisonCycle();
+        }
+    });
 }
 
 function initPartScanControls() {
@@ -1782,9 +2405,218 @@ function initPartScanControls() {
     updatePartScanPanel();
 }
 
+function isViewerModeRequested() {
+    return new URLSearchParams(window.location.search).get('viewer') === '1';
+}
+
+function getStudioUrlFromViewer() {
+    const url = new URL(window.location.href);
+    url.searchParams.delete('viewer');
+    url.searchParams.delete('exhibit');
+    url.searchParams.delete('reveal');
+    if (hasCompleteComparison() && ['a', 'b'].includes(state.comparison.activeSlot)) {
+        url.searchParams.set('compare', state.comparison.activeSlot);
+    } else {
+        url.searchParams.delete('compare');
+    }
+    return url.toString();
+}
+
+function refreshViewerModeUi() {
+    if (!state.viewerMode) return;
+
+    const hasComparison = hasCompleteComparison();
+    document.body.classList.toggle('viewer-has-comparison', hasComparison);
+    const comparisonGroup = document.getElementById('viewer-compare-group');
+    if (comparisonGroup) comparisonGroup.hidden = !hasComparison;
+    document.querySelectorAll('[data-viewer-comparison]').forEach(button => {
+        const active = hasComparison && button.dataset.viewerComparison === state.comparison.activeSlot;
+        button.classList.toggle('active', active);
+        button.setAttribute('aria-pressed', String(active));
+        button.disabled = !state.engineBooted || !hasComparison;
+    });
+
+    const productName = getProductName();
+    const productEl = document.getElementById('viewer-product-name');
+    if (productEl) productEl.textContent = productName;
+    const modeLabel = document.getElementById('viewer-mode-label');
+    if (modeLabel) {
+        modeLabel.textContent = state.revealMode
+            ? 'HOLOSYN REVEAL'
+            : (state.exhibitionMode ? 'HOLOSYN EXHIBIT' : 'HOLOSYN VIEWER');
+    }
+    document.title = `${productName} — HOLOSYN ${state.revealMode ? 'Reveal' : (state.exhibitionMode ? 'Exhibit' : 'Viewer')}`;
+
+    const scanList = getPartScanList();
+    const annotation = state.partScanActive ? getCurrentPartScanAnnotation() : null;
+    const partLabel = document.getElementById('viewer-part-label');
+    if (partLabel) {
+        partLabel.textContent = annotation
+            ? getPartScanTitle(annotation)
+            : (scanList.length ? `${scanList.length} parts` : 'Overview');
+    }
+
+    ['btn-viewer-part-prev', 'btn-viewer-part-next'].forEach(id => {
+        const button = document.getElementById(id);
+        if (button) button.disabled = !state.engineBooted || scanList.length === 0;
+    });
+
+    document.querySelectorAll('[data-viewer-material]').forEach(button => {
+        const active = button.dataset.viewerMaterial === state.materialView;
+        button.classList.toggle('active', active);
+        button.setAttribute('aria-pressed', String(active));
+    });
+
+    const playButton = document.getElementById('btn-viewer-play');
+    if (playButton) {
+        const playing = state.exhibitionMode ? !state.exhibitionPaused : state.isShowcaseMode;
+        playButton.setAttribute('aria-pressed', String(playing));
+        playButton.setAttribute('aria-label', playing ? '자동 발표 일시정지' : '자동 발표 재생');
+        playButton.title = playing ? '자동 발표 일시정지' : '자동 발표 재생';
+    }
+
+    const status = document.getElementById('viewer-status');
+    if (status) {
+        if (!state.engineBooted) {
+            status.textContent = 'LOADING SCENE';
+        } else if (state.revealMode && state.revealRunning) {
+            status.textContent = `REVEAL ${String(state.revealPhaseIndex).padStart(2, '0')}/08`;
+        } else if (state.revealMode && state.revealCompleted) {
+            status.textContent = 'REVEAL COMPLETE';
+        } else if (state.exhibitionMode) {
+            const slot = hasComparison ? ` ${String(state.comparison.activeSlot || 'a').toUpperCase()}` : '';
+            status.textContent = state.exhibitionPaused ? 'EXHIBIT PAUSED' : `EXHIBIT LOOP${slot}`;
+        } else if (state.isShowcaseMode) {
+            status.textContent = 'PLAYING';
+        } else if (hasComparison) {
+            const slot = (state.comparison.activeSlot || 'a').toUpperCase();
+            const materialLabels = { hologram: 'HOLO', product: 'COLOR', hybrid: 'PART' };
+            status.textContent = `${slot} · ${materialLabels[state.materialView] || 'VIEW'}`;
+        } else if (annotation) {
+            status.textContent = `PART ${state.partScanIndex + 1}/${scanList.length}`;
+        } else {
+            const labels = { hologram: 'HOLOGRAM', product: 'PRODUCT COLOR', hybrid: 'HYBRID REVEAL' };
+            status.textContent = labels[state.materialView] || 'READY';
+        }
+    }
+
+    const fullscreenButton = document.getElementById('btn-viewer-fullscreen');
+    if (fullscreenButton) {
+        const fullscreen = !!document.fullscreenElement;
+        fullscreenButton.setAttribute('aria-pressed', String(fullscreen));
+        fullscreenButton.title = fullscreen ? '전체화면 종료' : '전체화면';
+    }
+}
+
+function initViewerMode() {
+    state.viewerMode = isViewerModeRequested();
+    state.exhibitionMode = isExhibitionModeRequested();
+    state.revealMode = isRevealModeRequested();
+    document.documentElement.classList.toggle('viewer-requested', state.viewerMode);
+    document.documentElement.classList.toggle('exhibit-requested', state.exhibitionMode);
+    document.documentElement.classList.toggle('reveal-requested', state.revealMode);
+    document.body.classList.toggle('viewer-mode', state.viewerMode);
+    document.body.classList.toggle('exhibition-mode', state.exhibitionMode);
+    document.body.classList.toggle('reveal-mode', state.revealMode);
+    if (!state.viewerMode) return;
+    initExhibitionModeControls();
+
+    state.isSoundOn = false;
+    const welcome = document.getElementById('welcome-modal');
+    if (welcome) {
+        welcome.classList.add('hidden-stage');
+        welcome.setAttribute('aria-hidden', 'true');
+    }
+
+    const playButton = document.getElementById('btn-viewer-play');
+    if (playButton) {
+        playButton.addEventListener('click', () => {
+            if (!state.engineBooted) return;
+            if (!toggleExhibitionPlayback()) {
+                if (state.isShowcaseMode) stopCinematicPresentation();
+                else startCinematicPresentation();
+            }
+            refreshViewerModeUi();
+        });
+    }
+
+    const resetButton = document.getElementById('btn-viewer-reset-camera');
+    if (resetButton) {
+        resetButton.addEventListener('click', () => {
+            if (!state.engineBooted) return;
+            applyCameraView('orbit', false);
+            refreshViewerModeUi();
+        });
+    }
+
+    const replayRevealButton = document.getElementById('btn-viewer-replay-reveal');
+    if (replayRevealButton) {
+        replayRevealButton.addEventListener('click', () => {
+            if (!state.engineBooted || !state.revealMode) return;
+            startRevealExperience();
+        });
+    }
+    const skipRevealButton = document.getElementById('btn-reveal-skip');
+    if (skipRevealButton) {
+        skipRevealButton.addEventListener('click', () => {
+            if (state.revealRunning) finishRevealExperience({ skipped: true });
+        });
+    }
+
+    const previousButton = document.getElementById('btn-viewer-part-prev');
+    if (previousButton) previousButton.addEventListener('click', () => cyclePartScan(-1));
+    const nextButton = document.getElementById('btn-viewer-part-next');
+    if (nextButton) nextButton.addEventListener('click', () => cyclePartScan(1));
+
+    document.querySelectorAll('[data-viewer-comparison]').forEach(button => {
+        button.addEventListener('click', () => {
+            if (!state.engineBooted) return;
+            applyComparisonScene(button.dataset.viewerComparison, { notify: false });
+            if (state.exhibitionMode && !state.exhibitionPaused) scheduleExhibitionComparisonCycle();
+        });
+    });
+
+    document.querySelectorAll('[data-viewer-material]').forEach(button => {
+        button.addEventListener('click', () => {
+            if (!state.engineBooted) return;
+            setMaterialView(button.dataset.viewerMaterial, { notify: false });
+        });
+    });
+
+    const fullscreenButton = document.getElementById('btn-viewer-fullscreen');
+    if (fullscreenButton) {
+        fullscreenButton.addEventListener('click', async () => {
+            try {
+                if (document.fullscreenElement) await document.exitFullscreen();
+                else await document.documentElement.requestFullscreen();
+            } catch (error) {
+                console.warn('Fullscreen request was blocked:', error);
+            }
+            refreshViewerModeUi();
+        });
+    }
+
+    const studioButton = document.getElementById('btn-viewer-open-studio');
+    if (studioButton) {
+        studioButton.addEventListener('click', () => {
+            window.location.assign(getStudioUrlFromViewer());
+        });
+    }
+
+    document.addEventListener('fullscreenchange', refreshViewerModeUi);
+    document.addEventListener('keydown', event => {
+        if (event.key === 'Escape' && state.revealRunning) {
+            event.preventDefault();
+            finishRevealExperience({ skipped: true });
+        }
+    });
+    refreshViewerModeUi();
+}
+
 // Start the welcome modal boot sequence
 document.addEventListener('DOMContentLoaded', () => {
     loadPreferences(); // v3.8: Restore saved settings from localStorage
+    initViewerMode();
     registerRuntimeErrorCapture();
     applyAnnotationLabelOverrides();
     initLanguageEngine();
@@ -1794,6 +2626,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initPartScanControls();
     initWorkflowControls();
     initProductizationControls();
+    initBetaTestSession();
     initRadar();
     
     // Boot button on Welcome Modal
@@ -1807,30 +2640,42 @@ document.addEventListener('DOMContentLoaded', () => {
             loadPresetModel(state.activePreset);
             if (state.pendingShareState) {
                 setTimeout(() => applyShareState(state.pendingShareState), 350);
+            } else if (state.exhibitionMode) {
+                setTimeout(startExhibitionMode, 500);
+            } else if (state.revealMode) {
+                setTimeout(startRevealExperience, 500);
             }
             
             // Setup initial UI layout
             toggleUIMode(state.uiMode);
+            document.body.classList.toggle('viewer-ready', state.viewerMode);
+            refreshViewerModeUi();
+            setTimeout(onWindowResize, 0);
             
             // Hide overlay modal
             const modal = document.getElementById('welcome-modal');
             if (modal) {
-                modal.style.opacity = '0';
-                setTimeout(() => {
+                if (state.viewerMode) {
                     modal.classList.add('hidden-stage');
-                    // Automatically slide in welcome notification toast
-                    showNotification(
-                        state.language === 'ko' ? "HOLOSYN 스튜디오 부팅 성공" : "HOLOSYN Studio Boot Successful",
-                        state.language === 'ko' ? "시제품 3D 발표 스튜디오가 준비되었습니다." : "The 3D prototype presentation studio is ready."
-                    );
-
-                    // Proactively prompt the user for the guide tour (Phase D)
+                    modal.setAttribute('aria-hidden', 'true');
+                } else {
+                    modal.style.opacity = '0';
                     setTimeout(() => {
-                        if (typeof TutorialManager !== 'undefined') {
-                            TutorialManager.showPrompt();
-                        }
-                    }, 1200);
-                }, 600);
+                        modal.classList.add('hidden-stage');
+                        // Automatically slide in welcome notification toast
+                        showNotification(
+                            state.language === 'ko' ? "HOLOSYN 스튜디오 부팅 성공" : "HOLOSYN Studio Boot Successful",
+                            state.language === 'ko' ? "시제품 3D 발표 스튜디오가 준비되었습니다." : "The 3D prototype presentation studio is ready."
+                        );
+
+                        // Proactively prompt the user for the guide tour (Phase D)
+                        setTimeout(() => {
+                            if (typeof TutorialManager !== 'undefined' && !state.betaSession.active && !isBetaTestSessionRequested()) {
+                                TutorialManager.showPrompt();
+                            }
+                        }, 1200);
+                    }, 600);
+                }
             }
             
             // Auto-run continuous diagnostic log timer
@@ -1839,9 +2684,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     applyShareStateFromUrl();
+    if (state.viewerMode) {
+        requestAnimationFrame(() => {
+            if (bootBtn && !bootBtn.disabled && !state.engineBooted) bootBtn.click();
+        });
+    }
 
     // Initialize Tutorial Manager (Phase D)
-    if (typeof TutorialManager !== 'undefined') {
+    if (!state.viewerMode && typeof TutorialManager !== 'undefined') {
         TutorialManager.init();
     }
 });
@@ -1913,8 +2763,10 @@ function updateTelemetryBarText() {
 let proTourOffered = false; // session flag: offer the Pro guide tour once
 function toggleUIMode(mode) {
     state.uiMode = mode;
-    localStorage.setItem('holosyn_uimode', mode);
-    savePreferences();
+    if (!state.viewerMode) {
+        localStorage.setItem('holosyn_uimode', mode);
+        savePreferences();
+    }
     
     const containerLayout = document.getElementById('app-container');
     const beginnerBtn = document.getElementById('btn-mode-beginner');
@@ -2006,7 +2858,7 @@ function applyQuickStyle(styleName) {
             state.renderMode = 'solid';
             state.themeColor = '#007aff'; // Studio Blue
             state.themeColorGlow = 'rgba(0, 122, 255, 0.22)';
-            document.body.className = "theme-blue";
+            applyBodyThemeClass('blue');
             
             state.rotationSpeed = 0.8;
             state.glowIntensity = 1.2;
@@ -2017,7 +2869,7 @@ function applyQuickStyle(styleName) {
             state.renderMode = 'wireframe';
             state.themeColor = '#8e8e93'; // Studio Silver
             state.themeColorGlow = 'rgba(229, 229, 234, 0.22)';
-            document.body.className = "theme-silver";
+            applyBodyThemeClass('silver');
             
             state.rotationSpeed = 1.0;
             state.glowIntensity = 1.5;
@@ -2028,7 +2880,7 @@ function applyQuickStyle(styleName) {
             state.renderMode = 'points';
             state.themeColor = '#af52de'; // Studio Purple
             state.themeColorGlow = 'rgba(175, 82, 222, 0.22)';
-            document.body.className = "theme-purple";
+            applyBodyThemeClass('purple');
             
             state.rotationSpeed = 1.6;
             state.glowIntensity = 2.0;
@@ -3147,6 +3999,7 @@ function loadPresetModel(presetName) {
     syncPartScanLayout();
     setWorkflowProgress('structure', ['model']);
     updateHandoffPackStatus();
+    refreshViewerModeUi();
 
     // ST,AND-only demo controls (fold state + product lineup) — show/reset (v10.0)
     syncStandControls(presetName);
@@ -4455,6 +5308,323 @@ function updateBetaOpsPanel() {
     detailEl.textContent = getBetaOpsDetail(summary);
 }
 
+const betaSessionTaskLabels = {
+    scene: '장면 준비',
+    material: '제품 색상',
+    part: '부품 보기',
+    structure: '구조 분해',
+    handoff: '장면 전달'
+};
+
+let betaSessionTimer = null;
+
+function isBetaTestSessionRequested() {
+    try {
+        return new URL(window.location.href).searchParams.get('test') === '1';
+    } catch (error) {
+        return false;
+    }
+}
+
+function getBetaSessionElapsedMs(endAt = null) {
+    const startedMs = Date.parse(state.betaSession.startedAt || '');
+    if (!Number.isFinite(startedMs)) return 0;
+    const endedMs = Date.parse(endAt || state.betaSession.completedAt || '') || Date.now();
+    return Math.max(0, endedMs - startedMs);
+}
+
+function formatBetaSessionTime(milliseconds) {
+    const totalSeconds = Math.floor(Math.max(0, milliseconds) / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+}
+
+function renderBetaTestSession() {
+    const panel = document.getElementById('beta-session-panel');
+    if (!panel || !state.betaSession.active) return;
+
+    const taskEntries = Object.entries(state.betaSession.tasks);
+    const completedCount = taskEntries.filter(([, completedAt]) => !!completedAt).length;
+    const isComplete = completedCount === taskEntries.length;
+    const status = document.getElementById('beta-session-status');
+    const timer = document.getElementById('beta-session-timer');
+    const progress = document.getElementById('beta-session-progress');
+
+    panel.classList.toggle('complete', isComplete);
+    if (status) status.textContent = isComplete ? '5 / 5 완료' : `${completedCount} / ${taskEntries.length} 진행`;
+    if (timer) timer.textContent = formatBetaSessionTime(getBetaSessionElapsedMs());
+    if (progress) progress.style.width = `${Math.round((completedCount / taskEntries.length) * 100)}%`;
+
+    taskEntries.forEach(([taskId, completedAt]) => {
+        const item = document.getElementById(`beta-task-${taskId}`);
+        if (!item) return;
+        item.classList.toggle('done', !!completedAt);
+        const taskStatus = item.querySelector('em');
+        if (taskStatus) taskStatus.textContent = completedAt ? 'DONE' : 'WAIT';
+    });
+
+    document.querySelectorAll('[data-beta-rating]').forEach(button => {
+        const rating = Number(button.getAttribute('data-beta-rating'));
+        const selected = state.betaSession.rating === rating;
+        button.classList.toggle('active', selected);
+        button.setAttribute('aria-pressed', selected ? 'true' : 'false');
+    });
+}
+
+function updateBetaTestSession() {
+    if (!state.betaSession.active) return;
+    const checks = {
+        scene: !!state.engineBooted && !!activeModelGroup && activeModelGroup.children.length > 0,
+        material: state.materialView === 'product',
+        part: !!state.partScanActive && getPartScanList().length > 0,
+        structure: state.explodedLevel >= 0.4,
+        handoff: !!state.shareStateLastBuilt && state.shareStateLastBuilt !== state.betaSession.shareBaseline
+    };
+    const completedNow = new Date().toISOString();
+
+    Object.entries(checks).forEach(([taskId, passed]) => {
+        if (passed && !state.betaSession.tasks[taskId]) {
+            state.betaSession.tasks[taskId] = completedNow;
+            addConsoleLog(`[BETA SESSION] ${betaSessionTaskLabels[taskId]} completed.`, 'success');
+        }
+    });
+
+    const complete = Object.values(state.betaSession.tasks).every(Boolean);
+    if (complete && !state.betaSession.completedAt) {
+        state.betaSession.completedAt = completedNow;
+        state.betaOps.test = true;
+        state.betaOps.lastReportAt = completedNow;
+        if (betaSessionTimer) {
+            clearInterval(betaSessionTimer);
+            betaSessionTimer = null;
+        }
+        updateBetaOpsPanel();
+        showNotification(
+            state.language === 'ko' ? '사용자 테스트 완료' : 'User Test Complete',
+            state.language === 'ko' ? '5가지 핵심 과제를 모두 마쳤습니다. 만족도와 메모를 남겨 리포트를 저장하세요.' : 'All five core tasks are complete. Add a rating and note, then save the report.'
+        );
+    }
+    renderBetaTestSession();
+}
+
+function resetExplodedStateForBetaSession() {
+    if (explodedAnimationTimer) {
+        clearInterval(explodedAnimationTimer);
+        explodedAnimationTimer = null;
+    }
+    state.explodedLevel = 0;
+    const tunerExploded = document.getElementById('tuner-exploded');
+    const readoutExploded = document.getElementById('readout-exploded');
+    if (tunerExploded) tunerExploded.value = '0';
+    if (readoutExploded) readoutExploded.textContent = '0%';
+    if (activeModelGroup && activeModelGroup.children.length > 0) {
+        updateExplodedTranslations(activeModelGroup.children[0]);
+    }
+}
+
+function startBetaTestSession() {
+    if (state.viewerMode) return;
+    const panel = document.getElementById('beta-session-panel');
+    if (!panel) return;
+    if (panel.parentElement !== document.body) document.body.appendChild(panel);
+
+    if (typeof TutorialManager !== 'undefined') {
+        if (TutorialManager.isActive) TutorialManager.skip();
+        TutorialManager.dismissPrompt();
+    }
+    if (betaSessionTimer) clearInterval(betaSessionTimer);
+    const shareBaseline = state.shareStateLastBuilt;
+    state.betaSession = {
+        active: true,
+        startedAt: new Date().toISOString(),
+        completedAt: null,
+        shareBaseline,
+        rating: null,
+        friction: '',
+        tasks: {
+            scene: null,
+            material: null,
+            part: null,
+            structure: null,
+            handoff: null
+        }
+    };
+
+    if (state.partScanActive) setPartScanActive(false);
+    if (state.materialView !== 'hologram') {
+        setMaterialView('hologram', { notify: false, broadcast: false, autoFocus: false });
+    }
+    resetExplodedStateForBetaSession();
+
+    const friction = document.getElementById('beta-session-friction');
+    if (friction) friction.value = '';
+    panel.hidden = false;
+    panel.scrollTop = 0;
+    panel.classList.remove('complete');
+    document.body.classList.add('beta-test-session');
+    renderBetaTestSession();
+    const sessionStartedAt = state.betaSession.startedAt;
+    setTimeout(() => {
+        if (!state.betaSession.active || state.betaSession.startedAt !== sessionStartedAt) return;
+        updateBetaTestSession();
+        betaSessionTimer = setInterval(updateBetaTestSession, 250);
+    }, 120);
+    showNotification(
+        state.language === 'ko' ? '사용자 테스트 시작' : 'User Test Started',
+        state.language === 'ko' ? '화면의 5가지 과제를 순서와 상관없이 직접 수행해보세요.' : 'Complete the five on-screen tasks in any order.'
+    );
+    addConsoleLog('[BETA SESSION] Anonymous five-task session started.', 'info');
+}
+
+function closeBetaTestSession() {
+    state.betaSession.active = false;
+    if (betaSessionTimer) {
+        clearInterval(betaSessionTimer);
+        betaSessionTimer = null;
+    }
+    const panel = document.getElementById('beta-session-panel');
+    if (panel) panel.hidden = true;
+    document.body.classList.remove('beta-test-session');
+}
+
+function sanitizeBetaSessionError(error = {}) {
+    const rawSource = typeof error.source === 'string' ? error.source : '';
+    let sourceFile = '';
+    if (rawSource) {
+        try {
+            sourceFile = new URL(rawSource, window.location.href).pathname.split('/').filter(Boolean).pop() || '';
+        } catch (urlError) {
+            sourceFile = rawSource.split(/[\\/]/).filter(Boolean).pop() || '';
+        }
+    }
+    const message = limitSnapshotText(error.message, 'Runtime error', 240)
+        .replace(/file:\/\/\/\S+/gi, '[local-file]')
+        .replace(/\/Users\/[^/\s]+/g, '/Users/[redacted]');
+    return {
+        at: limitSnapshotText(error.at, '', 64),
+        type: limitSnapshotText(error.type, 'error', 40),
+        message,
+        sourceFile: limitSnapshotText(sourceFile, '', 80),
+        line: Number.isFinite(Number(error.line)) ? Number(error.line) : 0,
+        column: Number.isFinite(Number(error.column)) ? Number(error.column) : 0
+    };
+}
+
+function buildBetaSessionReport() {
+    const exportedAt = new Date().toISOString();
+    const startedMs = Date.parse(state.betaSession.startedAt || '');
+    const tasks = Object.entries(state.betaSession.tasks).map(([id, completedAt]) => ({
+        id,
+        label: betaSessionTaskLabels[id],
+        completed: !!completedAt,
+        completedAt,
+        secondsFromStart: completedAt && Number.isFinite(startedMs)
+            ? Number(((Date.parse(completedAt) - startedMs) / 1000).toFixed(1))
+            : null
+    }));
+    const completedCount = tasks.filter(task => task.completed).length;
+    const finalReadiness = getFinalReadinessSummary();
+    const runtimeErrors = getRuntimeErrorSnapshot(10).map(sanitizeBetaSessionError);
+    const frictionInput = document.getElementById('beta-session-friction');
+    const friction = limitSnapshotText(frictionInput?.value || state.betaSession.friction, '', 600);
+
+    return {
+        holosynReport: 'anonymous-beta-session-v1',
+        exportedAt,
+        session: {
+            status: completedCount === tasks.length ? 'complete' : 'partial',
+            startedAt: state.betaSession.startedAt,
+            completedAt: state.betaSession.completedAt,
+            durationSeconds: Number((getBetaSessionElapsedMs(state.betaSession.completedAt || exportedAt) / 1000).toFixed(1)),
+            completedCount,
+            totalTasks: tasks.length,
+            tasks
+        },
+        feedback: {
+            satisfaction: state.betaSession.rating,
+            friction
+        },
+        context: {
+            viewport: {
+                width: window.innerWidth,
+                height: window.innerHeight,
+                devicePixelRatio: window.devicePixelRatio || 1,
+                touch: navigator.maxTouchPoints > 0
+            },
+            sample: state.activePreset,
+            uiMode: state.uiMode,
+            partCount: getPartScanList().length,
+            importReliability: {
+                type: state.importQuality.reliabilityType,
+                risk: state.importQuality.reliabilityRisk,
+                warningCount: state.importQuality.reliabilityWarnings.length
+            }
+        },
+        quality: {
+            finalReadiness: {
+                score: finalReadiness.score,
+                label: finalReadiness.label
+            },
+            runtimeErrorCount: runtimeErrors.length,
+            runtimeErrors
+        },
+        privacy: 'No model binary, contact data, full URL, or full browser user agent is included.'
+    };
+}
+
+function exportBetaSessionReport() {
+    if (!state.betaSession.startedAt) {
+        startBetaTestSession();
+        return;
+    }
+    const report = buildBetaSessionReport();
+    state.betaSession.friction = report.feedback.friction;
+    if (report.session.status === 'complete') state.betaOps.test = true;
+    state.betaOps.lastReportAt = report.exportedAt;
+    triggerDownload(
+        JSON.stringify(report, null, 2),
+        'application/json',
+        `${getExportBaseName(getProductName())}_holosyn_beta_session.json`
+    );
+    updateBetaOpsPanel();
+    showNotification(
+        state.language === 'ko' ? '테스트 리포트 저장' : 'Test Report Saved',
+        state.language === 'ko'
+            ? `${report.session.completedCount}/${report.session.totalTasks} 과제와 익명 피드백을 JSON으로 저장했습니다.`
+            : `Saved ${report.session.completedCount}/${report.session.totalTasks} tasks and anonymous feedback as JSON.`
+    );
+    addConsoleLog(`[BETA SESSION] ${report.session.status} report exported.`, report.session.status === 'complete' ? 'success' : 'warning');
+}
+
+function initBetaTestSession() {
+    const startButton = document.getElementById('btn-start-beta-session');
+    const resetButton = document.getElementById('btn-beta-session-reset');
+    const exportButton = document.getElementById('btn-beta-session-export');
+    const closeButton = document.getElementById('btn-beta-session-close');
+    const friction = document.getElementById('beta-session-friction');
+
+    if (startButton) startButton.addEventListener('click', startBetaTestSession);
+    if (resetButton) resetButton.addEventListener('click', startBetaTestSession);
+    if (exportButton) exportButton.addEventListener('click', exportBetaSessionReport);
+    if (closeButton) closeButton.addEventListener('click', closeBetaTestSession);
+    if (friction) {
+        friction.addEventListener('input', () => {
+            state.betaSession.friction = limitSnapshotText(friction.value, '', 600);
+        });
+    }
+    document.querySelectorAll('[data-beta-rating]').forEach(button => {
+        button.addEventListener('click', () => {
+            state.betaSession.rating = Number(button.getAttribute('data-beta-rating'));
+            renderBetaTestSession();
+        });
+    });
+
+    if (isBetaTestSessionRequested() && !state.viewerMode) {
+        requestAnimationFrame(startBetaTestSession);
+    }
+}
+
 function getBetaOpsEnvironment() {
     return {
         url: typeof window !== 'undefined' ? window.location.href : 'local',
@@ -4795,6 +5965,12 @@ if (typeof window !== 'undefined') {
     window.updateLaunchReadinessPanel = updateLaunchReadinessPanel;
     window.getLaunchReadinessSummary = getLaunchReadinessSummary;
     window.getBetaOpsSummary = getBetaOpsSummary;
+    window.HolosynBetaSession = Object.freeze({
+        start: startBetaTestSession,
+        close: closeBetaTestSession,
+        update: updateBetaTestSession,
+        buildReport: buildBetaSessionReport
+    });
 }
 
 // Current product name from the spec form (fallback to a neutral default).
@@ -5101,6 +6277,7 @@ function applyProjectSnapshot(snapshot, options = {}) {
     updateHandoffPackStatus();
     updateProjectSnapshotStatus(snapshot);
     updateBetaReadinessPanel();
+    refreshViewerModeUi();
     showNotification(
         state.language === 'ko' ? '프로젝트 스냅샷 복원' : 'Project Snapshot Restored',
         state.language === 'ko' ? '발표 세팅, 렌더 모드, 타임라인을 복원했습니다.' : 'Restored presentation setup, render mode, and timeline.'
@@ -6034,6 +7211,18 @@ function initProductizationControls() {
     if (headerShareLinkBtn) headerShareLinkBtn.addEventListener('click', copyShareLink);
     const exportShareStateBtn = document.getElementById('btn-export-share-state');
     if (exportShareStateBtn) exportShareStateBtn.addEventListener('click', exportShareState);
+    const copyExhibitionLinkBtn = document.getElementById('btn-copy-exhibition-link');
+    if (copyExhibitionLinkBtn) copyExhibitionLinkBtn.addEventListener('click', copyExhibitionLink);
+    const copyRevealLinkBtn = document.getElementById('btn-copy-reveal-link');
+    if (copyRevealLinkBtn) copyRevealLinkBtn.addEventListener('click', copyRevealLink);
+    ['a', 'b'].forEach(slot => {
+        const captureButton = document.getElementById(`btn-capture-compare-${slot}`);
+        const previewButton = document.getElementById(`btn-preview-compare-${slot}`);
+        if (captureButton) captureButton.addEventListener('click', () => captureComparisonScene(slot));
+        if (previewButton) previewButton.addEventListener('click', () => applyComparisonScene(slot));
+    });
+    const copyComparisonLinkBtn = document.getElementById('btn-copy-compare-link');
+    if (copyComparisonLinkBtn) copyComparisonLinkBtn.addEventListener('click', copyComparisonLink);
     const recordClip3sBtn = document.getElementById('btn-record-clip-3s');
     if (recordClip3sBtn) recordClip3sBtn.addEventListener('click', () => recordViewportClip(3000));
     const recordClip5sBtn = document.getElementById('btn-record-clip-5s');
@@ -6051,6 +7240,7 @@ function initProductizationControls() {
     updateProjectSnapshotStatus();
     updatePortableProjectPanel();
     updateShareLinkPanel();
+    updateComparisonPanel();
     updatePresenterNotesPanel();
     updateMeasurementsPanel();
     updateHandoffPackStatus();
@@ -7835,6 +9025,7 @@ function renderAnnotations() {
             
             // Add double-click listener for interactive edit
             badge.addEventListener('dblclick', () => {
+                if (state.viewerMode) return;
                 editAnnotation(ann, badge);
             });
             
@@ -8736,6 +9927,7 @@ function startCinematicPresentation(options = {}) {
     presentationInterval = setInterval(runPresentationStep, 6000); // 6 seconds per phase
     
     setTimeout(onWindowResize, 550);
+    refreshViewerModeUi();
 }
 
 function stopCinematicPresentation() {
@@ -8780,6 +9972,7 @@ function stopCinematicPresentation() {
     // Re-apply Beginner/Pro sizing
     toggleUIMode(state.uiMode);
     setTimeout(onWindowResize, 550);
+    refreshViewerModeUi();
 }
 
 // Glitch logo easter egg handler (New v3.2)
@@ -9252,7 +10445,7 @@ function initUIControls() {
             e.currentTarget.classList.add('active-color');
             
             const colorName = e.currentTarget.getAttribute('data-color');
-            document.body.className = `theme-${colorName}`;
+            applyBodyThemeClass(colorName);
             
             const styles = getComputedStyle(document.body);
             const colorHex = styles.getPropertyValue(`--${colorName}`).trim();
@@ -9859,13 +11052,22 @@ function decodeSharePayload(encoded) {
     return JSON.parse(decodeURIComponent(escape(atob(padded))));
 }
 
-function buildShareState() {
+function buildShareState(options = {}) {
+    const { includeComparison = false } = options;
     const storedSnapshot = saveProjectSnapshot({ silent: true }) || buildProjectSnapshot();
     const projectSnapshot = buildCompactShareSnapshot(storedSnapshot);
+    const comparison = includeComparison
+        ? normalizeComparisonPayload({
+            holosynComparison: 'scene-comparison-v1',
+            activeSlot: 'a',
+            scenes: state.comparison.scenes
+        })
+        : null;
     const shareState = {
         holosynShare: 'url-share-state-v1',
         exportedAt: new Date().toISOString(),
         projectSnapshot,
+        ...(comparison ? { comparison } : {}),
         warning: 'Custom GLB/image binaries are not embedded in the URL. Use a HOLOSYN portable project bundle when the model file must travel with the scene.'
     };
     state.shareStateLastBuilt = shareState.exportedAt;
@@ -9873,10 +11075,19 @@ function buildShareState() {
     return shareState;
 }
 
-function buildShareUrl() {
-    const payload = buildShareState();
+function buildShareUrl(options = {}) {
+    const { viewer = true, includeComparison = false, exhibit = false, reveal = false } = options;
+    const payload = buildShareState({ includeComparison });
     const encoded = encodeSharePayload(payload);
     const url = new URL(window.location.href);
+    url.searchParams.delete('test');
+    url.searchParams.delete('compare');
+    if (viewer) url.searchParams.set('viewer', '1');
+    else url.searchParams.delete('viewer');
+    if (viewer && exhibit) url.searchParams.set('exhibit', '1');
+    else url.searchParams.delete('exhibit');
+    if (viewer && reveal && !exhibit) url.searchParams.set('reveal', '1');
+    else url.searchParams.delete('reveal');
     url.hash = `hs=${encoded}`;
     return {
         url: url.toString(),
@@ -9887,13 +11098,15 @@ function buildShareUrl() {
 
 async function copyShareLink() {
     const result = buildShareUrl();
-    try {
-        window.history.replaceState(null, '', result.url);
-    } catch (error) {
-        window.location.hash = new URL(result.url).hash;
-    }
     markHandoffExportReady();
     const copied = await copyTextToClipboard(result.url);
+    if (!copied) {
+        try {
+            window.history.replaceState(null, '', result.url);
+        } catch (error) {
+            window.location.hash = new URL(result.url).hash;
+        }
+    }
     const detail = document.getElementById('share-link-detail');
     const status = document.getElementById('share-link-status');
     if (status) status.textContent = copied ? 'COPIED' : 'URL IN BAR';
@@ -9909,6 +11122,70 @@ async function copyShareLink() {
             : (state.language === 'ko' ? '클립보드가 막혀 주소창에 공유 URL을 표시했습니다.' : 'Clipboard was blocked, so the share URL is now in the address bar.')
     );
     addConsoleLog(`[SHARE] URL state packed (${result.url.length} chars).`, copied ? 'success' : 'warning');
+}
+
+async function copyExhibitionLink() {
+    const result = buildShareUrl({
+        viewer: true,
+        exhibit: true,
+        includeComparison: hasCompleteComparison()
+    });
+    markHandoffExportReady();
+    const copied = await copyTextToClipboard(result.url);
+    if (!copied) {
+        try {
+            window.history.replaceState(null, '', result.url);
+        } catch (error) {
+            window.location.hash = new URL(result.url).hash;
+        }
+    }
+    const detail = document.getElementById('share-link-detail');
+    const status = document.getElementById('share-link-status');
+    if (status) status.textContent = copied ? 'EXHIBIT COPIED' : 'URL IN BAR';
+    if (detail) {
+        detail.textContent = copied
+            ? `전시 링크 ${result.url.length}자 · 로컬 실행 시 네트워크 없이 자동 반복됩니다.`
+            : '클립보드가 막혀 주소창에 전시 링크를 표시했습니다.';
+    }
+    showNotification(
+        state.language === 'ko' ? '전시 링크 준비' : 'Exhibition Link Ready',
+        copied
+            ? (state.language === 'ko' ? '오프라인 전시용 자동 반복 링크를 복사했습니다.' : 'Copied the offline-ready exhibition loop link.')
+            : (state.language === 'ko' ? '주소창에 전시 링크를 표시했습니다.' : 'Placed the exhibition link in the address bar.')
+    );
+    addConsoleLog(`[EXHIBIT] Exhibition URL packed (${result.url.length} chars).`, copied ? 'success' : 'warning');
+}
+
+async function copyRevealLink() {
+    const result = buildShareUrl({
+        viewer: true,
+        reveal: true,
+        includeComparison: false
+    });
+    markHandoffExportReady();
+    const copied = await copyTextToClipboard(result.url);
+    if (!copied) {
+        try {
+            window.history.replaceState(null, '', result.url);
+        } catch (error) {
+            window.location.hash = new URL(result.url).hash;
+        }
+    }
+    const detail = document.getElementById('share-link-detail');
+    const status = document.getElementById('share-link-status');
+    if (status) status.textContent = copied ? 'REVEAL COPIED' : 'URL IN BAR';
+    if (detail) {
+        detail.textContent = copied
+            ? `리빌 링크 ${result.url.length}자 · 관객 화면에서 18초 제품 공개 시퀀스가 자동 시작됩니다.`
+            : '클립보드가 막혀 주소창에 리빌 링크를 표시했습니다.';
+    }
+    showNotification(
+        state.language === 'ko' ? '리빌 링크 준비' : 'Reveal Link Ready',
+        copied
+            ? (state.language === 'ko' ? '관객용 HOLOSYN 리빌 링크를 복사했습니다.' : 'Copied the audience HOLOSYN reveal link.')
+            : (state.language === 'ko' ? '주소창에 리빌 링크를 표시했습니다.' : 'Placed the reveal link in the address bar.')
+    );
+    addConsoleLog(`[REVEAL] Reveal URL packed (${result.url.length} chars).`, copied ? 'success' : 'warning');
 }
 
 function exportShareState() {
@@ -9955,7 +11232,7 @@ function applyShareStateFromUrl() {
     );
     setTimeout(() => {
         if (state.engineBooted) {
-            applyShareState(payload);
+            if (state.pendingShareState) applyShareState(state.pendingShareState);
             return;
         }
         const bootBtn = document.getElementById('btn-boot-system');
@@ -9973,13 +11250,26 @@ function applyShareState(payload) {
     if (payload.camera) {
         restoreCameraShareState(payload.camera);
     }
+    const comparison = normalizeComparisonPayload(payload.comparison);
+    if (comparison) {
+        state.comparison = comparison;
+        const requestedSlot = new URL(window.location.href).searchParams.get('compare');
+        const slot = ['a', 'b'].includes(requestedSlot) ? requestedSlot : comparison.activeSlot;
+        if (state.viewerMode || ['a', 'b'].includes(requestedSlot)) {
+            applyComparisonScene(slot, { notify: false });
+        }
+    }
     state.pendingShareState = null;
     state.shareStateLastBuilt = payload.exportedAt || new Date().toISOString();
     updateShareLinkPanel();
+    updateComparisonPanel();
     const status = document.getElementById('share-link-status');
     const detail = document.getElementById('share-link-detail');
     if (status) status.textContent = 'RESTORED';
     if (detail) detail.textContent = '공유 링크의 발표 장면을 이 브라우저에 복원했습니다.';
+    refreshViewerModeUi();
+    if (state.exhibitionMode) startExhibitionMode();
+    else if (state.revealMode) startRevealExperience();
     showNotification(
         state.language === 'ko' ? '공유 장면 복원 완료' : 'Shared Scene Restored',
         state.language === 'ko' ? '링크에 담긴 모델, 조명, 카메라, 노트, 치수 상태를 복원했습니다.' : 'Restored the linked model, lighting, camera, notes, and measurements.'
@@ -10177,7 +11467,11 @@ function openQrShareModal() {
     // A QR that technically encodes but is too dense to scan is not useful on stage.
     let matrix = tryBuildQr(qrTarget);
     if (!matrix || matrix.getModuleCount() > maxQrModules) {
-        const base = `${window.location.origin}${window.location.pathname}`;
+        const baseUrl = new URL(window.location.href);
+        baseUrl.search = '';
+        baseUrl.searchParams.set('viewer', '1');
+        baseUrl.hash = '';
+        const base = baseUrl.toString();
         matrix = tryBuildQr(base);
         qrTarget = base;
         note = state.language === 'ko'
@@ -10193,9 +11487,6 @@ function openQrShareModal() {
     const noteEl = document.getElementById('qr-share-note');
     if (noteEl) noteEl.textContent = note;
     modal.style.display = 'flex';
-    try {
-        window.history.replaceState(null, '', built.url);
-    } catch (error) { /* ignore */ }
     markHandoffExportReady();
     addConsoleLog(`[SHARE] QR generated (${qrTarget.length} chars).`, 'success');
     verifyQrScannable(matrix, qrTarget);
@@ -11349,7 +12640,7 @@ function initSpatialDrawingEngine() {
     
     // Double click to add 3D Pin Callout (Pro mode only, drawing inactive)
     vp.addEventListener('dblclick', (e) => {
-        if (state.uiMode !== 'pro' || drawModeToggled || isCaliperActive || !activeModelGroup || activeModelGroup.children.length === 0) return;
+        if (state.viewerMode || state.uiMode !== 'pro' || drawModeToggled || isCaliperActive || !activeModelGroup || activeModelGroup.children.length === 0) return;
         
         updateMouseCoordinates(e);
         raycaster.setFromCamera(mouse, camera);

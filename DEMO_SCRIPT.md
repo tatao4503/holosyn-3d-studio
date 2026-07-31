@@ -13,7 +13,27 @@ Use this when you want to check the product without showing it to anyone yet.
 5. Save a Project Snapshot.
 6. Run Beta Launch Pack and Beta Ops Pack, export the Rehearsal Runbook, and stop when Final Readiness reaches `DEMO READY` or better.
 
+## Unmoderated Beta Session
+
+Use `index.html?test=1` or `BETA OPS PACK → 사용자 테스트` when another person
+should try the core product flow without coaching.
+
+1. Ask the tester to complete the five visible tasks in any order.
+2. Do not explain where the controls are unless the tester cannot continue.
+3. Ask for a 1–5 satisfaction score and the single most confusing moment.
+4. Export the JSON report even when the session is incomplete.
+5. Compare task completion times, friction notes, and sanitized runtime errors across testers.
+
 ## 30-Second Version
+
+Before presenting, copy a Share Link and open it in a separate tab. Confirm the audience-facing
+Viewer loads the same scene without the studio panels, then use its play, part, and material controls.
+For a comparison demo, save a product-color hero shot as A and an exploded HOLO/PART view as B,
+copy the A/B link, and switch between both states from the Viewer control bar.
+For a booth, use the Exhibition Link or `HOLOSYN 전시.command`, disconnect networking, and confirm
+the cinematic loop or A/B auto-cycle continues after the controls hide.
+For a first-impression handoff, open a Reveal Link and confirm it moves from blackout and structure
+through exploded parts, product color, hero shot, and the HOLOSYN signature before Viewer controls return.
 
 1. Open HOLOSYN and boot the engine.
 2. Click `30s PITCH`.
@@ -53,6 +73,7 @@ Use this when you want to check the product without showing it to anyone yet.
    - Switch `MATERIAL REVEAL` from HOLO to PRODUCT, then use HYBRID with Part Scan to reveal one component at a time.
    - Use the live pointer (`Shift+P`) and 3-minute timer (`T`) to keep the walkthrough focused.
    - Show the current scene as a QR, or narrate saved presenter notes for rehearsal and unattended display.
+   - Copy a Reveal Link when the audience should receive one dramatic opening before taking control of the Viewer.
 
 5. Pro tools
    - Use AI Assistant only when a local Gemini key is available.
@@ -74,6 +95,7 @@ Use this when you want to check the product without showing it to anyone yet.
    - Export JSON for specs.
    - Export GLB for sharing the model asset.
    - Export a Portable Project when the recipient needs the model and the exact presentation state in one file.
+   - Use a Reveal Link for a one-shot opening and an Exhibition Link for an unattended repeating display.
    - Export Client Brief Markdown when you want a human-readable summary with Part Map talking points.
    - Export Rehearsal Runbook Markdown when you want a quick private practice checklist.
    - Export Handoff Manifest for the demo setup, quality state, Part Map summary, and recommended deliverables.
