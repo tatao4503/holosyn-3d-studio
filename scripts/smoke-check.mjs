@@ -1,6 +1,52 @@
 #!/usr/bin/env node
 import { access, readFile } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
+import { join } from 'node:path';
+
+// `--root <dir>` verifies a built deploy bundle (e.g. _site) instead of the repo.
+// The bundle has no docs or launchers, so it only checks that every local asset
+// index.html asks for actually shipped.
+const rootFlagIndex = process.argv.indexOf('--root');
+const bundleRoot = rootFlagIndex !== -1 ? process.argv[rootFlagIndex + 1] : null;
+
+// Every non-remote src/href in index.html must exist, or the deploy boots dead.
+function collectLocalAssetRefs(html) {
+  const refs = new Set();
+  const pattern = /(?:src|href)="([^"]+)"/g;
+  let match;
+  while ((match = pattern.exec(html)) !== null) {
+    const raw = match[1].trim();
+    if (!raw) continue;
+    if (/^(https?:)?\/\//i.test(raw)) continue;
+    if (/^(data:|mailto:|#|javascript:)/i.test(raw)) continue;
+    refs.add(raw.split(/[?#]/)[0]);
+  }
+  return [...refs];
+}
+
+async function assertLocalAssetsExist(html, root = '.') {
+  const missing = [];
+  for (const ref of collectLocalAssetRefs(html)) {
+    try {
+      await access(join(root, ref));
+    } catch {
+      missing.push(ref);
+    }
+  }
+  assert(
+    missing.length === 0,
+    `index.html references missing local asset(s): ${missing.join(', ')}`
+  );
+}
+
+async function verifyDeployBundle(root) {
+  const html = await readFile(join(root, 'index.html'), 'utf8');
+  for (const file of ['index.css', 'app.js', 'scripts/holosyn-timeline.js', 'scripts/holosyn-pro-managers.js']) {
+    await access(join(root, file));
+  }
+  await assertLocalAssetsExist(html, root);
+  console.log(`HOLOSYN deploy bundle check passed (${root}).`);
+}
 
 const requiredFiles = [
   'index.html',
@@ -12,6 +58,39 @@ const requiredFiles = [
   'USER_GUIDE.md',
   'DEMO_SCRIPT.md',
   'HOLOSYN 실행.command',
+  'HOLOSYN 전시.command',
+];
+
+const requiredAssetFiles = [
+  'vendor/fonts/fonts.css',
+  'vendor/fonts/inter-300.ttf',
+  'vendor/fonts/inter-400.ttf',
+  'vendor/fonts/inter-500.ttf',
+  'vendor/fonts/inter-600.ttf',
+  'vendor/fonts/inter-700.ttf',
+  'vendor/fonts/outfit-300.ttf',
+  'vendor/fonts/outfit-400.ttf',
+  'vendor/fonts/outfit-500.ttf',
+  'vendor/fonts/outfit-600.ttf',
+  'vendor/fonts/outfit-700.ttf',
+  'vendor/fonts/outfit-900.ttf',
+  'vendor/fonts/share-tech-mono-400.ttf',
+  'vendor/lucide/lucide.min.js',
+  'vendor/peerjs/peerjs.min.js',
+  'vendor/qrcode/qrcode.js',
+  'vendor/three/three.min.js',
+  'vendor/three/OrbitControls.js',
+  'vendor/three/GLTFExporter.js',
+  'vendor/three/GLTFLoader.js',
+  'vendor/three/OBJLoader.js',
+  'vendor/three/EffectComposer.js',
+  'vendor/three/RenderPass.js',
+  'vendor/three/ShaderPass.js',
+  'vendor/three/CopyShader.js',
+  'vendor/three/LuminosityHighPassShader.js',
+  'vendor/three/UnrealBloomPass.js',
+  'vendor/three/BokehShader.js',
+  'vendor/three/BokehPass.js',
 ];
 
 const htmlSelectors = [
@@ -68,6 +147,8 @@ const htmlSelectors = [
   'share-link-detail',
   'btn-copy-share-link',
   'btn-export-share-state',
+  'btn-copy-exhibition-link',
+  'btn-copy-reveal-link',
   'clip-export-panel',
   'clip-export-status',
   'btn-record-clip-3s',
@@ -135,11 +216,25 @@ const htmlSelectors = [
   'ops-check-deploy',
   'beta-ops-detail',
   'btn-export-beta-test-plan',
+  'btn-start-beta-session',
   'btn-run-performance-benchmark',
   'btn-export-error-report',
   'btn-export-example-pack',
   'btn-export-deploy-checklist',
   'btn-export-release-package',
+  'beta-session-panel',
+  'beta-session-status',
+  'beta-session-timer',
+  'beta-session-progress',
+  'beta-task-scene',
+  'beta-task-material',
+  'beta-task-part',
+  'beta-task-structure',
+  'beta-task-handoff',
+  'beta-session-friction',
+  'btn-beta-session-reset',
+  'btn-beta-session-export',
+  'btn-beta-session-close',
   'project-snapshot-panel',
   'project-snapshot-status',
   'btn-save-project-snapshot',
@@ -184,15 +279,33 @@ const htmlSelectors = [
   'btn-narrate-notes',
   'btn-narrate-stop',
   'viewer-shell',
+  'viewer-mode-label',
   'viewer-product-name',
   'viewer-status',
   'btn-viewer-play',
+  'btn-viewer-replay-reveal',
   'btn-viewer-reset-camera',
   'btn-viewer-part-prev',
   'viewer-part-label',
   'btn-viewer-part-next',
   'btn-viewer-fullscreen',
   'btn-viewer-open-studio',
+  'compare-scenes-panel',
+  'compare-scenes-status',
+  'compare-scene-a-summary',
+  'compare-scene-b-summary',
+  'btn-capture-compare-a',
+  'btn-capture-compare-b',
+  'btn-preview-compare-a',
+  'btn-preview-compare-b',
+  'btn-copy-compare-link',
+  'viewer-compare-group',
+  'reveal-experience',
+  'reveal-phase-count',
+  'reveal-kicker',
+  'reveal-title',
+  'reveal-detail',
+  'btn-reveal-skip',
 ];
 
 const appNeedles = [
@@ -239,6 +352,17 @@ const appNeedles = [
   'function buildBetaReleasePackageData',
   'betaOps: getBetaOpsSummary()',
   'window.getBetaOpsSummary = getBetaOpsSummary',
+  'function isBetaTestSessionRequested',
+  'function startBetaTestSession',
+  'document.body.appendChild(panel)',
+  'function updateBetaTestSession',
+  'function resetExplodedStateForBetaSession',
+  'function buildBetaSessionReport',
+  'function exportBetaSessionReport',
+  'function sanitizeBetaSessionError',
+  'window.HolosynBetaSession',
+  "url.searchParams.delete('test')",
+  "holosynReport: 'anonymous-beta-session-v1'",
   'const finalReadiness = getFinalReadinessSummary()',
   'final: handoffManifest.finalReadiness',
   'function getFinalPassSummary',
@@ -344,6 +468,31 @@ const appNeedles = [
   'function initViewerMode',
   'function refreshViewerModeUi',
   'function getStudioUrlFromViewer',
+  'function captureComparisonScene',
+  'function applyComparisonScene',
+  'function copyComparisonLink',
+  'function normalizeComparisonPayload',
+  'function updateComparisonPanel',
+  'function isExhibitionModeRequested',
+  'function startExhibitionMode',
+  'function toggleExhibitionPlayback',
+  'function scheduleExhibitionComparisonCycle',
+  'function copyExhibitionLink',
+  'function isRevealModeRequested',
+  'function startRevealExperience',
+  'function finishRevealExperience',
+  'function applyRevealPhase',
+  'function updateRevealOverlay',
+  'function copyRevealLink',
+  'window.HolosynReveal',
+  "holosynComparison: 'scene-comparison-v1'",
+  "holosynComparisonScene: 'comparison-scene-v1'",
+  'includeComparison: true',
+  'exhibit: true',
+  "url.searchParams.set('exhibit', '1')",
+  "url.searchParams.set('reveal', '1')",
+  "url.searchParams.set('compare', state.comparison.activeSlot)",
+  "searchParams.get('compare')",
   "url.searchParams.set('viewer', '1')",
   "baseUrl.searchParams.set('viewer', '1')",
   'if (state.viewerMode) return;',
@@ -378,6 +527,7 @@ const managerNeedles = [
   'updateKeyStatus()',
   'markTourSignal(value)',
   'dismissPrompt()',
+  'isBetaTestSessionRequested',
   'renderTourMap(containerId, steps, currentIndex = null)',
   'window.CollabManager = CollabManager',
   'materialView: state.materialView',
@@ -432,6 +582,10 @@ const cssNeedles = [
   '.beta-ops-panel.ready',
   '.beta-ops-checklist span.pass',
   '.beta-ops-actions',
+  '.beta-session-panel',
+  '.beta-session-panel.complete',
+  '.beta-session-tasks li.done',
+  '.beta-session-rating button.active',
   '.project-snapshot-panel',
   '.project-snapshot-actions',
   '.portable-project-row',
@@ -469,6 +623,18 @@ const cssNeedles = [
   '.viewer-topbar',
   '.viewer-controlbar',
   '.viewer-material-btn.active',
+  '.compare-scenes-panel',
+  '.viewer-compare-btn.active',
+  'body.viewer-has-comparison .viewer-controlbar',
+  'body.exhibition-mode.exhibition-idle',
+  'body.exhibition-mode.exhibition-idle .viewer-controlbar',
+  'body.exhibition-mode.exhibition-idle #annotations-container',
+  '#reveal-experience',
+  'body.reveal-running .viewer-controlbar',
+  '#reveal-experience[data-phase="material"]',
+  '.reveal-signature',
+  '.reveal-progress span.is-active',
+  '.viewer-reveal-replay',
 ];
 
 const forbiddenPublicNeedles = [
@@ -513,8 +679,16 @@ async function assertMissing(file) {
 }
 
 async function main() {
+  if (bundleRoot) {
+    await verifyDeployBundle(bundleRoot);
+    return;
+  }
+
   for (const file of requiredFiles) {
     await readFile(file, 'utf8');
+  }
+  for (const file of requiredAssetFiles) {
+    await access(file);
   }
 
   const [html, css, appJs, timelineJs, managerJs] = await Promise.all([
@@ -525,6 +699,8 @@ async function main() {
     readFile('scripts/holosyn-pro-managers.js', 'utf8'),
   ]);
 
+  await assertLocalAssetsExist(html);
+
   for (const file of removedScratchFiles) {
     await assertMissing(file);
   }
@@ -534,14 +710,25 @@ async function main() {
   }
   assert(html.includes('data-action="timeline"'), 'Missing mobile timeline action');
   assert(html.includes('라이브 포인터 / 화면에 표시 (Shift+P)'), 'Live pointer shortcut label is stale');
-  assert(html.includes('index.css?v=20260730-v2viewer'), 'CSS cache version is stale');
-  assert(html.includes('app.js?v=20260730-v2viewer'), 'Core JS cache version is stale');
-  assert(html.includes('scripts/holosyn-timeline.js?v=20260730-v2viewer'), 'Timeline script tag is missing or stale');
-  assert(html.includes('scripts/holosyn-pro-managers.js?v=20260730-v2viewer'), 'Pro managers script tag is missing or stale');
+  assert(html.includes('index.css?v=20260730-v2beta-session6'), 'CSS cache version is stale');
+  assert(html.includes('app.js?v=20260730-v2beta-session6'), 'Core JS cache version is stale');
+  assert(html.includes('scripts/holosyn-timeline.js?v=20260730-v2beta-session6'), 'Timeline script tag is missing or stale');
+  assert(html.includes('scripts/holosyn-pro-managers.js?v=20260730-v2beta-session6'), 'Pro managers script tag is missing or stale');
+  assert(html.includes('vendor/three/three.min.js'), 'Bundled Three.js runtime is missing');
+  assert(html.includes('vendor/lucide/lucide.min.js'), 'Bundled Lucide runtime is missing');
+  assert(html.includes('vendor/qrcode/qrcode.js'), 'Bundled QR runtime is missing');
+  assert(html.includes('vendor/fonts/fonts.css'), 'Bundled font stylesheet is missing');
+  for (const externalRuntime of ['fonts.googleapis.com', 'fonts.gstatic.com', 'unpkg.com', 'cdn.jsdelivr.net', 'cdnjs.cloudflare.com']) {
+    assert(!html.includes(externalRuntime), `External runtime dependency found in index.html: ${externalRuntime}`);
+  }
   assert(html.includes("get('viewer') === '1'"), 'Viewer mode must be detected before first paint');
+  assert(html.includes("initialParams.get('exhibit') === '1'"), 'Exhibition mode must be detected before first paint');
+  assert(html.includes("initialParams.get('reveal') === '1'"), 'Reveal mode must be detected before first paint');
   assert(html.includes('data-viewer-material="hologram"'), 'Viewer hologram material control is missing');
   assert(html.includes('data-viewer-material="product"'), 'Viewer product material control is missing');
   assert(html.includes('data-viewer-material="hybrid"'), 'Viewer hybrid material control is missing');
+  assert(html.includes('data-viewer-comparison="a"'), 'Viewer comparison A control is missing');
+  assert(html.includes('data-viewer-comparison="b"'), 'Viewer comparison B control is missing');
   assert(html.includes('id="handoff-next-action" class="handoff-next-action" type="button"'), 'Handoff next action should be clickable');
   assert(html.includes('id="final-readiness-panel" class="final-readiness-panel setup"'), 'Final readiness panel is missing');
   assert(html.includes('data-handoff-action="model"'), 'Handoff model jump action is missing');
@@ -560,6 +747,8 @@ async function main() {
   assert(html.includes('class="beta-readiness-panel"'), 'Beta readiness panel is missing');
   assert(html.includes('class="launch-readiness-panel"'), 'Launch readiness panel is missing');
   assert(html.includes('class="beta-ops-panel"'), 'Beta ops panel is missing');
+  assert(html.includes('data-beta-rating="5"'), 'Beta session satisfaction control is missing');
+  assert(html.includes('maxlength="600"'), 'Beta session friction note must stay bounded');
   assert(html.includes('class="project-snapshot-panel"'), 'Project snapshot panel is missing');
   assert(html.includes('data-preset="exosuit"'), 'Exo Suit preset button is missing');
   assert(html.includes('data-demo-preset="suit"'), 'Suit Lab demo preset is missing');

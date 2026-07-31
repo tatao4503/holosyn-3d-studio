@@ -1615,6 +1615,10 @@ const TutorialManager = {
     },
 
     showPrompt() {
+        if (typeof isBetaTestSessionRequested === 'function' && isBetaTestSessionRequested()) {
+            this.dismissPrompt();
+            return;
+        }
         const promptModal = document.getElementById('tutorial-prompt-modal');
         if (promptModal) {
             // Make the prompt describe the tour that matches the current mode

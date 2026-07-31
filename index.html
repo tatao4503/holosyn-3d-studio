@@ -4,8 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script>
-        if (new URLSearchParams(window.location.search).get('viewer') === '1') {
+        const initialParams = new URLSearchParams(window.location.search);
+        if (initialParams.get('viewer') === '1') {
             document.documentElement.classList.add('viewer-requested');
+        }
+        if (initialParams.get('viewer') === '1' && initialParams.get('exhibit') === '1') {
+            document.documentElement.classList.add('exhibit-requested');
+        }
+        if (initialParams.get('viewer') === '1' && initialParams.get('reveal') === '1' && initialParams.get('exhibit') !== '1') {
+            document.documentElement.classList.add('reveal-requested');
         }
     </script>
     <title>HOLOSYN — 3D 시제품 공간 발표 스튜디오</title>
@@ -30,14 +37,11 @@
     <meta name="twitter:description" content="3D 시제품을 입체로 띄우고 분해도·치수 측정·발표 모드로 보여주는 브라우저 발표 스튜디오.">
     <meta name="twitter:image" content="og-image.png">
 
-    <!-- Google Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
-    <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Bundled fonts and icons keep local exhibition mode offline-ready. -->
+    <link rel="stylesheet" href="vendor/fonts/fonts.css">
+    <script src="vendor/lucide/lucide.min.js"></script>
     <!-- Stylesheet -->
-    <link rel="stylesheet" href="index.css?v=20260730-v2viewer">
+    <link rel="stylesheet" href="index.css?v=20260730-v2beta-session6">
 </head>
 <body class="theme-blue">
     <!-- Ambient Vignette Background -->
@@ -267,7 +271,7 @@
             </div>
 
             <!-- 2. Exploded View slider & snapping controls (Demoted to Pro only v3.6) -->
-            <div class="panel-section">
+            <div class="panel-section beta-session-target">
                 <h2 class="section-title"><i data-lucide="wrench"></i> <span data-i18n="exploded_view">EXPLODED VIEW</span></h2>
                 <div class="tuner-row">
                     <label for="tuner-exploded" data-i18n="exploded_desc">내부 구조 분해 조립 수준</label>
@@ -676,6 +680,76 @@
                 </div>
             </div>
 
+            <!-- Local, anonymous beta task runner -->
+            <section id="beta-session-panel" class="beta-session-panel" aria-labelledby="beta-session-title" hidden>
+                <div class="beta-session-header">
+                    <div>
+                        <span>LIVE BETA SESSION</span>
+                        <strong id="beta-session-title">5가지 핵심 과제</strong>
+                    </div>
+                    <button id="btn-beta-session-close" class="beta-session-icon-btn" type="button" title="테스트 세션 닫기" aria-label="테스트 세션 닫기">
+                        <i data-lucide="x"></i>
+                    </button>
+                </div>
+                <div class="beta-session-summary">
+                    <strong id="beta-session-status">0 / 5 진행</strong>
+                    <span id="beta-session-timer">00:00</span>
+                </div>
+                <div class="beta-session-progress" aria-hidden="true">
+                    <span id="beta-session-progress"></span>
+                </div>
+                <ol class="beta-session-tasks" aria-label="베타 테스트 과제">
+                    <li id="beta-task-scene" data-beta-task="scene">
+                        <i data-lucide="circle"></i>
+                        <span><strong>장면 준비</strong><small>엔진을 켜고 모델을 확인하세요.</small></span>
+                        <em>WAIT</em>
+                    </li>
+                    <li id="beta-task-material" data-beta-task="material">
+                        <i data-lucide="circle"></i>
+                        <span><strong>제품 색상</strong><small>COLOR / PRODUCT로 실제 재질을 확인하세요.</small></span>
+                        <em>WAIT</em>
+                    </li>
+                    <li id="beta-task-part" data-beta-task="part">
+                        <i data-lucide="circle"></i>
+                        <span><strong>부품 보기</strong><small>Part Scan으로 한 부품을 고르세요.</small></span>
+                        <em>WAIT</em>
+                    </li>
+                    <li id="beta-task-structure" data-beta-task="structure">
+                        <i data-lucide="circle"></i>
+                        <span><strong>구조 분해</strong><small>Exploded를 40% 이상 올리세요.</small></span>
+                        <em>WAIT</em>
+                    </li>
+                    <li id="beta-task-handoff" data-beta-task="handoff">
+                        <i data-lucide="circle"></i>
+                        <span><strong>장면 전달</strong><small>공유·리빌·전시 링크 중 하나를 만드세요.</small></span>
+                        <em>WAIT</em>
+                    </li>
+                </ol>
+                <div class="beta-session-feedback">
+                    <label>만족도</label>
+                    <div class="beta-session-rating" role="group" aria-label="만족도 1점에서 5점">
+                        <button type="button" data-beta-rating="1" aria-label="만족도 1점">1</button>
+                        <button type="button" data-beta-rating="2" aria-label="만족도 2점">2</button>
+                        <button type="button" data-beta-rating="3" aria-label="만족도 3점">3</button>
+                        <button type="button" data-beta-rating="4" aria-label="만족도 4점">4</button>
+                        <button type="button" data-beta-rating="5" aria-label="만족도 5점">5</button>
+                    </div>
+                    <label for="beta-session-friction">가장 헷갈린 점</label>
+                    <textarea id="beta-session-friction" rows="2" maxlength="600" placeholder="없었다면 비워두어도 됩니다."></textarea>
+                </div>
+                <div class="beta-session-actions">
+                    <button id="btn-beta-session-reset" class="hud-btn outline-btn" type="button" title="처음부터 다시 테스트">
+                        <i data-lucide="rotate-ccw"></i>
+                        <span>다시 시작</span>
+                    </button>
+                    <button id="btn-beta-session-export" class="hud-btn glow-btn" type="button" title="익명 테스트 리포트 JSON 저장">
+                        <i data-lucide="file-down"></i>
+                        <span>리포트 JSON</span>
+                    </button>
+                </div>
+                <small class="beta-session-privacy">모델 파일·연락처·전체 브라우저 정보는 저장하지 않습니다.</small>
+            </section>
+
             <!-- Viewport float Drawing Tools & Calipers (v3.7) -->
             <div id="viewport-drawing-tools">
                 <button id="btn-draw-pencil" class="hud-btn outline-btn icon-btn" title="3D 공간 스케치 활성화 (Shift+드래그로도 가능)">
@@ -991,8 +1065,50 @@
                             <i data-lucide="qr-code"></i>
                             <span>QR 띄우기</span>
                         </button>
+                        <button class="hud-btn outline-btn export-btn" id="btn-copy-exhibition-link" type="button" title="오프라인 전시용 자동 반복 링크 복사">
+                            <i data-lucide="monitor-play"></i>
+                            <span>전시 링크</span>
+                        </button>
+                        <button class="hud-btn outline-btn export-btn" id="btn-copy-reveal-link" type="button" title="암전부터 제품 컬러까지 이어지는 관객용 리빌 링크 복사">
+                            <i data-lucide="sparkles"></i>
+                            <span>리빌 링크</span>
+                        </button>
                     </div>
                     <small id="share-link-detail">Custom GLB까지 전달하려면 아래 PORTABLE PROJECT 번들을 사용하세요.</small>
+                </div>
+                <div class="compare-scenes-panel" id="compare-scenes-panel">
+                    <div class="compare-scenes-header">
+                        <span>A/B SCENE COMPARE</span>
+                        <strong id="compare-scenes-status">0 / 2 SAVED</strong>
+                    </div>
+                    <p class="compare-scenes-copy">같은 시제품의 두 연출 상태를 저장해 관객이 한 화면에서 바로 비교하게 합니다.</p>
+                    <div class="compare-scene-list">
+                        <div class="compare-scene-row" data-compare-slot="a">
+                            <span class="compare-slot-label">A</span>
+                            <span id="compare-scene-a-summary">장면 미저장</span>
+                            <button class="compare-scene-icon-btn" id="btn-capture-compare-a" type="button" title="현재 장면을 A로 저장" aria-label="현재 장면을 A로 저장">
+                                <i data-lucide="camera"></i>
+                            </button>
+                            <button class="compare-scene-icon-btn" id="btn-preview-compare-a" type="button" title="저장된 A 장면 보기" aria-label="저장된 A 장면 보기" disabled>
+                                <i data-lucide="eye"></i>
+                            </button>
+                        </div>
+                        <div class="compare-scene-row" data-compare-slot="b">
+                            <span class="compare-slot-label">B</span>
+                            <span id="compare-scene-b-summary">장면 미저장</span>
+                            <button class="compare-scene-icon-btn" id="btn-capture-compare-b" type="button" title="현재 장면을 B로 저장" aria-label="현재 장면을 B로 저장">
+                                <i data-lucide="camera"></i>
+                            </button>
+                            <button class="compare-scene-icon-btn" id="btn-preview-compare-b" type="button" title="저장된 B 장면 보기" aria-label="저장된 B 장면 보기" disabled>
+                                <i data-lucide="eye"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <button class="hud-btn glow-btn export-btn" id="btn-copy-compare-link" type="button" title="A/B 관람 링크 복사" disabled>
+                        <i data-lucide="columns-2"></i>
+                        <span>A/B 비교 링크 복사</span>
+                    </button>
+                    <small id="compare-scenes-detail">A와 B를 저장하면 비교 링크를 만들 수 있습니다.</small>
                 </div>
                 <div class="clip-export-panel" id="clip-export-panel">
                     <div class="clip-export-header">
@@ -1165,6 +1281,10 @@
                     </div>
                     <small id="beta-ops-detail">Export a beta test plan, benchmark report, examples, and release package before public sharing.</small>
                     <div class="beta-ops-actions">
+                        <button class="hud-btn glow-btn export-btn" id="btn-start-beta-session" type="button" title="실제 사용 과제를 자동 추적하는 베타 테스트 시작">
+                            <i data-lucide="flask-conical"></i>
+                            <span>사용자 테스트</span>
+                        </button>
                         <button class="hud-btn outline-btn export-btn" id="btn-export-beta-test-plan" type="button" title="베타 테스트 플랜 Markdown 생성">
                             <i data-lucide="clipboard-list"></i>
                             <span>테스트 플랜</span>
@@ -1255,12 +1375,15 @@
                     <i data-lucide="sparkles"></i>
                 </div>
                 <div class="viewer-title-group">
-                    <span>HOLOSYN VIEWER</span>
+                    <span id="viewer-mode-label">HOLOSYN VIEWER</span>
                     <strong id="viewer-product-name">Loading prototype</strong>
                 </div>
             </div>
             <div class="viewer-top-actions">
                 <span id="viewer-status" class="viewer-status" aria-live="polite">LOADING SCENE</span>
+                <button id="btn-viewer-replay-reveal" class="viewer-icon-btn viewer-reveal-replay" type="button" title="리빌 다시 보기" aria-label="리빌 다시 보기">
+                    <i data-lucide="sparkles"></i>
+                </button>
                 <button id="btn-viewer-fullscreen" class="viewer-icon-btn" type="button" title="전체화면" aria-label="전체화면">
                     <i data-lucide="maximize-2"></i>
                 </button>
@@ -1280,6 +1403,12 @@
                 <button id="btn-viewer-reset-camera" class="viewer-icon-btn" type="button" title="카메라 원위치" aria-label="카메라 원위치">
                     <i data-lucide="rotate-ccw"></i>
                 </button>
+            </div>
+
+            <div class="viewer-control-group viewer-compare-group" id="viewer-compare-group" hidden>
+                <span class="viewer-control-label">COMPARE</span>
+                <button class="viewer-compare-btn active" type="button" data-viewer-comparison="a" title="A 장면 보기" aria-label="A 장면 보기" aria-pressed="true">A</button>
+                <button class="viewer-compare-btn" type="button" data-viewer-comparison="b" title="B 장면 보기" aria-label="B 장면 보기" aria-pressed="false">B</button>
             </div>
 
             <div class="viewer-control-group viewer-parts-group">
@@ -1305,6 +1434,40 @@
                 </button>
             </div>
         </nav>
+    </section>
+
+    <!-- V2 Reveal Mode: a product-first cinematic opening over the live 3D scene. -->
+    <section id="reveal-experience" aria-label="HOLOSYN product reveal" aria-hidden="true" data-phase="standby">
+        <div class="reveal-scan-line" aria-hidden="true"></div>
+        <div class="reveal-core" aria-hidden="true">
+            <span class="reveal-core-center"></span>
+            <span class="reveal-core-ring reveal-core-ring-a"></span>
+            <span class="reveal-core-ring reveal-core-ring-b"></span>
+        </div>
+        <div class="reveal-copy" aria-live="polite">
+            <span id="reveal-phase-count" class="reveal-phase-count">00 / 08</span>
+            <p id="reveal-kicker" class="reveal-kicker">SPATIAL PROTOTYPE SYSTEM</p>
+            <h2 id="reveal-title">SYSTEM STANDBY</h2>
+            <p id="reveal-detail">Preparing a product story in space.</p>
+        </div>
+        <div class="reveal-signature" aria-hidden="true">
+            <strong>HOLOSYN</strong>
+            <span>DESIGNED TO BE UNDERSTOOD</span>
+        </div>
+        <div class="reveal-progress" role="progressbar" aria-label="Reveal progress" aria-valuemin="0" aria-valuemax="8" aria-valuenow="0">
+            <span data-reveal-progress="1"></span>
+            <span data-reveal-progress="2"></span>
+            <span data-reveal-progress="3"></span>
+            <span data-reveal-progress="4"></span>
+            <span data-reveal-progress="5"></span>
+            <span data-reveal-progress="6"></span>
+            <span data-reveal-progress="7"></span>
+            <span data-reveal-progress="8"></span>
+        </div>
+        <button id="btn-reveal-skip" class="reveal-skip-btn" type="button" title="리빌 건너뛰기">
+            <span>SKIP</span>
+            <i data-lucide="skip-forward"></i>
+        </button>
     </section>
 
     <!-- PEPPER'S GHOST 4-WAY FULLSCREEN OVERLAY -->
@@ -1738,40 +1901,34 @@
         </div>
     </div>
 
-    <!-- Three.js Library -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <!-- OrbitControls -->
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-    <!-- GLTFExporter -->
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/GLTFExporter.js"></script>
-    <!-- GLTFLoader & OBJLoader (New v3.2) -->
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/OBJLoader.js"></script>
-    <!-- PeerJS for WebRTC P2P (v8.0) -->
-    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
+    <!-- Bundled Three.js runtime -->
+    <script src="vendor/three/three.min.js"></script>
+    <script src="vendor/three/OrbitControls.js"></script>
+    <script src="vendor/three/GLTFExporter.js"></script>
+    <script src="vendor/three/GLTFLoader.js"></script>
+    <script src="vendor/three/OBJLoader.js"></script>
+    <script src="vendor/peerjs/peerjs.min.js"></script>
     
     <!-- HOLOSYN V9 Pro Scripts: WebXR & PostProcessing -->
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/webxr/ARButton.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+    <script src="vendor/three/EffectComposer.js"></script>
+    <script src="vendor/three/RenderPass.js"></script>
+    <script src="vendor/three/ShaderPass.js"></script>
+    <script src="vendor/three/CopyShader.js"></script>
+    <script src="vendor/three/LuminosityHighPassShader.js"></script>
+    <script src="vendor/three/UnrealBloomPass.js"></script>
     <!-- V10 Premium Core: Cinematic DoF -->
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/BokehShader.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/BokehPass.js"></script>
+    <script src="vendor/three/BokehShader.js"></script>
+    <script src="vendor/three/BokehPass.js"></script>
 
     <!-- QR code generator for presentation share links -->
-    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+    <script src="vendor/qrcode/qrcode.js"></script>
 
     <!-- Main Script -->
-    <script src="app.js?v=20260730-v2viewer"></script>
-    <script src="scripts/holosyn-timeline.js?v=20260730-v2viewer"></script>
-    <script src="scripts/holosyn-pro-managers.js?v=20260730-v2viewer"></script>
+    <script src="app.js?v=20260730-v2beta-session6"></script>
+    <script src="scripts/holosyn-timeline.js?v=20260730-v2beta-session6"></script>
+    <script src="scripts/holosyn-pro-managers.js?v=20260730-v2beta-session6"></script>
     <script>
-        // Init Lucide Icons
-        lucide.createIcons();
+        if (window.lucide) lucide.createIcons();
     </script>
 </body>
 </html>
