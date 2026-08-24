@@ -302,6 +302,7 @@ const state = {
     gyroActive: false,
     language: 'ko',
     themeColor: '#007aff',         // Studio blue as default
+    activeStyle: 'tactical',       // QUICK STYLE preset backing the body style-* class
     themeColorGlow: 'rgba(0, 122, 255, 0.22)',
     activePreset: 'drone',       // drone, ring, car, battery, exosuit, custom
     renderMode: 'wireframe',      // points, wireframe, solid
@@ -533,6 +534,7 @@ function savePreferences() {
         const prefs = {
             themeColor: state.themeColor,
             themeColorGlow: state.themeColorGlow,
+            activeStyle: state.activeStyle,
             renderMode: state.renderMode,
             materialView: state.materialView,
             visualQualityBoost: state.visualQualityBoost,
@@ -561,6 +563,19 @@ const bodyThemeClasses = [
     'theme-crimson',
     'theme-gold'
 ];
+
+const bodyStyleClasses = ['style-minimal', 'style-tactical', 'style-matrix', 'style-forge'];
+
+// Lets CSS layer a whole look on one style preset without touching the others.
+function applyStyleBodyClass(styleName) {
+    document.body.classList.remove(...bodyStyleClasses);
+    if (!styleName) return;
+    document.body.classList.add(`style-${styleName}`);
+    state.activeStyle = styleName;
+    document.querySelectorAll('.style-btn').forEach(btn => {
+        btn.classList.toggle('active-style', btn.getAttribute('data-style') === styleName);
+    });
+}
 
 function applyBodyThemeClass(themeName) {
     document.body.classList.remove(...bodyThemeClasses);
@@ -598,6 +613,10 @@ function loadPreferences() {
         };
         const themeClass = colorMap[state.themeColor];
         if (themeClass) applyBodyThemeClass(themeClass);
+        // Restore the skin layer too, or a reload keeps the colour but drops the look.
+        if (prefs.activeStyle && bodyStyleClasses.includes(`style-${prefs.activeStyle}`)) {
+            applyStyleBodyClass(prefs.activeStyle);
+        }
     } catch (e) {
         // Silently fail if parse errors
     }
@@ -2851,7 +2870,8 @@ function applyQuickStyle(styleName) {
     playSynthClick(580, 0.08);
     playSynthSweep(150, 600, 0.4);
     
-    const activeColorBtn = document.querySelector(`.color-select-btn[data-color="${styleName === 'minimal' ? 'blue' : styleName === 'tactical' ? 'silver' : 'purple'}"]`);
+    const styleColorMap = { minimal: 'blue', tactical: 'silver', matrix: 'purple', forge: 'gold' };
+    const activeColorBtn = document.querySelector(`.color-select-btn[data-color="${styleColorMap[styleName] || 'blue'}"]`);
     
     switch (styleName) {
         case 'minimal':
@@ -2886,7 +2906,21 @@ function applyQuickStyle(styleName) {
             state.glowIntensity = 2.0;
             state.glitchFrequency = 35;
             break;
+
+        case 'forge':
+            // Warm armor-lab look: gold key light with crimson accents.
+            state.renderMode = 'solid';
+            state.themeColor = '#ffca28'; // Aura Gold
+            state.themeColorGlow = 'rgba(255, 202, 40, 0.28)';
+            applyBodyThemeClass('gold');
+
+            state.rotationSpeed = 0.9;
+            state.glowIntensity = 1.6;
+            state.glitchFrequency = 6;
+            break;
     }
+
+    applyStyleBodyClass(styleName);
     
     // Update active color pickers circle
     document.querySelectorAll('.color-select-btn').forEach(b => b.classList.remove('active-color'));
