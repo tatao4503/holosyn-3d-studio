@@ -17,9 +17,17 @@
 설명하고, 치수를 재고, 발표용 자료까지 내보내는 **브라우저 기반 공간 발표 스튜디오**입니다.
 제작 도구(CAD)도 임베드 뷰어도 아닌, **"발표·시연 전용"** 이라는 빈 자리를 채웁니다.
 
-## V2 Viewer Mode
+## HOLOSYN STAGE
 
-V2는 제작 화면과 관람 화면을 분리합니다. 스튜디오에서 만든 공유 링크에는
+무대와 백스테이지를 나눈 릴리즈입니다. 지금까지 HOLOSYN은 만드는 사람의 화면 하나였고,
+공유 링크를 받은 사람도 편집 패널이 가득한 제작 화면을 열어야 했습니다. STAGE는 그 둘을
+갈라서, 관객에게는 제품만 남은 화면을 주고 발표자에게는 스튜디오를 남깁니다.
+
+Viewer · Exhibition · Reveal은 모두 이 한 가지 결정에서 갈라져 나온 화면입니다.
+
+### Viewer Mode
+
+스튜디오에서 만든 공유 링크에는
 `?viewer=1`이 자동으로 붙고, 받는 사람은 부팅이나 편집 패널 없이 같은 모델·카메라·조명·
 재질·부품 상태를 바로 봅니다.
 
@@ -34,7 +42,7 @@ V2는 제작 화면과 관람 화면을 분리합니다. 스튜디오에서 만�
 직접 확인하려면 `index.html?viewer=1`을 열면 됩니다. Viewer에서 `Open Studio`를 누르면
 `viewer`·`exhibit`·`reveal` 관람 옵션이 제거되고 같은 장면 상태는 유지됩니다.
 
-## V2 Offline Exhibition Mode
+### Offline Exhibition Mode
 
 `전시 링크` 또는 `HOLOSYN 전시.command`로 부팅하면 관객용 화면이 자동 반복됩니다.
 Three.js, 아이콘, QR, 폰트와 후처리 모듈을 프로젝트 안에 고정했기 때문에 로컬 실행은
@@ -50,7 +58,7 @@ Three.js, 아이콘, QR, 폰트와 후처리 모듈을 프로젝트 안에 고�
 협업과 AI처럼 외부 서버가 필요한 기능은 인터넷이 있어야 하며, 전시 Viewer 흐름에는
 사용되지 않습니다.
 
-## V2 Cinematic Reveal
+### Cinematic Reveal
 
 `리빌 링크`는 관객이 링크를 여는 순간 18초 제품 공개 연출을 자동 시작합니다. 특정 작품의
 화면을 복제하지 않고, HOLOSYN의 구조·부품·재질 기능을 하나의 고유한 오프닝으로 묶었습니다.
@@ -65,7 +73,7 @@ Three.js, 아이콘, QR, 폰트와 후처리 모듈을 프로젝트 안에 고�
 - 모바일 화면과 운영체제의 모션 감소 설정 대응
 - 완료 뒤 일반 Viewer의 부품·재질·전체화면 조작 가능
 
-## V2 Live Beta Session
+### Live Beta Session
 
 `?test=1`은 실제 사용자가 설명 없이 핵심 흐름을 수행하는 로컬 테스트 세션입니다.
 엔진·색상·부품·분해·공유의 5가지 과제를 자동 감지하고, 완료 시간과 익명 피드백을
@@ -79,7 +87,7 @@ Three.js, 아이콘, QR, 폰트와 후처리 모듈을 프로젝트 안에 고�
 - 모델 원본, 연락처, 전체 URL, 전체 브라우저 정보는 리포트에서 제외
 - 테스트 중 만든 공유·전시·리빌 링크에는 `test=1`이 포함되지 않음
 
-### ✨ Highlights
+## ✨ Highlights
 - **Import anything** — `.glb` / `.gltf` / `.obj`, or a flat image projected as a 3D holographic relief
 - **Part Scan** — step through each component with auto-generated talking points
 - **Material Reveal** — switch between hologram structure, original product PBR/color, and focused-part hybrid reveal
@@ -94,17 +102,18 @@ Three.js, 아이콘, QR, 폰트와 후처리 모듈을 프로젝트 안에 고�
 - **Portable project** — pack the actual model, camera, timeline, notes, and dimensions into one `.holosyn` file
 - **Clip recorder** — export 3-second or 5-second rotating/exploded WebM clips from the viewport
 - **30s Pitch Run** — one button stages hero view, exploded structure, Part Scan, Showcase, Final Pass, and a share URL
+- **Quick styles** — minimal blue, tactical silver, matrix green, and a warm gold/crimson armor-lab skin
 - **Stage tools** — show a scannable QR, point or draw over the viewport, rehearse to a 30s/3m/5m timer, and narrate saved presenter notes
 - **Export suite** — GLB, spec JSON, HQ PNG, client brief, rehearsal runbook, demo/handoff pack, presenter notes, measurements, beta launch/ops packages
 - **Pepper's Ghost** 4-way split for a physical acrylic-pyramid display
 - Beginner / Pro modes · guided tours · mobile touch gestures · i18n (KO/EN)
 
-### 🛠 Tech
+## 🛠 Tech
 Vanilla JavaScript · **Three.js** (WebGL, post-processing bloom, GLTF/OBJ loaders) ·
 Web Audio API · IndexedDB · PeerJS (optional live collaboration) — no framework,
 no build step, no backend.
 
-### 📌 About
+## 📌 About
 A solo project exploring how far a single person can take an idea by directing AI
 coding tools (concept, direction, review, and iteration by the author; implementation
 via AI pair-programming). Built as the presentation tool for a real prototype —

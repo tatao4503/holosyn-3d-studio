@@ -16,7 +16,7 @@
 
 ---
 
-## 👀 V2 관람 모드 (Viewer Mode)
+## 👀 STAGE 관람 모드 (Viewer Mode)
 
 공유 링크를 받은 사람에게는 편집 패널 대신 제품만 크게 보이는 관람 화면이 열립니다.
 별도 부팅 없이 장면이 자동으로 시작되며, 링크에 저장된 모델·카메라·조명·재질·부품 상태를
@@ -101,7 +101,7 @@ Three.js·아이콘·QR·폰트가 프로젝트 안에 포함되어 로컬 전�
 | **로봇 조립 시퀀스** | STEP 1~4 단계별 조립/분해 연출 |
 | **ST,AND 시연 컨트롤** *(ST,AND 선택 시만)* | **펼침/접힘** 토글 + **BASIC/CLEAR/CUSTOM** 라인업 |
 | **AI 진단 / 시제품 점검** | 자동 점검 리포트 |
-| **QUICK STYLES** | 미니멀/택티컬/매트릭스 분위기 |
+| **QUICK STYLES** | 미니멀 블루 / 택티컬 실버 / 매트릭스 그린 / **포지 골드**(골드·크림슨 아머랩 HUD) |
 | **HOLOGRAM TUNING** *(프로)* | Glow/Rotation/Scanline/Glitch/Scale 슬라이더 |
 | **WAVE WAVELENGTH** | 색상 팔레트 |
 | **STUDIO SETTINGS** *(프로)* | Sound / Auto Rotate / Spatial / Pyramid 스위치 |
