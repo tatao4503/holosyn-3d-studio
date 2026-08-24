@@ -8090,3 +8090,57 @@ body.style-forge .status-label::before {
     body.style-forge #hud-header::after,
     body.style-forge .status-label::before { animation: none; }
 }
+
+/* ============================================================
+   EDITION MARK — "STAGE" lockup (header · boot screen · reveal)
+   Theme-driven so it reads correctly in every quick style.
+   ============================================================ */
+.edition-tag {
+    display: inline-flex;
+    align-items: center;
+    height: 17px;
+    padding: 0 6px;
+    margin-left: 9px;
+    border: 1px solid color-mix(in srgb, var(--theme-color) 45%, transparent);
+    border-radius: 4px;
+    background: color-mix(in srgb, var(--theme-color) 14%, transparent);
+    color: var(--theme-color);
+    font-family: var(--font-mono);
+    font-size: 8.5px;
+    font-weight: 700;
+    letter-spacing: 1.6px;
+    text-indent: 1.6px; /* balance the trailing letter-space */
+    line-height: 1;
+    white-space: nowrap;
+    vertical-align: middle;
+}
+
+/* Sits on its own line under the boot title, so it needs more presence
+   than the inline header chip. */
+.welcome-edition {
+    margin: 11px 0 0;
+    align-self: center;
+    height: 20px;
+    padding: 0 10px;
+    font-size: 9.5px;
+    letter-spacing: 2.6px;
+    text-indent: 2.6px;
+}
+
+/* Reveal signature: HOLOSYN over a spaced STAGE mark */
+.reveal-edition {
+    margin-top: 10px;
+    color: var(--theme-color);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-style: normal;
+    font-weight: 700;
+    letter-spacing: 13px;
+    text-indent: 13px;
+    opacity: 0.92;
+}
+
+@media (max-width: 768px) {
+    .edition-tag { margin-left: 6px; letter-spacing: 1.2px; text-indent: 1.2px; }
+    .reveal-edition { font-size: 11px; letter-spacing: 9px; text-indent: 9px; }
+}
