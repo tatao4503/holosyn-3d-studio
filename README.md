@@ -27,9 +27,8 @@ Viewer · Exhibition · Reveal은 모두 이 한 가지 결정에서 갈라져 �
 
 ### Viewer Mode
 
-스튜디오에서 만든 공유 링크에는
-`?viewer=1`이 자동으로 붙고, 받는 사람은 부팅이나 편집 패널 없이 같은 모델·카메라·조명·
-재질·부품 상태를 바로 봅니다.
+스튜디오에서 만든 공유 링크에는 `?viewer=1`이 자동으로 붙고, 받는 사람은 부팅이나
+편집 패널 없이 같은 모델·카메라·조명·재질·부품 상태를 바로 봅니다.
 
 - 전체 화면 3D 뷰와 마우스/터치 궤도 조작
 - 자동 발표 재생·정지와 카메라 원위치
@@ -116,9 +115,10 @@ no build step, no backend.
 ## 📌 About
 A solo project exploring how far a single person can take an idea by directing AI
 coding tools (concept, direction, review, and iteration by the author; implementation
-via AI pair-programming). Built as the presentation tool for a real prototype —
-a social-venture ramen-shelf nameplate — and grown from a weekend experiment into a
-full spatial presentation studio. See [`USER_GUIDE.md`](USER_GUIDE.md) for the full manual.
+via AI pair-programming). It started as the presentation tool for one real hardware
+prototype — the need was a way to show a physical object convincingly without
+shipping it — and grew from a weekend experiment into a full spatial presentation
+studio. See [`USER_GUIDE.md`](USER_GUIDE.md) for the full manual.
 
 The hosted demo includes the complete local-first presentation workflow, and
 runs entirely in the browser with no backend.
