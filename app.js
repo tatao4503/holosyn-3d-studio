@@ -4029,7 +4029,11 @@ function loadPresetModel(presetName) {
     
     compoundMesh.scale.set(0.001, 0.001, 0.001);
     activeModelGroup.add(compoundMesh);
-    
+
+    // Presets are authored at studio scale and carry no fit factor (1.0);
+    // imported models carry the factor autoFitAndCenter measured.
+    const autoFitScale = compoundMesh.userData?.autoFitScale ?? 1;
+
     // V9.1 Polish: Materialize Elastic Animation
     let animProgress = 0;
     const animateMaterialize = () => {
@@ -4037,11 +4041,12 @@ function loadPresetModel(presetName) {
         if (animProgress <= 1.0) {
             const p = animProgress;
             const elastic = Math.sin(-13.0 * (p + 1.0) * Math.PI / 2) * Math.pow(2.0, -10.0 * p) + 1.0;
-            const currentScale = state.scale * Math.max(0, elastic);
+            const currentScale = state.scale * autoFitScale * Math.max(0, elastic);
             compoundMesh.scale.set(currentScale, currentScale, currentScale);
             requestAnimationFrame(animateMaterialize);
         } else {
-            compoundMesh.scale.set(state.scale, state.scale, state.scale);
+            const finalScale = state.scale * autoFitScale;
+            compoundMesh.scale.set(finalScale, finalScale, finalScale);
         }
     };
     animateMaterialize();
@@ -8482,6 +8487,10 @@ function autoFitAndCenter(group, targetSize = 2.0) {
     const maxDim = Math.max(size.x, size.y, size.z) || 1;
     const scale = targetSize / maxDim;
     group.scale.setScalar(scale);
+    // Remember the normalisation so later scaling multiplies it instead of
+    // replacing it — the spawn animation used to overwrite this outright,
+    // which handed imported CAD models straight back their raw units.
+    group.userData.autoFitScale = scale;
 
     // Re-measure after scaling so the recenter accounts for the new bounds
     group.updateMatrixWorld(true);
