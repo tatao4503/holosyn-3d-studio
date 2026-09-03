@@ -4191,6 +4191,28 @@ function getImportReliabilityReport(modelGroup, meta = {}, stats = getModelQuali
     };
 }
 
+// The reliability check already detects these, but until now the codes only fed
+// the risk badge — a presenter saw HIGH with no idea why or what to do about it.
+function describeImportWarnings(warnings = []) {
+    const ko = state.language === 'ko';
+    const copy = {
+        NO_MESH: ko
+            ? '3D 메쉬를 찾지 못했습니다. 다른 파일로 다시 시도하세요.'
+            : 'No 3D mesh was found. Try exporting the file again.',
+        HEAVY_VERTICES: ko
+            ? '정점이 많아 발표용 노트북에서 느려질 수 있습니다. HQ Boost를 끄고 미리 한 번 돌려보세요.'
+            : 'High vertex count may run slowly on a presentation laptop. Turn off HQ Boost and rehearse once.',
+        LARGE_FILE: ko
+            ? '파일이 커서 첫 로딩이 오래 걸립니다. 발표 전에 미리 열어두세요.'
+            : 'Large file, so the first load is slow. Open it before you present.',
+        AUTO_SCALED: ko
+            ? '원본이 매우 커서 자동으로 축소했습니다. 치수 측정값을 한 번 확인하세요.'
+            : 'The source was very large and was scaled down. Double-check any measurements.'
+    };
+    // SINGLE_PART is already explained by the existing note, so it is not repeated here.
+    return warnings.map(w => copy[w]).filter(Boolean);
+}
+
 function getImportQualityActionDefaults(actionKey, overrides = {}) {
     const ko = state.language === 'ko';
     const map = {
@@ -4278,7 +4300,10 @@ function setImportQualityCard(nextQuality) {
         reliabilityRiskEl.textContent = state.importQuality.reliabilityRisk || 'LOW';
         reliabilityRiskEl.dataset.risk = state.importQuality.reliabilityRisk || 'LOW';
     }
-    if (noteEl) noteEl.textContent = state.importQuality.note || '';
+    if (noteEl) {
+        const extra = describeImportWarnings(state.importQuality.reliabilityWarnings);
+        noteEl.textContent = [state.importQuality.note || '', ...extra].filter(Boolean).join(' ');
+    }
     if (actionTextEl) actionTextEl.textContent = state.importQuality.actionText || '';
     if (actionLabelEl) actionLabelEl.textContent = state.importQuality.actionLabel || (state.language === 'ko' ? '실행' : 'Run');
     if (actionBtn) {
