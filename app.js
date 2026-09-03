@@ -6292,6 +6292,18 @@ function setPortableProjectState(status, detail, busy = false) {
     updatePortableProjectPanel();
 }
 
+// GLTFExporter.parse gained an onError argument after r128. The vendored build
+// is r128, whose signature is (input, onDone, options) — passing the newer
+// 4-argument form silently lands { binary: true } in the callback slot, so the
+// exporter returns glTF JSON and every "GLB" it produces is not a GLB at all.
+function parseGltfExport(exporter, input, onDone, onError, options) {
+    if (exporter.parse.length >= 4) {
+        exporter.parse(input, onDone, onError, options);
+    } else {
+        exporter.parse(input, onDone, options);
+    }
+}
+
 function exportActiveModelGlb() {
     return new Promise((resolve, reject) => {
         if (!window.THREE || !THREE.GLTFExporter || !activeModelGroup) {
@@ -6336,7 +6348,7 @@ function exportActiveModelGlb() {
         };
 
         const exporter = new THREE.GLTFExporter();
-        exporter.parse(activeModelGroup, result => {
+        parseGltfExport(exporter, activeModelGroup, result => {
             restoreScene();
             if (!(result instanceof ArrayBuffer)) {
                 reject(new Error('Portable project export did not produce a binary GLB.'));
@@ -8353,8 +8365,30 @@ function autoFitAndCenter(group, targetSize = 2.0) {
     group.position.y -= scaledBox.min.y;
 }
 
+// GLTFExporter serialises userData, so the live Materials and helper meshes the
+// studio stashes there come back from a .holosyn bundle as plain JSON
+// (metadata/uuid/type/color…). They look close enough to pass the truthiness
+// guards but have no dispose() or THREE.Color, so the next model swap threw.
+// The studio rebuilds real ones below, so the husks are only a hazard.
+function stripSerialisedStudioUserData(group) {
+    const keys = ['solidMaterial', 'productMaterial', 'hologramMaterial', 'solidMesh', 'wireMesh', 'pointsMesh'];
+    group.traverse(child => {
+        const data = child.userData;
+        if (!data) return;
+        keys.forEach(key => {
+            const value = data[key];
+            if (!value) return;
+            const entries = Array.isArray(value) ? value : [value];
+            const alive = entries.every(item => item && (item.isMaterial || item.isObject3D));
+            if (!alive) delete data[key];
+        });
+    });
+}
+
 function applyWorkspaceMaterialsToLoadedMesh(group) {
     if (!group) return;
+
+    stripSerialisedStudioUserData(group);
 
     // Normalize size & position FIRST so explodedOffset measurements use sane bounds
     autoFitAndCenter(group, 2.0);
@@ -12072,9 +12106,19 @@ function exportGLTF() {
         activeModelGroup.position.y = 0.15;
     }
     
-    exporter.parse(activeModelGroup, function(result) {
-        // Since we specify binary: true, result is a self-contained ArrayBuffer containing GLB
-        triggerDownload(result, 'application/octet-stream', `${state.activePreset}_prototype.glb`);
+    parseGltfExport(exporter, activeModelGroup, function(result) {
+        // Never hand out a .glb that is not one — this used to save glTF JSON
+        // under a .glb name and still report success.
+        if (!(result instanceof ArrayBuffer)) {
+            if (activeModelGroup) activeModelGroup.position.y = prevFloatY;
+            showNotification(
+                state.language === 'ko' ? 'GLB 내보내기 실패' : 'Export Failed',
+                state.language === 'ko' ? '이진 GLB를 만들지 못했습니다. 다시 시도하세요.' : 'Could not produce a binary GLB. Please try again.'
+            );
+            addConsoleLog('[EXPORT] GLB export did not return a binary buffer.', 'error');
+            return;
+        }
+        triggerDownload(result, 'model/gltf-binary', `${state.activePreset}_prototype.glb`);
         
         // Restore positions
         if (activeModelGroup) {
@@ -12099,7 +12143,7 @@ function exportGLTF() {
             state.language === 'ko' ? "GLB 내보내기 실패" : "Export Failed",
             state.language === 'ko' ? "3D 지형 파싱 중 오류가 발생했습니다." : "Error occurred during WebGL model parse."
         );
-    }, { binary: true }); // BINARY TRUE FOR GLB!
+    }, { binary: true });
 }
 
 function exportSpecsJSON() {
@@ -14811,7 +14855,7 @@ function clearActiveScene() {
 }
 
 function disposeMaterial(mat) {
-    if (!mat) return;
+    if (!mat || typeof mat.dispose !== 'function') return;
     mat.dispose();
     
     // Dispose of textures as well to prevent GPU VRAM leaks
