@@ -33,6 +33,11 @@
   <g transform="translate(90 120)">
     <path d="M40 0 C43 18, 52 27, 70 30 C52 33, 43 42, 40 60 C37 42, 28 33, 10 30 C28 27, 37 18, 40 0 Z" fill="url(#ogspark)"/>
     <text x="92" y="46" font-family="Outfit, Inter, system-ui, sans-serif" font-size="58" font-weight="800" fill="#ffffff" letter-spacing="4">HOLOSYN</text>
+    <!-- edition mark: matches the in-app .edition-tag chip -->
+    <g transform="translate(428 8)">
+      <rect x="0" y="0" width="118" height="34" rx="6" fill="#0a84ff" fill-opacity="0.16" stroke="#4da3ff" stroke-opacity="0.6" stroke-width="1.5"/>
+      <text x="62" y="24" text-anchor="middle" font-family="'Share Tech Mono', ui-monospace, SFMono-Regular, Menlo, monospace" font-size="17" font-weight="700" fill="#8fc9ff" letter-spacing="7">STAGE</text>
+    </g>
   </g>
   <!-- tagline -->
   <text x="92" y="540" font-family="Inter, system-ui, sans-serif" font-size="34" font-weight="600" fill="#cfe3ff">3D 시제품 공간 발표 스튜디오</text>

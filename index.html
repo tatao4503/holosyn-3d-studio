@@ -26,8 +26,10 @@
     <meta property="og:type" content="website">
     <meta property="og:title" content="HOLOSYN — 3D 시제품 공간 발표 스튜디오">
     <meta property="og:description" content="3D 시제품을 입체로 띄우고 분해도·치수 측정·발표 모드로 보여주는 브라우저 발표 스튜디오.">
-    <!-- og:image is relative; after deploy you may swap in the absolute URL for strict crawlers -->
-    <meta property="og:image" content="og-image.png">
+    <!-- Absolute: KakaoTalk, Slack and most crawlers drop relative og:image and
+         then render no preview at all — and a shared link is the whole point. -->
+    <meta property="og:url" content="https://tatao4503.github.io/holosyn-3d-studio/">
+    <meta property="og:image" content="https://tatao4503.github.io/holosyn-3d-studio/og-image.png">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
 
@@ -35,13 +37,13 @@
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="HOLOSYN — 3D 시제품 공간 발표 스튜디오">
     <meta name="twitter:description" content="3D 시제품을 입체로 띄우고 분해도·치수 측정·발표 모드로 보여주는 브라우저 발표 스튜디오.">
-    <meta name="twitter:image" content="og-image.png">
+    <meta name="twitter:image" content="https://tatao4503.github.io/holosyn-3d-studio/og-image.png">
 
     <!-- Bundled fonts and icons keep local exhibition mode offline-ready. -->
     <link rel="stylesheet" href="vendor/fonts/fonts.css">
     <script src="vendor/lucide/lucide.min.js"></script>
     <!-- Stylesheet -->
-    <link rel="stylesheet" href="index.css?v=20260824-stage">
+    <link rel="stylesheet" href="index.css?v=20260903-og">
 </head>
 <body class="theme-blue">
     <!-- Ambient Vignette Background -->
@@ -1931,9 +1933,9 @@
     <script src="vendor/qrcode/qrcode.js"></script>
 
     <!-- Main Script -->
-    <script src="app.js?v=20260824-stage"></script>
-    <script src="scripts/holosyn-timeline.js?v=20260824-stage"></script>
-    <script src="scripts/holosyn-pro-managers.js?v=20260824-stage"></script>
+    <script src="app.js?v=20260903-og"></script>
+    <script src="scripts/holosyn-timeline.js?v=20260903-og"></script>
+    <script src="scripts/holosyn-pro-managers.js?v=20260903-og"></script>
     <script>
         if (window.lucide) lucide.createIcons();
     </script>
