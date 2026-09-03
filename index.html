@@ -43,7 +43,7 @@
     <link rel="stylesheet" href="vendor/fonts/fonts.css">
     <script src="vendor/lucide/lucide.min.js"></script>
     <!-- Stylesheet -->
-    <link rel="stylesheet" href="index.css?v=20260903-autofit">
+    <link rel="stylesheet" href="index.css?v=20260903-presets">
 </head>
 <body class="theme-blue">
     <!-- Ambient Vignette Background -->
@@ -180,10 +180,6 @@
                 </div>
                 <div class="presets-label-row" style="margin-top: 14px; margin-bottom: 6px; font-size: 11px; opacity: 0.65; font-family: var(--font-mono); letter-spacing: 0.5px;" data-i18n="presets_title">샘플 모델로 시도하기</div>
                 <div class="presets-grid mini-presets">
-                    <button class="preset-btn" data-preset="stand" title="Display Stand — 자립 명패 시제품">
-                        <i data-lucide="store"></i>
-                        <span>Stand</span>
-                    </button>
                     <button class="preset-btn active" data-preset="drone" title="AeroDrone Scout-V">
                         <i data-lucide="drone"></i>
                         <span>Drone</span>
@@ -298,22 +294,6 @@
                     <button class="hud-btn outline-btn assembly-btn" data-step="2">STEP 2</button>
                     <button class="hud-btn outline-btn assembly-btn" data-step="3">STEP 3</button>
                     <button class="hud-btn outline-btn assembly-btn" data-step="4">STEP 4</button>
-                </div>
-            </div>
-
-            <!-- 3b. ST,AND-only control: fold state + product lineup (v10.0) -->
-            <div class="panel-section beginner-show" id="stand-control-section" style="display: none;">
-                <h2 class="section-title"><i data-lucide="store"></i> <span>ST,AND 시연 컨트롤</span></h2>
-                <div class="stand-fold-label" style="font-size:10px;opacity:0.6;font-family:var(--font-mono);margin-bottom:5px;">FOLD STATE — 접힘 / 펼침</div>
-                <div class="assembly-steps-grid">
-                    <button class="hud-btn outline-btn stand-fold-btn active" data-fold="open">펼침 (자립)</button>
-                    <button class="hud-btn outline-btn stand-fold-btn" data-fold="closed">접힘 (보관 4mm)</button>
-                </div>
-                <div class="stand-fold-label" style="font-size:10px;opacity:0.6;font-family:var(--font-mono);margin:9px 0 5px;">LINEUP — 제품 라인업</div>
-                <div class="assembly-steps-grid">
-                    <button class="hud-btn outline-btn stand-line-btn active" data-line="basic" title="표준 PP — 불투명">BASIC</button>
-                    <button class="hud-btn outline-btn stand-line-btn" data-line="clear" title="프리미엄 아크릴 — 투명">CLEAR</button>
-                    <button class="hud-btn outline-btn stand-line-btn" data-line="custom" title="브랜드 맞춤형 — 컬러">CUSTOM</button>
                 </div>
             </div>
 
@@ -1933,9 +1913,9 @@
     <script src="vendor/qrcode/qrcode.js"></script>
 
     <!-- Main Script -->
-    <script src="app.js?v=20260903-autofit"></script>
-    <script src="scripts/holosyn-timeline.js?v=20260903-autofit"></script>
-    <script src="scripts/holosyn-pro-managers.js?v=20260903-autofit"></script>
+    <script src="app.js?v=20260903-presets"></script>
+    <script src="scripts/holosyn-timeline.js?v=20260903-presets"></script>
+    <script src="scripts/holosyn-pro-managers.js?v=20260903-presets"></script>
     <script>
         if (window.lucide) lucide.createIcons();
     </script>

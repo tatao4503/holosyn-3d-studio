@@ -720,11 +720,6 @@ const partAnnotations = {
         { name: "back-flap-r", label: "Flight Stabilizer Flap (비행 안정화 플랩)", offset: new THREE.Vector3(0.65, 0.50, -0.78) },
         { name: "boot-jet-r", label: "Boot Jet Nozzle (부츠 제트 노즐)", offset: new THREE.Vector3(0.45, -0.95, 0.35) }
     ],
-    stand: [
-        { name: "front-panel", label: "앞판 — 브랜드 명패면 (Front Nameplate)", offset: new THREE.Vector3(0, 0.55, 0.55) },
-        { name: "living-hinge", label: "리빙 힌지 — 실용신안 포인트 (Living Hinge)", offset: new THREE.Vector3(0.7, 0.0, 0.4) },
-        { name: "base-foot", label: "받침대 — 65° 자립 지지부 (Base Foot)", offset: new THREE.Vector3(0, -0.35, -0.55) }
-    ],
     custom: [
         { name: "generic-1", label: "Chassis Frame (외관 프레임)", offset: new THREE.Vector3(0.8, 0.4, 0.8) },
         { name: "generic-2", label: "Central Core (중앙 연산 유닛)", offset: new THREE.Vector3(-0.8, -0.4, -0.8) }
@@ -844,20 +839,6 @@ const partScanRoleHints = {
         'boot-jet-r': {
             ko: '부츠 제트 노즐입니다. 착지 안정성, 보조 추진, 하단 구조 설명에 적합합니다.',
             en: 'Boot jet nozzle. Good for landing stability, auxiliary thrust, and lower-body structure.'
-        }
-    },
-    stand: {
-        'front-panel': {
-            ko: '브랜드 명패면입니다. 고객이 가장 먼저 보는 정보면과 매대 가시성을 설명하세요.',
-            en: 'Front nameplate face. Use it to explain first-glance shelf visibility and message area.'
-        },
-        'living-hinge': {
-            ko: '리빙 힌지입니다. 접힘/펼침 구조와 반복 사용성을 보여주는 핵심 포인트입니다.',
-            en: 'Living hinge. The key point for fold-open structure and repeated-use durability.'
-        },
-        'base-foot': {
-            ko: '받침대입니다. 65도 자립 각도와 매대 위 안정성을 보여주는 하단 구조입니다.',
-            en: 'Base foot. Shows the 65-degree self-standing angle and shelf stability.'
         }
     },
     custom: {
@@ -1040,10 +1021,6 @@ const prototypePresenterTips = {
         ko: "Macro view와 분해도 35%를 함께 쓰면 헬멧, 파워 코어, 손바닥 추진 빔, 부츠 플레어가 가장 잘 보입니다.",
         en: "Use Macro view with 35% exploded view to show the helmet, power core, palm thrusters, and boot flare clearly."
     },
-    stand: {
-        ko: "Front view로 명패면을 먼저 보여준 뒤, 분해도(또는 조립 시퀀스)로 접힘→펼침과 리빙 힌지(실용신안 포인트)를 강조하세요.",
-        en: "Show the nameplate face in Front view, then use the exploded/assembly view to highlight the fold and the living hinge."
-    },
     customMulti: {
         ko: "제품명과 기술 분류를 먼저 정리한 뒤 Showcase를 실행하면 바로 발표 패키지가 됩니다.",
         en: "Edit the product name and category first, then run Showcase for a ready demo flow."
@@ -1098,16 +1075,11 @@ const samplePrototypeCatalog = {
         fit: 'Suit demo ready',
         noteKo: '헬멧, 흉부 코어, 손바닥 추진기, 등판 플랩, 부츠 노즐을 분해도와 함께 보여주는 파워드 아머 시연입니다.',
         noteEn: 'Powered armor demo with helmet, chest core, palm thrusters, back flaps, and boot nozzles ready for exploded views.'
-    },
-    stand: {
-        label: 'ST,AND',
-        source: '소셜벤처 실제 제품',
-        meshes: '3 parts',
-        fit: '65° 자립 명패',
-        noteKo: '편의점 라면 매대용 자립 명패. 분해도 또는 조립 시퀀스로 접힘→펼침 구조와 리빙 힌지를 시연하세요.',
-        noteEn: 'Self-standing nameplate for ramen shelves. Use exploded/assembly view to show the fold and living hinge.'
     }
 };
+
+// Every retired or unknown preset resolves here.
+const FALLBACK_PRESET = 'drone';
 
 const demoPresetScenarios = {
     investor: {
@@ -3830,6 +3802,18 @@ document.addEventListener('visibilitychange', () => {
 // 5. PROCEDURAL 3D CAD MODEL LIBRARY GENERATOR WITH EXPLODED PARTS MAPPING
 // ==========================================================================
 function loadPresetModel(presetName) {
+    // Retired presets still live in old share links and saved snapshots. Without
+    // this the stage just comes up empty, with no error and nothing to explain it.
+    if (presetName !== 'custom' && !samplePrototypeCatalog[presetName]) {
+        addConsoleLog(`[PRESET] "${presetName}" is no longer available — falling back to ${FALLBACK_PRESET}.`, 'warning');
+        showNotification(
+            state.language === 'ko' ? '샘플이 변경되었습니다' : 'Sample Changed',
+            state.language === 'ko'
+                ? '이 링크가 가리키는 샘플은 더 이상 제공되지 않아 기본 샘플로 열었습니다.'
+                : 'The sample this link points to is no longer available, so the default sample was opened instead.'
+        );
+        presetName = FALLBACK_PRESET;
+    }
     if (state.activePreset !== presetName) {
         invalidateFinalPassLock();
     }
@@ -3952,22 +3936,6 @@ function loadPresetModel(presetName) {
             if (presSub) presSub.textContent = exosuitCopy.specSubtitle;
             break;
 
-        case 'stand':
-            compoundMesh = createStandGeometry();
-            updateSpecsHUD("ST,AND", "SOCIAL VENTURE // 진열 명패", {
-                weight: "12 g",
-                power: "PASSIVE",
-                thermal: "100%",
-                id: "STAND-PP-01",
-                volume: "150×100mm",
-                stability: "99.9%",
-                discharge: "재사용 ∞",
-                emission: "65.0°"
-            });
-            if (presName) presName.textContent = "ST,AND";
-            if (presSub) presSub.textContent = "자리가 상품을 만듭니다 // 매대 위 작은 명패";
-            break;
-            
         case 'custom':
             if (uploadedMeshGroup) {
                 compoundMesh = uploadedMeshGroup;
@@ -4069,107 +4037,6 @@ function loadPresetModel(presetName) {
     updateHandoffPackStatus();
     refreshViewerModeUi();
 
-    // ST,AND-only demo controls (fold state + product lineup) — show/reset (v10.0)
-    syncStandControls(presetName);
-}
-
-// Show ST,AND-only controls only for the stand preset, reset to default (open + BASIC)
-function syncStandControls(presetName) {
-    const section = document.getElementById('stand-control-section');
-    if (!section) return;
-    const isStand = presetName === 'stand';
-    section.style.display = isStand ? 'block' : 'none';
-    if (!isStand) return;
-    // reset button states
-    document.querySelectorAll('.stand-fold-btn').forEach(b => b.classList.toggle('active', b.getAttribute('data-fold') === 'open'));
-    document.querySelectorAll('.stand-line-btn').forEach(b => b.classList.toggle('active', b.getAttribute('data-line') === 'basic'));
-    // apply BASIC (opaque PP) look by default
-    setStandLineup('basic');
-}
-
-// Animate the front panel between unfolded (self-standing 65°) and folded-flat (4mm storage)
-let standFoldRAF = null;
-function setStandFold(foldState) {
-    if (state.activePreset !== 'stand' || !activeModelGroup) return;
-    const panel = activeModelGroup.getObjectByName('front-panel');
-    if (!panel) return;
-    const OPEN = -THREE.MathUtils.degToRad(22);   // leaning, self-standing
-    const CLOSED = -Math.PI / 2;                   // lying flat onto the base
-    const target = foldState === 'closed' ? CLOSED : OPEN;
-    if (standFoldRAF) cancelAnimationFrame(standFoldRAF);
-    playSynthClick(foldState === 'closed' ? 360 : 640, 0.1);
-    const stepFn = () => {
-        panel.rotation.x += (target - panel.rotation.x) * 0.15;
-        if (Math.abs(target - panel.rotation.x) < 0.004) {
-            panel.rotation.x = target;
-            standFoldRAF = null;
-            return;
-        }
-        standFoldRAF = requestAnimationFrame(stepFn);
-    };
-    stepFn();
-    addConsoleLog(foldState === 'closed'
-        ? "[ST,AND] 접힘 상태 — 두께 약 4mm 납작 보관."
-        : "[ST,AND] 펼침 상태 — 65° 자립 명패.", "success");
-}
-
-// Switch ST,AND product lineup material (BASIC opaque PP / CLEAR acrylic / CUSTOM brand color)
-function setStandLineup(type) {
-    if (state.activePreset !== 'stand' || !activeModelGroup) return;
-    activeModelGroup.traverse(node => {
-        const mat = node.userData && node.userData.solidMaterial;
-        const productMat = node.userData && node.userData.productMaterial;
-        if (!mat) return;
-        if (node.userData.isChrome) return; // keep the living-hinge highlight intact
-        if (type === 'clear') {
-            mat.opacity = 0.32; mat.metalness = 0.10; mat.roughness = 0.05;
-            if (productMat) {
-                productMat.transparent = true;
-                productMat.opacity = 0.32;
-                productMat.metalness = 0.10;
-                productMat.roughness = 0.05;
-            }
-        } else if (type === 'custom') {
-            mat.color.set(state.themeColor); mat.opacity = 0.88; mat.metalness = 0.30; mat.roughness = 0.40;
-            if (productMat) {
-                productMat.color.set(state.themeColor);
-                productMat.transparent = false;
-                productMat.opacity = 1;
-                productMat.metalness = 0.30;
-                productMat.roughness = 0.40;
-            }
-        } else { // basic — opaque PP
-            mat.opacity = 0.92; mat.metalness = 0.12; mat.roughness = 0.62;
-            if (productMat) {
-                productMat.transparent = false;
-                productMat.opacity = 1;
-                productMat.metalness = 0.12;
-                productMat.roughness = 0.62;
-            }
-        }
-        mat.needsUpdate = true;
-        if (productMat) productMat.needsUpdate = true;
-    });
-    applyMaterialView();
-    const labelMap = { basic: 'BASIC — 표준 PP(불투명)', clear: 'CLEAR — 프리미엄 아크릴(투명)', custom: 'CUSTOM — 브랜드 컬러' };
-    addConsoleLog(`[ST,AND] 라인업: ${labelMap[type] || type}`, "info");
-}
-
-function initStandControlsUi() {
-    document.querySelectorAll('.stand-fold-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            document.querySelectorAll('.stand-fold-btn').forEach(b => b.classList.remove('active'));
-            e.currentTarget.classList.add('active');
-            setStandFold(e.currentTarget.getAttribute('data-fold'));
-        });
-    });
-    document.querySelectorAll('.stand-line-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            document.querySelectorAll('.stand-line-btn').forEach(b => b.classList.remove('active'));
-            e.currentTarget.classList.add('active');
-            setStandLineup(e.currentTarget.getAttribute('data-line'));
-        });
-    });
 }
 
 function updatePrototypeInsight(modelGroup, presetName = state.activePreset) {
@@ -5879,7 +5746,7 @@ function buildExamplePackData() {
             environment: scenario.environment,
             keyframes: scenario.keyframes.length
         })),
-        suggestedFirstRun: ['drone', 'stand', 'exosuit'],
+        suggestedFirstRun: ['drone', 'exosuit'],
         notes: [
             'Use built-in examples for beta onboarding before asking testers to import custom files.',
             'For imported models, prefer multi-part GLB/OBJ files with readable mesh names.'
@@ -8027,48 +7894,6 @@ function createChronosCoreGeometry() {
     battery.add(cap);
     
     return battery;
-}
-
-// Preset: ST,AND — folding nameplate display stand (real social-venture product)
-// 앞판(front panel) + 리빙 힌지(living hinge) + 받침대(base foot). Self-stands at ~65° from ground.
-// Real dims: panel 150x100x2mm, base 80x20x2mm, total 12g. Modeled to scene scale.
-function createStandGeometry() {
-    const stand = new THREE.Group();
-    stand.name = "stand";
-
-    const panelW = 1.6, panelH = 1.05, panelT = 0.04;
-    const tiltRad = THREE.MathUtils.degToRad(22); // lean back from vertical (~65° from ground)
-
-    // Front panel (앞판) — the brand nameplate face. Pivot at its bottom edge.
-    const panelGeo = new THREE.BoxGeometry(panelW, panelH, panelT);
-    panelGeo.translate(0, panelH / 2, 0); // move bottom edge to local origin so it pivots there
-    const panel = buildHologramNode(panelGeo, false);
-    panel.name = "front-panel";
-    panel.rotation.x = -tiltRad; // lean the top backward (-z)
-    panel.position.set(0, 0.05, 0.32);
-    panel.userData.explodedOffset = new THREE.Vector3(0, 0.5, 0.55);
-    stand.add(panel);
-
-    // Living hinge (리빙 힌지) — the patent-pending fold joint, chrome highlight
-    const hingeGeo = new THREE.CylinderGeometry(0.05, 0.05, panelW * 0.98, 14);
-    hingeGeo.rotateZ(Math.PI / 2); // lay the cylinder along the X (width) axis
-    const hinge = buildHologramNode(hingeGeo, true);
-    hinge.name = "living-hinge";
-    hinge.position.set(0, 0.06, 0.32);
-    hinge.userData.explodedOffset = new THREE.Vector3(0.7, 0.0, 0.4);
-    stand.add(hinge);
-
-    // Base foot (받침대) — extends backward along the ground to hold the panel upright
-    const baseW = 0.85, baseDepth = 0.62, baseT = 0.04;
-    const baseGeo = new THREE.BoxGeometry(baseW, baseT, baseDepth);
-    baseGeo.translate(0, 0, -baseDepth / 2); // extend backward (-z) from the hinge
-    const base = buildHologramNode(baseGeo, false);
-    base.name = "base-foot";
-    base.position.set(0, 0.03, 0.32);
-    base.userData.explodedOffset = new THREE.Vector3(0, -0.35, -0.55);
-    stand.add(base);
-
-    return stand;
 }
 
 // Preset E: Forge Exo-Suit - 3D Hologram
@@ -10890,7 +10715,7 @@ function updateSpecsHUD(name, classification, data) {
     
     // NaN-safe: readouts show the raw spec string (already carries its own unit),
     // sliders only move when the value parses to a real number. Prevents "NaN W"
-    // for non-numeric specs like ST,AND's "PASSIVE" and keeps "12 g" from becoming "12 kg".
+    // for non-numeric specs like "PASSIVE" and keeps "12 g" from becoming "12 kg".
     const massVal = parseInt(data.weight);
     const powerVal = parseInt(data.power);
     const thermalVal = parseInt(data.thermal);
@@ -12962,9 +12787,9 @@ function initSpatialDrawingEngine() {
                     // Measure in the preset model's base geometry space. The model carries
                     // two scale layers (preset group + activeModelGroup projection scale);
                     // converting via the preset root removes BOTH so the real-world dimension
-                    // never drifts with zoom. ST,AND is modeled to true spec
+                    // never drifts with zoom. Sample models use the studio
                     // (panel 1.6u = 150mm → 93.75 mm/u); others use a generic factor.
-                    const mmPerUnit = (state.activePreset === 'stand') ? 93.75 : 250;
+                    const mmPerUnit = 250;
                     const modelRoot = (activeModelGroup.children[0] || activeModelGroup);
                     modelRoot.updateMatrixWorld(true);
                     const localA = modelRoot.worldToLocal(caliperStartPoint.clone());
@@ -13620,7 +13445,6 @@ document.addEventListener('DOMContentLoaded', () => {
         initVoiceRecognition();   // v5.0
         initArchiveSystem();      // v5.0
         initPowerCoreEasterEgg(); // v9.0 — secret personal-fun mode (Konami code)
-        initStandControlsUi();    // v10.0 — ST,AND fold + lineup controls
         initLightingControls();   // v10.x — studio lighting moods + brightness
 
         // v7.0 Premium visual elements (Fluid aurora & interactive glass tilts)

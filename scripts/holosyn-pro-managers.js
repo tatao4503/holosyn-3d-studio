@@ -1408,8 +1408,8 @@ const TutorialManager = {
             label: { ko: '모델', en: 'Model' },
             title: { ko: '1. 모델 고르기', en: '1. Pick a Model' },
             desc: {
-                ko: '샘플 모델을 누르거나, 위쪽 영역에 내 3D 파일(.glb/.gltf/.obj)이나 이미지를 드롭하세요. ST,AND처럼 실제 시제품도 바로 띄울 수 있어요.',
-                en: 'Tap a sample model, or drop your own 3D file (.glb/.gltf/.obj) or image above. Real prototypes like ST,AND load instantly.'
+                ko: '샘플 모델을 누르거나, 위쪽 영역에 내 3D 파일(.glb/.gltf/.obj)이나 이미지를 드롭하세요. 실제 시제품도 바로 띄울 수 있어요.',
+                en: 'Tap a sample model, or drop your own 3D file (.glb/.gltf/.obj) or image above. Real prototypes load instantly.'
             }
         },
         {
@@ -1437,8 +1437,8 @@ const TutorialManager = {
             label: { ko: '스타일', en: 'Style' },
             title: { ko: '3. 색과 스타일 바꾸기', en: '3. Change Color & Style' },
             desc: {
-                ko: '퀵 스타일과 색상으로 분위기를 바꿔보세요. ST,AND라면 BASIC·CLEAR·CUSTOM 라인업으로 재질도 비교할 수 있어요.',
-                en: 'Switch the mood with quick styles and colors. For ST,AND you can also compare BASIC/CLEAR/CUSTOM material lineups.'
+                ko: '퀵 스타일과 색상으로 분위기를 바꿔보세요. MATERIAL REVEAL로 구조와 실제 재질을 비교할 수도 있어요.',
+                en: 'Switch the mood with quick styles and colors. MATERIAL REVEAL also compares structure against the real material.'
             }
         },
         {
