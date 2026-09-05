@@ -14563,7 +14563,7 @@ function initArchiveSystem() {
     if (btnClose && drawer) {
         btnClose.addEventListener('click', () => {
             playSynthClick(600, 0.05);
-            drawer.style.bottom = '-280px';
+            drawer.style.bottom = '-380px';
         });
     }
 
@@ -14618,7 +14618,9 @@ function loadArchiveSlots() {
             }
             
             let thumbnailHtml = '';
-            if (proto.activePreset === 'custom' && proto.customImageBase64) {
+            if (proto.thumbnail) {
+                thumbnailHtml = `<img src="${proto.thumbnail}" alt="" style="width: 100%; height: 100%; object-fit: cover; border-radius: 4px;" />`;
+            } else if (proto.activePreset === 'custom' && proto.customImageBase64) {
                 thumbnailHtml = `<img src="${proto.customImageBase64}" style="width: 100%; height: 100%; object-fit: contain; border-radius: 4px;" />`;
             } else {
                 let iconName = proto.modelGlb ? 'box' : 'plane';
@@ -14630,12 +14632,15 @@ function loadArchiveSlots() {
             }
             
             card.innerHTML = `
-                <div style="font-family: var(--font-mono); font-size: 8px; color: var(--text-muted); text-transform: uppercase;">${proto.category}</div>
+                <div style="font-family: var(--font-mono); font-size: 8px; color: var(--text-muted); text-transform: uppercase;">${escapeHtmlText(proto.category)}</div>
                 <div style="flex-grow: 1; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.3); border-radius: 8px; overflow: hidden; border: 1px dashed rgba(255,255,255,0.05); min-height: 80px;">
                     ${thumbnailHtml}
                 </div>
                 <div style="display: flex; justify-content: space-between; align-items: center; gap: 4px; margin-top: 4px;">
-                    <div style="font-family: var(--font-ui); font-size: 10px; font-weight: bold; color: var(--text-primary); text-overflow: ellipsis; overflow: hidden; white-space: nowrap; max-width: 100px;">${proto.name}</div>
+                    <div style="min-width: 0;">
+                        <div style="font-family: var(--font-ui); font-size: 10px; font-weight: bold; color: var(--text-primary); text-overflow: ellipsis; overflow: hidden; white-space: nowrap; max-width: 100px;">${escapeHtmlText(proto.name)}</div>
+                        <div style="font-family: var(--font-mono); font-size: 8px; color: var(--text-muted); white-space: nowrap;" title="${escapeHtmlText(formatArchiveDateFull(proto.date))}">${formatArchiveDate(proto.date)}</div>
+                    </div>
                     <button class="btn-delete-archive hud-btn icon-btn" data-id="${proto.id}" style="min-height: 22px; min-width: 22px; width: 22px; height: 22px; padding: 0; background: transparent; border: none; color: var(--crimson);" title="시제품 삭제">
                         <i data-lucide="trash-2" style="width: 12px; height: 12px; pointer-events: none;"></i>
                     </button>
@@ -14837,6 +14842,104 @@ function loadArchiveSlots() {
     });
 }
 
+// Every imported model used to file under the same generic icon, so an
+// archive of five prototypes was five identical boxes. Three months later
+// that is unreadable. The renderer keeps its drawing buffer, so the stage as
+// the presenter left it can be stored with the record.
+function getModelScreenRect(canvasWidth, canvasHeight) {
+    // A full-frame grab makes every prototype look the same: a small glow in a
+    // large black rectangle. Project the model's bounds so the thumbnail is
+    // actually of the model.
+    if (!activeModelGroup || !camera || activeModelGroup.children.length === 0) return null;
+    const box = new THREE.Box3().setFromObject(activeModelGroup);
+    if (box.isEmpty()) return null;
+    const min = box.min, max = box.max;
+    let left = Infinity, right = -Infinity, top = Infinity, bottom = -Infinity;
+    for (let bit = 0; bit < 8; bit++) {
+        const corner = new THREE.Vector3(
+            bit & 1 ? max.x : min.x,
+            bit & 2 ? max.y : min.y,
+            bit & 4 ? max.z : min.z
+        ).project(camera);
+        const x = (corner.x * 0.5 + 0.5) * canvasWidth;
+        const y = (-corner.y * 0.5 + 0.5) * canvasHeight;
+        left = Math.min(left, x); right = Math.max(right, x);
+        top = Math.min(top, y); bottom = Math.max(bottom, y);
+    }
+    if (!Number.isFinite(left) || right <= left || bottom <= top) return null;
+
+    // Pad so the model is not flush against the edges, then force 4:3 so the
+    // crop matches the card without squashing.
+    const padX = (right - left) * 0.18;
+    const padY = (bottom - top) * 0.18;
+    left -= padX; right += padX; top -= padY; bottom += padY;
+    let width = right - left;
+    let height = bottom - top;
+    const targetAspect = 4 / 3;
+    if (width / height < targetAspect) {
+        const grow = (height * targetAspect - width) / 2;
+        left -= grow; width = height * targetAspect;
+    } else {
+        const grow = (width / targetAspect - height) / 2;
+        top -= grow; height = width / targetAspect;
+    }
+    left = Math.max(0, Math.min(left, canvasWidth - 1));
+    top = Math.max(0, Math.min(top, canvasHeight - 1));
+    width = Math.min(width, canvasWidth - left);
+    height = Math.min(height, canvasHeight - top);
+    if (width < 8 || height < 8) return null;
+    return { left, top, width, height };
+}
+
+function captureArchiveThumbnail() {
+    try {
+        const canvas = renderer?.domElement;
+        if (!canvas || !canvas.width || !canvas.height) return null;
+        const crop = getModelScreenRect(canvas.width, canvas.height) || {
+            left: 0, top: 0, width: canvas.width, height: canvas.height
+        };
+        const out = document.createElement('canvas');
+        out.width = 240;
+        out.height = 180;
+        const ctx = out.getContext('2d');
+        ctx.fillStyle = '#0c0e12';
+        ctx.fillRect(0, 0, out.width, out.height);
+        ctx.drawImage(canvas, crop.left, crop.top, crop.width, crop.height, 0, 0, out.width, out.height);
+        return out.toDataURL('image/jpeg', 0.72);
+    } catch (err) {
+        console.warn('Archive thumbnail capture skipped', err);
+        return null;
+    }
+}
+
+function escapeHtmlText(value) {
+    return String(value ?? '').replace(/[&<>"']/g, ch => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[ch]));
+}
+
+function formatArchiveDate(iso) {
+    const then = new Date(iso);
+    if (Number.isNaN(then.getTime())) return '';
+    const ko = state.language === 'ko';
+    const days = Math.floor((Date.now() - then.getTime()) / 86400000);
+    if (days <= 0) return ko ? '오늘' : 'today';
+    if (days === 1) return ko ? '어제' : 'yesterday';
+    if (days < 30) return ko ? `${days}일 전` : `${days} days ago`;
+    const months = Math.floor(days / 30);
+    if (days < 365) return ko ? `${months}개월 전` : `${months} month${months > 1 ? 's' : ''} ago`;
+    const years = Math.floor(days / 365);
+    return ko ? `${years}년 전` : `${years} year${years > 1 ? 's' : ''} ago`;
+}
+
+function formatArchiveDateFull(iso) {
+    const then = new Date(iso);
+    if (Number.isNaN(then.getTime())) return '';
+    return then.toLocaleString(state.language === 'ko' ? 'ko-KR' : 'en-US', {
+        year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'
+    });
+}
+
 async function saveCurrentToArchive() {
     const name = document.getElementById('spec-name').value;
     const category = document.getElementById('spec-category').value;
@@ -14862,6 +14965,7 @@ async function saveCurrentToArchive() {
         // under a 3D model and comes back instead of the model.
         customImageBase64: state.imageUploaded ? state.customImageBase64 : null,
         modelGlb: null,
+        thumbnail: captureArchiveThumbnail(),
         date: new Date().toISOString()
     };
 

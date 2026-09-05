@@ -8179,3 +8179,23 @@ body.style-forge .status-label::before {
         text-align: left;
     }
 }
+
+/* The drawer gained a footer, so on a phone the cards no longer fit at their
+   desktop size and the date line was clipped off the bottom. */
+@media (max-width: 720px) {
+    #hud-archive-drawer {
+        height: 360px !important;
+    }
+
+    .archive-card {
+        min-width: 128px;
+        max-width: 128px;
+        height: 112px;
+        padding: 8px !important;
+        gap: 5px !important;
+    }
+
+    .archive-card > div:nth-child(2) {
+        min-height: 0 !important;
+    }
+}
