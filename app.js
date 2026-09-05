@@ -8219,6 +8219,7 @@ function processCustomUpload(file, merge = false) {
                 
                 state.imageUploaded = false; // Disable image mode, enable 3D mode
                 state.customImageParticles = null;
+                state.customImageBase64 = null;
                 state.activePreset = 'custom';
                 
                 // Update Spec Sheet inputs to reflect the filename
@@ -8290,6 +8291,7 @@ function processCustomUpload(file, merge = false) {
                 
                 state.imageUploaded = false;
                 state.customImageParticles = null;
+                state.customImageBase64 = null;
                 state.activePreset = 'custom';
                 
                 const cleanName = file.name.replace(/\.[^/.]+$/, "");
@@ -14593,7 +14595,7 @@ function loadArchiveSlots() {
             if (proto.activePreset === 'custom' && proto.customImageBase64) {
                 thumbnailHtml = `<img src="${proto.customImageBase64}" style="width: 100%; height: 100%; object-fit: contain; border-radius: 4px;" />`;
             } else {
-                let iconName = 'plane';
+                let iconName = proto.modelGlb ? 'box' : 'plane';
                 if (proto.activePreset === 'ring') iconName = 'circle-dot';
                 if (proto.activePreset === 'car') iconName = 'car';
                 if (proto.activePreset === 'battery') iconName = 'battery-charging';
@@ -14647,7 +14649,56 @@ function loadArchiveSlots() {
                 });
                 updateMaterialViewUi();
                 
-                if (proto.activePreset === 'custom' && proto.customImageBase64) {
+                if (proto.modelGlb) {
+                    // The imported model travels with the record now, so a
+                    // restore rebuilds the real geometry instead of leaving
+                    // whatever happened to be on stage.
+                    parsePortableGlb(proto.modelGlb.slice(0)).then(group => {
+                        uploadedMeshGroup = group;
+                        applyWorkspaceMaterialsToLoadedMesh(uploadedMeshGroup);
+                        state.imageUploaded = false;
+                        state.customImageParticles = null;
+                        state.customImageBase64 = null;
+                        state.activePreset = 'custom';
+                        updatePresetButtonSelection('custom');
+                        loadPresetModel('custom');
+                        updateHolographicMaterials();
+                        loadArchiveSlots();
+                        addConsoleLog(
+                            state.language === 'ko'
+                                ? `[아카이브] 복원 완료: [${proto.name}] 모델을 다시 세웠습니다.`
+                                : `[ARCHIVE] Restored model [${proto.name}].`,
+                            'success'
+                        );
+                    }).catch(err => {
+                        console.error('Archive model restore failed', err);
+                        showNotification(
+                            state.language === 'ko' ? '복원하지 못했습니다' : 'Restore Failed',
+                            state.language === 'ko'
+                                ? '보관된 모델을 읽지 못했습니다. 무대는 그대로 두었습니다.'
+                                : 'The archived model could not be read. The stage was left as it was.'
+                        );
+                        addConsoleLog(`[ARCHIVE] Restore failed: ${err?.message || err}`, 'error');
+                    });
+                } else if (proto.activePreset === 'custom' && !proto.customImageBase64) {
+                    // Records saved before the archive carried geometry. Saying
+                    // "restored" here would hand the presenter a demo preset
+                    // under their own product name.
+                    showNotification(
+                        state.language === 'ko' ? '모델이 없는 기록입니다' : 'Record Has No Model',
+                        state.language === 'ko'
+                            ? '이 기록은 설정만 저장된 예전 항목이라 모델이 들어 있지 않습니다. 파일을 다시 불러온 뒤 저장하면 모델까지 보관됩니다.'
+                            : 'This is an older record that stored settings only, with no model in it. Load the file again and save to archive the model too.'
+                    );
+                    addConsoleLog(
+                        state.language === 'ko'
+                            ? `[아카이브] [${proto.name}]에는 모델이 없어 설정만 적용했습니다.`
+                            : `[ARCHIVE] [${proto.name}] carries no model; settings only were applied.`,
+                        'warning'
+                    );
+                    updateHolographicMaterials();
+                    loadArchiveSlots();
+                } else if (proto.activePreset === 'custom' && proto.customImageBase64) {
                     const img = new Image();
                     img.src = proto.customImageBase64;
                     img.onload = () => {
@@ -14760,13 +14811,15 @@ function loadArchiveSlots() {
     });
 }
 
-function saveCurrentToArchive() {
+async function saveCurrentToArchive() {
     const name = document.getElementById('spec-name').value;
     const category = document.getElementById('spec-category').value;
     const weight = parseInt(document.getElementById('spec-param-weight').value);
     const power = parseInt(document.getElementById('spec-param-power').value);
     const thermal = parseInt(document.getElementById('spec-param-thermal').value);
-    
+
+    const isImportedModel = state.activePreset === 'custom' && !state.imageUploaded && !!uploadedMeshGroup;
+
     const prototypeRecord = {
         name: name,
         category: category,
@@ -14778,31 +14831,72 @@ function saveCurrentToArchive() {
         materialView: state.materialView,
         customImageExtrusion: state.customImageExtrusion,
         activePreset: state.activePreset,
-        customImageBase64: state.activePreset === 'custom' ? state.customImageBase64 : null,
+        // Only an actual image projection owns customImageBase64. Without the
+        // imageUploaded check a stale image from an earlier upload gets filed
+        // under a 3D model and comes back instead of the model.
+        customImageBase64: state.imageUploaded ? state.customImageBase64 : null,
+        modelGlb: null,
         date: new Date().toISOString()
     };
-    
+
+    // The archive used to store settings only. For a preset that is enough --
+    // the geometry is in the app. For an imported model it is not: the one
+    // thing the presenter actually saved was thrown away, and the restore
+    // silently showed whatever was already on stage.
+    if (isImportedModel) {
+        try {
+            const glb = await exportActiveModelGlb();
+            if (glb.byteLength > PORTABLE_PROJECT_MAX_BYTES) {
+                throw new Error(`Model is ${Math.round(glb.byteLength / 1024 / 1024)}MB, over the ${Math.round(PORTABLE_PROJECT_MAX_BYTES / 1024 / 1024)}MB archive limit.`);
+            }
+            prototypeRecord.modelGlb = glb;
+            prototypeRecord.modelBytes = glb.byteLength;
+        } catch (err) {
+            console.error('Archive model packing failed', err);
+            showNotification(
+                state.language === 'ko' ? '보관하지 못했습니다' : 'Not Saved',
+                state.language === 'ko'
+                    ? '모델을 보관함에 담지 못했습니다. 설정만 저장하면 다시 열었을 때 모델이 비어 있어서 저장을 멈췄습니다. 대신 [휴대용 프로젝트]로 파일을 내려받아 두세요.'
+                    : 'The model could not be packed into the archive. Saving settings alone would restore an empty stage, so nothing was saved. Download a portable project file instead.'
+            );
+            addConsoleLog(`[ARCHIVE] Save aborted: ${err.message || err}`, 'error');
+            return;
+        }
+    }
+
     ArchiveDBManager.savePrototype(prototypeRecord).then((id) => {
         window.loadedArchiveId = id;
         loadArchiveSlots();
-        
+
         if (state.isSoundOn) {
             playSynthClick(900, 0.06);
             playSynthClick(1300, 0.05);
         }
-        
+
+        const sizeNote = prototypeRecord.modelBytes
+            ? ` (${(prototypeRecord.modelBytes / 1024 / 1024).toFixed(1)}MB)`
+            : '';
         showNotification(
             state.language === 'ko' ? "보관 완료" : "Prototype Saved",
-            state.language === 'ko' ? `[${name}] 시제품을 IndexedDB 아카이브에 영구 저장했습니다.` : `Saved [${name}] to persistent local IndexedDB archive.`
+            state.language === 'ko'
+                ? `[${name}] 시제품을 이 브라우저의 보관함에 저장했습니다${sizeNote}.`
+                : `Saved [${name}] to this browser's archive${sizeNote}.`
         );
-        
+
         if (state.language === 'ko') {
-            addConsoleLog(`[아카이브] 시제품 양자 스냅샷 저장 완료: [${name}] (ID: ${id})`, "success");
+            addConsoleLog(`[아카이브] 저장 완료: [${name}] (ID: ${id})${prototypeRecord.modelGlb ? ' · 모델 포함' : ''}`, "success");
         } else {
-            addConsoleLog(`[ARCHIVE] Saved snapshot [${name}] to local database with ID: ${id}`, "success");
+            addConsoleLog(`[ARCHIVE] Saved [${name}] with ID: ${id}${prototypeRecord.modelGlb ? ' (model included)' : ''}`, "success");
         }
     }).catch(err => {
         console.error("Save archive failed", err);
+        showNotification(
+            state.language === 'ko' ? '보관하지 못했습니다' : 'Not Saved',
+            state.language === 'ko'
+                ? '이 브라우저의 저장 공간이 부족하거나 시크릿 모드일 수 있습니다. [휴대용 프로젝트]로 파일을 내려받아 두세요.'
+                : "This browser's storage may be full or in private mode. Download a portable project file instead."
+        );
+        addConsoleLog(`[ARCHIVE] Save failed: ${err?.message || err}`, 'error');
     });
 }
 
