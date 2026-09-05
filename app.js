@@ -2635,6 +2635,7 @@ function initViewerMode() {
 document.addEventListener('DOMContentLoaded', () => {
     loadPreferences(); // v3.8: Restore saved settings from localStorage
     loadPresenterNotes();
+    loadSavedMeasurements();
     initViewerMode();
     registerRuntimeErrorCapture();
     applyAnnotationLabelOverrides();
@@ -6295,6 +6296,7 @@ function applyProjectSnapshot(snapshot, options = {}) {
     state.presenterNotes = normalizePresenterNotes(snapshot.presenterNotes);
     persistPresenterNotes();
     state.savedMeasurements = normalizeSavedMeasurements(snapshot.savedMeasurements);
+    persistSavedMeasurements();
     rebuildSavedMeasurementVisuals();
     updatePresenterNotesPanel();
     updatePartScanPanel();
@@ -11980,6 +11982,29 @@ function vectorFromPlain(point) {
     return new THREE.Vector3(Number(point?.x) || 0, Number(point?.y) || 0, Number(point?.z) || 0);
 }
 
+function getSavedMeasurementsStorageKey() {
+    return 'holosyn_saved_measurements_v1';
+}
+
+// Same shape as the presenter notes: the panel read "N SAVED" while the
+// dimensions lived in memory only. Each one is two clicks on the model that
+// the presenter will not want to place again before a talk.
+function persistSavedMeasurements() {
+    return rememberSetting(getSavedMeasurementsStorageKey(), JSON.stringify(state.savedMeasurements));
+}
+
+function loadSavedMeasurements() {
+    try {
+        const storage = getBrowserStorage();
+        if (!storage) return;
+        const raw = storage.getItem(getSavedMeasurementsStorageKey());
+        if (!raw) return;
+        state.savedMeasurements = normalizeSavedMeasurements(JSON.parse(raw));
+    } catch (err) {
+        addConsoleLog('[MEASURE] Saved dimensions could not be read; starting empty.', 'warning');
+    }
+}
+
 function updateMeasurementsPanel() {
     const status = document.getElementById('measurements-status');
     const list = document.getElementById('measurements-list');
@@ -12025,6 +12050,7 @@ function createCaliperBadge(container, id, label, distanceText) {
 
 function saveMeasurementRecord(measurement) {
     state.savedMeasurements.push(measurement);
+    persistSavedMeasurements();
     updateMeasurementsPanel();
 }
 
@@ -12118,6 +12144,7 @@ function exportMeasurements() {
 
 function clearAllSavedMeasurements() {
     state.savedMeasurements = [];
+    persistSavedMeasurements();
     caliperStartPoint = null;
     removeRenderedCalipers();
     updateMeasurementsPanel();
@@ -12138,10 +12165,40 @@ async function recordViewportClip(durationMs = 5000) {
         return;
     }
     const status = document.getElementById('clip-export-status');
+    // The old code tested one webm variant and, when it failed, used another
+    // webm without testing it. Safari has MediaRecorder but no webm at all, so
+    // the guard above passed, the constructor threw, and the presenter got
+    // silence: no toast, no status change, nothing.
+    const mimeType = [
+        'video/webm;codecs=vp9',
+        'video/webm;codecs=vp8',
+        'video/webm',
+        'video/mp4;codecs=avc1',
+        'video/mp4'
+    ].find(candidate => {
+        try { return MediaRecorder.isTypeSupported(candidate); } catch (err) { return false; }
+    });
+    if (!mimeType) {
+        showNotification(
+            state.language === 'ko' ? '녹화 미지원' : 'Recording Unsupported',
+            state.language === 'ko' ? '이 브라우저가 녹화할 수 있는 영상 형식이 없습니다. 대신 스펙 카드 PNG를 저장하세요.' : 'This browser offers no video format this can record. Save a spec card PNG instead.'
+        );
+        return;
+    }
     const stream = renderer.domElement.captureStream(30);
-    const preferred = 'video/webm;codecs=vp9';
-    const mimeType = MediaRecorder.isTypeSupported(preferred) ? preferred : 'video/webm';
-    const recorder = new MediaRecorder(stream, { mimeType });
+    let recorder;
+    try {
+        recorder = new MediaRecorder(stream, { mimeType });
+    } catch (err) {
+        stream.getTracks().forEach(track => track.stop());
+        showNotification(
+            state.language === 'ko' ? '녹화를 시작하지 못했습니다' : 'Recording Did Not Start',
+            state.language === 'ko' ? `이 브라우저가 녹화를 거부했습니다 (${err?.name || 'error'}).` : `This browser refused to record (${err?.name || 'error'}).`
+        );
+        addConsoleLog(`[CLIP] Recorder could not start: ${err?.name || err}`, 'error');
+        return;
+    }
+    const extension = mimeType.startsWith('video/mp4') ? 'mp4' : 'webm';
     const chunks = [];
     const previous = {
         rotationSpeed: state.rotationSpeed,
@@ -12157,17 +12214,36 @@ async function recordViewportClip(durationMs = 5000) {
         animateExplodedLevel(previous.explodedLevel, 500);
         if (previous.cameraMode) applyCameraView(previous.cameraMode, false);
         const blob = new Blob(chunks, { type: mimeType });
-        triggerBlobDownload(blob, `${getExportBaseName(getProductName())}_holosyn_clip_${Math.round(durationMs / 1000)}s.webm`);
+        // An empty recording still produces a blob. Downloading a 0-byte file
+        // and calling it saved is the failure the presenter finds later.
+        if (blob.size === 0) {
+            if (status) status.textContent = 'FAILED';
+            showNotification(
+                state.language === 'ko' ? '녹화된 내용이 없습니다' : 'Nothing Was Recorded',
+                state.language === 'ko' ? '빈 파일이라 저장하지 않았습니다. 창을 앞으로 두고 다시 시도하세요.' : 'The clip was empty, so nothing was saved. Keep this window in front and try again.'
+            );
+            addConsoleLog('[CLIP] Recorder produced no data.', 'error');
+            return;
+        }
+        triggerBlobDownload(blob, `${getExportBaseName(getProductName())}_holosyn_clip_${Math.round(durationMs / 1000)}s.${extension}`);
         if (status) status.textContent = 'SAVED';
-        showNotification(state.language === 'ko' ? '클립 저장 완료' : 'Clip Saved', state.language === 'ko' ? '회전·분해 WebM 클립을 저장했습니다.' : 'Saved the rotating/exploded WebM clip.');
-        addConsoleLog(`[CLIP] Recorded ${Math.round(durationMs / 1000)}s viewport clip.`, 'success');
+        showNotification(state.language === 'ko' ? '클립 저장 완료' : 'Clip Saved', state.language === 'ko' ? `회전·분해 ${extension.toUpperCase()} 클립을 저장했습니다.` : `Saved the rotating/exploded ${extension.toUpperCase()} clip.`);
+        addConsoleLog(`[CLIP] Recorded ${Math.round(durationMs / 1000)}s viewport clip (${extension}).`, 'success');
+    };
+    recorder.onerror = event => {
+        if (status) status.textContent = 'FAILED';
+        showNotification(
+            state.language === 'ko' ? '녹화가 중단됐습니다' : 'Recording Stopped',
+            state.language === 'ko' ? '브라우저가 녹화를 중단했습니다.' : 'The browser interrupted the recording.'
+        );
+        addConsoleLog(`[CLIP] Recorder error: ${event?.error?.name || 'unknown'}`, 'error');
     };
     if (status) status.textContent = 'REC';
     state.rotationSpeed = Math.max(state.rotationSpeed, 0.9);
     applyCameraView('orbit', false);
     animateExplodedLevel(Math.max(state.explodedLevel, 0.62), 650);
     recorder.start();
-    showNotification(state.language === 'ko' ? '클립 녹화 중' : 'Recording Clip', state.language === 'ko' ? `${Math.round(durationMs / 1000)}초 WebM 클립을 녹화합니다.` : `Recording a ${Math.round(durationMs / 1000)} second WebM clip.`);
+    showNotification(state.language === 'ko' ? '클립 녹화 중' : 'Recording Clip', state.language === 'ko' ? `${Math.round(durationMs / 1000)}초 ${extension.toUpperCase()} 클립을 녹화합니다.` : `Recording a ${Math.round(durationMs / 1000)} second ${extension.toUpperCase()} clip.`);
     setTimeout(() => {
         if (recorder.state !== 'inactive') recorder.stop();
     }, durationMs);
@@ -12864,6 +12940,7 @@ function initSpatialDrawingEngine() {
             caliperStartPoint = null;
             calipersList = [];
             state.savedMeasurements = [];
+            persistSavedMeasurements();
             updateMeasurementsPanel();
             
             btnClear.style.display = 'none';
