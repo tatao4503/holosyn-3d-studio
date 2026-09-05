@@ -34,7 +34,7 @@ jobs:
         run: |
           mkdir -p _site/scripts
           cp index.html index.css app.js favicon.svg og-image.png og-image.svg _site/
-          cp scripts/holosyn-timeline.js scripts/holosyn-pro-managers.js _site/scripts/
+          cp scripts/holosyn-*.js _site/scripts/
           cp -R vendor _site/
           touch _site/.nojekyll
 

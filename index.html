@@ -1928,7 +1928,13 @@
     <script src="vendor/qrcode/qrcode.js"></script>
 
     <!-- Main Script -->
+    <!-- app.js declares the shared state and the engine; the modules below are
+         classic scripts in the same global scope, so order only matters in that
+         app.js must come first. -->
     <script src="app.js?v=20260905-honest"></script>
+    <script src="scripts/holosyn-archive.js?v=20260905-honest"></script>
+    <script src="scripts/holosyn-stage-tools.js?v=20260905-honest"></script>
+    <script src="scripts/holosyn-stage-only.js?v=20260905-honest"></script>
     <script src="scripts/holosyn-timeline.js?v=20260905-honest"></script>
     <script src="scripts/holosyn-pro-managers.js?v=20260905-honest"></script>
     <script>

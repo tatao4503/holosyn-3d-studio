@@ -49,6 +49,9 @@ async function verifyDeployBundle(root) {
 }
 
 const requiredFiles = [
+  'scripts/holosyn-archive.js',
+  'scripts/holosyn-stage-tools.js',
+  'scripts/holosyn-stage-only.js',
   'index.html',
   'index.css',
   'app.js',
@@ -731,13 +734,20 @@ async function main() {
     await access(file);
   }
 
-  const [html, css, appJs, timelineJs, managerJs] = await Promise.all([
+  const [html, css, appCore, archiveJs, stageToolsJs, stageOnlyJs, timelineJs, managerJs] = await Promise.all([
     readFile('index.html', 'utf8'),
     readFile('index.css', 'utf8'),
     readFile('app.js', 'utf8'),
+    readFile('scripts/holosyn-archive.js', 'utf8'),
+    readFile('scripts/holosyn-stage-tools.js', 'utf8'),
+    readFile('scripts/holosyn-stage-only.js', 'utf8'),
     readFile('scripts/holosyn-timeline.js', 'utf8'),
     readFile('scripts/holosyn-pro-managers.js', 'utf8'),
   ]);
+
+  // app.js was split into classic scripts that share one global scope, so the
+  // checkpoints below are about the app as a whole, not about one file.
+  const appJs = [appCore, archiveJs, stageToolsJs, stageOnlyJs].join('\n');
 
   await assertLocalAssetsExist(html);
 
@@ -804,8 +814,14 @@ async function main() {
   assert(html.includes('data-preset="exosuit"'), 'Exo Suit preset button is missing');
   assert(html.includes('data-demo-preset="suit"'), 'Suit Lab demo preset is missing');
 
+  // Every browser script the page loads must actually be referenced by it — a
+  // module that exists but is never included is worse than one that is missing.
+  for (const module of ['holosyn-archive', 'holosyn-stage-tools', 'holosyn-stage-only', 'holosyn-timeline', 'holosyn-pro-managers']) {
+    assert(html.includes(`scripts/${module}.js?v=`), `index.html does not load scripts/${module}.js`);
+  }
+
   for (const needle of appNeedles) {
-    assert(appJs.includes(needle), `Missing app.js checkpoint: ${needle}`);
+    assert(appJs.includes(needle), `Missing app checkpoint: ${needle}`);
   }
   assert(appJs.includes(".glass-panel:not(.tutorial-card):not(.tutorial-prompt-content)"), 'Tutorial overlays must stay out of the shared tilt effect');
   assert(!appJs.includes('list.innerHTML = state.savedMeasurements.map'), 'Saved measurements must not render imported text through innerHTML');
