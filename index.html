@@ -43,7 +43,7 @@
     <link rel="stylesheet" href="vendor/fonts/fonts.css">
     <script src="vendor/lucide/lucide.min.js"></script>
     <!-- Stylesheet -->
-    <link rel="stylesheet" href="index.css?v=20260905-archive">
+    <link rel="stylesheet" href="index.css?v=20260905-keep">
 </head>
 <body class="theme-blue">
     <!-- Ambient Vignette Background -->
@@ -1639,7 +1639,7 @@
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 8px; margin-bottom: 12px;">
             <div style="display: flex; align-items: center; gap: 8px; font-family: var(--font-ui); font-size: 13px; font-weight: 700; color: var(--text-primary);">
                 <i data-lucide="folder-open" style="color: var(--theme-color);"></i>
-                <span data-i18n="archive_board_title">MY PROTOTYPE ARCHIVES // 시제품 영구 보관 아카이브</span>
+                <span data-i18n="archive_board_title">MY PROTOTYPE ARCHIVES // 이 브라우저에 보관 중</span>
             </div>
             <button id="btn-close-archive" class="hud-btn icon-btn" style="min-height: 28px; padding: 2px 8px; border: none; background: transparent;">
                 <i data-lucide="chevron-down"></i>
@@ -1648,6 +1648,13 @@
         <div id="archive-slots-container" style="display: flex; gap: 12px; overflow-x: auto; flex-grow: 1; padding-bottom: 8px; align-items: center;">
             <!-- Dynamic archive items loaded here -->
             <div style="font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); width: 100%; text-align: center;" data-i18n="archive_empty">보관함에 저장된 시제품이 없습니다. [보관함에 시제품 저장] 단추를 눌러 첫 요소를 보관해 보세요.</div>
+        </div>
+        <div class="archive-drawer-footer" id="archive-drawer-footer">
+            <p id="archive-storage-note">이 보관함은 지금 이 브라우저 안에만 있습니다. 브라우저 데이터를 지우거나 다른 기기에서 열면 보이지 않습니다.</p>
+            <button class="hud-btn outline-btn" id="btn-archive-backup" type="button" title="지금 무대를 모델까지 담아 파일 하나로 내려받기">
+                <i data-lucide="hard-drive-download"></i>
+                <span id="btn-archive-backup-label">파일로 빼두기</span>
+            </button>
         </div>
     </div>
     
@@ -1913,9 +1920,9 @@
     <script src="vendor/qrcode/qrcode.js"></script>
 
     <!-- Main Script -->
-    <script src="app.js?v=20260905-archive"></script>
-    <script src="scripts/holosyn-timeline.js?v=20260905-archive"></script>
-    <script src="scripts/holosyn-pro-managers.js?v=20260905-archive"></script>
+    <script src="app.js?v=20260905-keep"></script>
+    <script src="scripts/holosyn-timeline.js?v=20260905-keep"></script>
+    <script src="scripts/holosyn-pro-managers.js?v=20260905-keep"></script>
     <script>
         if (window.lucide) lucide.createIcons();
     </script>

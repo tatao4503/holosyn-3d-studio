@@ -8144,3 +8144,38 @@ body.style-forge .status-label::before {
     .edition-tag { margin-left: 6px; letter-spacing: 1.2px; text-indent: 1.2px; }
     .reveal-edition { font-size: 11px; letter-spacing: 9px; text-indent: 9px; }
 }
+
+/* Archive drawer footer — the archive lives in this browser only, and the
+   presenter needs to know that where their work is, not in a help page. */
+.archive-drawer-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    flex-shrink: 0;
+}
+
+.archive-drawer-footer p {
+    margin: 0;
+    font-family: var(--font-ui);
+    font-size: 11px;
+    line-height: 1.5;
+    color: var(--text-muted);
+}
+
+.archive-drawer-footer .hud-btn {
+    flex-shrink: 0;
+    min-height: 30px;
+    white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+    .archive-drawer-footer {
+        flex-direction: column;
+        align-items: stretch;
+        text-align: left;
+    }
+}

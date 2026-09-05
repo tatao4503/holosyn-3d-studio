@@ -2736,6 +2736,7 @@ function updateLanguageHTML(lang) {
     if (typeof AiAssistantManager !== 'undefined' && typeof AiAssistantManager.updateKeyStatus === 'function') {
         AiAssistantManager.updateKeyStatus();
     }
+    if (typeof applyArchiveDrawerCopy === 'function') applyArchiveDrawerCopy();
 }
 
 function updateTelemetryBarText() {
@@ -14564,6 +14565,31 @@ function initArchiveSystem() {
             playSynthClick(600, 0.05);
             drawer.style.bottom = '-280px';
         });
+    }
+
+    // The archive lives in this browser and nowhere else. The way out is the
+    // portable project bundle, which was buried in a grid of 34 export
+    // buttons. It belongs next to the work it protects.
+    const btnBackup = document.getElementById('btn-archive-backup');
+    if (btnBackup) {
+        btnBackup.addEventListener('click', () => {
+            playSynthClick(760, 0.06);
+            exportPortableProjectBundle();
+        });
+    }
+    applyArchiveDrawerCopy();
+}
+
+function applyArchiveDrawerCopy() {
+    const note = document.getElementById('archive-storage-note');
+    const label = document.getElementById('btn-archive-backup-label');
+    if (note) {
+        note.textContent = state.language === 'ko'
+            ? '이 보관함은 지금 이 브라우저 안에만 있습니다. 브라우저 데이터를 지우거나 다른 기기에서 열면 보이지 않습니다.'
+            : 'This archive lives in this browser only. Clearing browser data, or opening on another device, will not show it.';
+    }
+    if (label) {
+        label.textContent = state.language === 'ko' ? '파일로 빼두기' : 'Save to a file';
     }
 }
 
