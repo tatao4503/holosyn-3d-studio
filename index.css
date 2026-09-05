@@ -8199,3 +8199,98 @@ body.style-forge .status-label::before {
         min-height: 0 !important;
     }
 }
+
+/* ==========================================================================
+   STAGE ONLY — one laptop, plugged into a projector
+   The studio chrome is the presenter's, not the audience's: on a 1280x720
+   projection it covered 40% of the frame, and operator toasts landed on top
+   of the product. This strips the screen to the stage without taking the
+   camera away, and Esc brings the controls straight back.
+   ========================================================================== */
+body.stage-only #hud-header,
+body.stage-only #hud-left-panel,
+body.stage-only #hud-right-panel,
+body.stage-only #hud-bottom-panel,
+body.stage-only #mobile-toolbar,
+body.stage-only #beginner-flow,
+body.stage-only #flow-coach,
+body.stage-only #viewport-annotation-hint,
+body.stage-only #gesture-pilot-panel,
+body.stage-only #viewport-drawing-tools,
+body.stage-only #camera-cinematic-dock,
+body.stage-only #hud-archive-drawer,
+body.stage-only #timeline-editor,
+body.stage-only #ai-chat-panel,
+body.stage-only #mac-toast-container,
+body.stage-only .hud-corners,
+body.stage-only .telemetry-hud-overlay,
+body.stage-only .spatial-glass-blur-layer {
+    display: none !important;
+}
+
+/* Hiding the panels alone is not enough: they are grid children, so removing
+   them left the stage sitting in the first 340px cell. Collapse the grid to a
+   single cell, the way viewer mode already does. */
+body.stage-only #app-container,
+body.stage-only #app-container.showcase-active {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: minmax(0, 1fr) !important;
+    height: 100dvh !important;
+    min-height: 100dvh !important;
+    max-height: 100dvh !important;
+    padding: 0 !important;
+    gap: 0 !important;
+    overflow: hidden;
+}
+
+body.stage-only #hud-center-stage {
+    grid-column: 1 / -1 !important;
+    grid-row: 1 / -1 !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+}
+
+#stage-only-exit {
+    position: fixed;
+    top: 16px;
+    right: 18px;
+    z-index: 240;
+    display: none;
+    padding: 6px 12px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(10, 12, 16, 0.55);
+    color: rgba(255, 255, 255, 0.5);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+}
+
+body.stage-only #stage-only-exit {
+    display: block;
+    opacity: 1;
+}
+
+/* It is a reminder, not decoration: it fades once the talk is under way and
+   comes back whenever the presenter moves the mouse. */
+body.stage-only #stage-only-exit.is-idle {
+    opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #stage-only-exit {
+        transition: none;
+    }
+}
+
+/* The hidden attribute only removes an element if nothing sets display on it.
+   Several components set display: flex on the same selector, so hud.hidden =
+   true did nothing: the pointer toolbar sat on the stage with the pointer off,
+   and the narrate/stop buttons were both visible at once. */
+[hidden] {
+    display: none !important;
+}

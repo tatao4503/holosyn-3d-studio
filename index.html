@@ -43,7 +43,7 @@
     <link rel="stylesheet" href="vendor/fonts/fonts.css">
     <script src="vendor/lucide/lucide.min.js"></script>
     <!-- Stylesheet -->
-    <link rel="stylesheet" href="index.css?v=20260905-recall4">
+    <link rel="stylesheet" href="index.css?v=20260905-stage3">
 </head>
 <body class="theme-blue">
     <!-- Ambient Vignette Background -->
@@ -121,6 +121,10 @@
                     <span>SHARE</span>
                 </button>
                 <!-- Keynote SHOWCASE Presentation Mode Button -->
+                <button id="btn-stage-only" class="hud-btn outline-btn" title="이 화면을 관객에게 보여줄 때 — 조작 화면을 숨깁니다 (Esc로 복귀)">
+                    <i data-lucide="monitor-play"></i>
+                    <span id="btn-stage-only-label">무대만</span>
+                </button>
                 <button id="btn-showcase-toggle" class="hud-btn outline-btn" title="발표 모드 / Showcase Mode">
                     <i data-lucide="presentation"></i>
                     <span data-i18n="showcase_mode">SHOWCASE</span>
@@ -1355,6 +1359,10 @@
     </div>
 
     <!-- V2 audience viewer: a compact read-only shell over the shared scene. -->
+    <div id="stage-only-exit" role="status" aria-live="polite">
+        <span id="stage-only-exit-text">Esc — 조작 화면으로</span>
+    </div>
+
     <section id="viewer-shell" aria-label="HOLOSYN Viewer controls">
         <header class="viewer-topbar">
             <div class="viewer-identity">
@@ -1920,9 +1928,9 @@
     <script src="vendor/qrcode/qrcode.js"></script>
 
     <!-- Main Script -->
-    <script src="app.js?v=20260905-recall4"></script>
-    <script src="scripts/holosyn-timeline.js?v=20260905-recall4"></script>
-    <script src="scripts/holosyn-pro-managers.js?v=20260905-recall4"></script>
+    <script src="app.js?v=20260905-stage3"></script>
+    <script src="scripts/holosyn-timeline.js?v=20260905-stage3"></script>
+    <script src="scripts/holosyn-pro-managers.js?v=20260905-stage3"></script>
     <script>
         if (window.lucide) lucide.createIcons();
     </script>

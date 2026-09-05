@@ -96,6 +96,8 @@ const requiredAssetFiles = [
 const htmlSelectors = [
   'btn-boot-system',
   'btn-archive-backup',
+  'btn-stage-only',
+  'stage-only-exit',
   'archive-storage-note',
   'btn-demo-run',
   'btn-pitch-run',
@@ -318,6 +320,9 @@ const appNeedles = [
   'prototypeRecord.modelGlb = glb;',
   'function applyArchiveDrawerCopy',
   'function captureArchiveThumbnail',
+  'function initStageOnlyMode',
+  'function setStageOnly',
+  'if (state.stageOnly) {',
   'function getModelScreenRect',
   'thumbnail: captureArchiveThumbnail(),',
   'if (proto.thumbnail) {',
@@ -551,6 +556,11 @@ const managerNeedles = [
 ];
 
 const cssNeedles = [
+  // Hiding the panels alone left the stage in the first grid cell, and the
+  // hidden attribute does nothing without this override.
+  'body.stage-only #app-container',
+  'body.stage-only #hud-center-stage',
+  '[hidden] {',
   '.timeline-editor-panel.panel-open',
   '#tutorial-prompt-modal.tutorial-prompt-dock',
   '.tutorial-progress-rail',
@@ -736,10 +746,10 @@ async function main() {
   }
   assert(html.includes('data-action="timeline"'), 'Missing mobile timeline action');
   assert(html.includes('라이브 포인터 / 화면에 표시 (Shift+P)'), 'Live pointer shortcut label is stale');
-  assert(html.includes('index.css?v=20260905-recall4'), 'CSS cache version is stale');
-  assert(html.includes('app.js?v=20260905-recall4'), 'Core JS cache version is stale');
-  assert(html.includes('scripts/holosyn-timeline.js?v=20260905-recall4'), 'Timeline script tag is missing or stale');
-  assert(html.includes('scripts/holosyn-pro-managers.js?v=20260905-recall4'), 'Pro managers script tag is missing or stale');
+  assert(html.includes('index.css?v=20260905-stage3'), 'CSS cache version is stale');
+  assert(html.includes('app.js?v=20260905-stage3'), 'Core JS cache version is stale');
+  assert(html.includes('scripts/holosyn-timeline.js?v=20260905-stage3'), 'Timeline script tag is missing or stale');
+  assert(html.includes('scripts/holosyn-pro-managers.js?v=20260905-stage3'), 'Pro managers script tag is missing or stale');
   assert(html.includes('vendor/three/three.min.js'), 'Bundled Three.js runtime is missing');
   assert(html.includes('vendor/lucide/lucide.min.js'), 'Bundled Lucide runtime is missing');
   assert(html.includes('vendor/qrcode/qrcode.js'), 'Bundled QR runtime is missing');
