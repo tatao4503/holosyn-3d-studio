@@ -321,6 +321,11 @@ const appNeedles = [
   'function applyArchiveDrawerCopy',
   'function captureArchiveThumbnail',
   'function initStageOnlyMode',
+  // Persisting a setting must never block applying it.
+  'function rememberSetting',
+  "rememberSetting('holosyn_lang', lang);",
+  "rememberSetting('holosyn_uimode', mode);",
+  'const storage = canUseLocalStorage() ? getBrowserStorage() : null;',
   'function setStageOnly',
   'if (state.stageOnly) {',
   'function getModelScreenRect',
@@ -746,10 +751,10 @@ async function main() {
   }
   assert(html.includes('data-action="timeline"'), 'Missing mobile timeline action');
   assert(html.includes('라이브 포인터 / 화면에 표시 (Shift+P)'), 'Live pointer shortcut label is stale');
-  assert(html.includes('index.css?v=20260905-stage3'), 'CSS cache version is stale');
-  assert(html.includes('app.js?v=20260905-stage3'), 'Core JS cache version is stale');
-  assert(html.includes('scripts/holosyn-timeline.js?v=20260905-stage3'), 'Timeline script tag is missing or stale');
-  assert(html.includes('scripts/holosyn-pro-managers.js?v=20260905-stage3'), 'Pro managers script tag is missing or stale');
+  assert(html.includes('index.css?v=20260905-truth'), 'CSS cache version is stale');
+  assert(html.includes('app.js?v=20260905-truth'), 'Core JS cache version is stale');
+  assert(html.includes('scripts/holosyn-timeline.js?v=20260905-truth'), 'Timeline script tag is missing or stale');
+  assert(html.includes('scripts/holosyn-pro-managers.js?v=20260905-truth'), 'Pro managers script tag is missing or stale');
   assert(html.includes('vendor/three/three.min.js'), 'Bundled Three.js runtime is missing');
   assert(html.includes('vendor/lucide/lucide.min.js'), 'Bundled Lucide runtime is missing');
   assert(html.includes('vendor/qrcode/qrcode.js'), 'Bundled QR runtime is missing');

@@ -1230,6 +1230,32 @@ function getAnnotationStorageKey() {
     return 'holosyn_annotation_labels';
 }
 
+let storageWarningShown = false;
+
+// Remembering a setting and applying it are different jobs. localStorage
+// throws in private mode and when the quota is full, and these writes sat at
+// the top of the functions that apply the change: switching language left
+// state.language on 'en' with a Korean screen, and switching to Pro left
+// state.uiMode on 'pro' with the beginner layout. A failure to remember must
+// never stop the app from doing the thing.
+function rememberSetting(key, value) {
+    try {
+        const storage = getBrowserStorage();
+        if (!storage) return false;
+        storage.setItem(key, value);
+        return true;
+    } catch (err) {
+        if (!storageWarningShown) {
+            storageWarningShown = true;
+            addConsoleLog(
+                `[STORAGE] This browser refused to save settings (${err?.name || 'error'}). They apply now but will not survive a reload.`,
+                'warning'
+            );
+        }
+        return false;
+    }
+}
+
 function getBrowserStorage() {
     return (typeof window !== 'undefined' && window.localStorage) ? window.localStorage : null;
 }
@@ -2699,7 +2725,7 @@ function initLanguageEngine() {
 
 function updateLanguageHTML(lang) {
     state.language = lang;
-    localStorage.setItem('holosyn_lang', lang);
+    rememberSetting('holosyn_lang', lang);
     savePreferences();
     
     // 1. Update text content for elements tagged with data-i18n
@@ -2759,7 +2785,7 @@ let proTourOffered = false; // session flag: offer the Pro guide tour once
 function toggleUIMode(mode) {
     state.uiMode = mode;
     if (!state.viewerMode) {
-        localStorage.setItem('holosyn_uimode', mode);
+        rememberSetting('holosyn_uimode', mode);
         savePreferences();
     }
     
@@ -6116,7 +6142,10 @@ function updateProjectSnapshotStatus(snapshot = getStoredProjectSnapshot()) {
 
 function saveProjectSnapshot(options = {}) {
     const { silent = false } = options;
-    const storage = getBrowserStorage();
+    // canUseLocalStorage actually probes a write; getBrowserStorage only checks
+    // that the object exists, which is true in private mode right up until the
+    // write throws.
+    const storage = canUseLocalStorage() ? getBrowserStorage() : null;
     if (!storage) {
         if (!silent) {
             showNotification(
@@ -6128,7 +6157,20 @@ function saveProjectSnapshot(options = {}) {
     }
 
     const snapshot = buildProjectSnapshot();
-    storage.setItem(getProjectSnapshotStorageKey(), JSON.stringify(snapshot));
+    try {
+        storage.setItem(getProjectSnapshotStorageKey(), JSON.stringify(snapshot));
+    } catch (err) {
+        if (!silent) {
+            showNotification(
+                state.language === 'ko' ? '저장하지 못했습니다' : 'Not Saved',
+                state.language === 'ko'
+                    ? '이 브라우저가 저장을 거부했습니다. 저장 공간이 가득 찼거나 시크릿 모드일 수 있습니다. [번들 저장]으로 파일에 담아 두세요.'
+                    : "This browser refused to save. Storage may be full or in private mode. Use the portable bundle to write it to a file instead."
+            );
+            addConsoleLog(`[SNAPSHOT] Save failed: ${err?.name || err}`, 'error');
+        }
+        return null;
+    }
     updateProjectSnapshotStatus(snapshot);
     updateBetaReadinessPanel();
     if (!silent) {
@@ -6165,9 +6207,18 @@ function applyProjectSnapshot(snapshot, options = {}) {
         updatePresetButtonSelection(preset);
         loadPresetModel(preset);
     } else if (preset === 'custom' && !options.customAssetLoaded) {
+        // The snapshot is settings only, by design. Saying so in the console
+        // alone is not saying it: the presenter is looking at the stage, and
+        // the stage still shows whatever was there before.
+        showNotification(
+            state.language === 'ko' ? '모델은 따로 불러오세요' : 'Load the Model Separately',
+            state.language === 'ko'
+                ? '스냅샷에는 발표 세팅만 담겨 있습니다. 모델 파일을 다시 올리면 이 세팅이 그대로 적용됩니다.'
+                : 'A snapshot stores the presentation setup, not the model. Drop the model file again and this setup applies to it.'
+        );
         addConsoleLog(
             state.language === 'ko'
-                ? '[SNAPSHOT] 커스텀 파일은 보안상 스냅샷에 포함되지 않습니다. 모델 파일을 다시 드롭하면 세팅을 이어서 사용할 수 있습니다.'
+                ? '[SNAPSHOT] 커스텀 파일은 스냅샷에 포함되지 않습니다. 모델 파일을 다시 드롭하면 세팅을 이어서 사용할 수 있습니다.'
                 : '[SNAPSHOT] Custom files are not embedded in snapshots. Drop the model file again to continue with the saved setup.',
             'warning'
         );
