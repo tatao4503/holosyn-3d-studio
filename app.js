@@ -2634,6 +2634,7 @@ function initViewerMode() {
 // Start the welcome modal boot sequence
 document.addEventListener('DOMContentLoaded', () => {
     loadPreferences(); // v3.8: Restore saved settings from localStorage
+    loadPresenterNotes();
     initViewerMode();
     registerRuntimeErrorCapture();
     applyAnnotationLabelOverrides();
@@ -6292,6 +6293,7 @@ function applyProjectSnapshot(snapshot, options = {}) {
         lockedAt: null
     };
     state.presenterNotes = normalizePresenterNotes(snapshot.presenterNotes);
+    persistPresenterNotes();
     state.savedMeasurements = normalizeSavedMeasurements(snapshot.savedMeasurements);
     rebuildSavedMeasurementVisuals();
     updatePresenterNotesPanel();
@@ -11392,6 +11394,29 @@ function normalizeSavedMeasurements(measurements) {
     });
 }
 
+function getPresenterNotesStorageKey() {
+    return 'holosyn_presenter_notes_v1';
+}
+
+// The notes are the presenter's own script — the one thing here that cannot be
+// regenerated from the model. Saying "저장" and keeping them in memory meant a
+// reload threw the talk away without a word.
+function persistPresenterNotes() {
+    return rememberSetting(getPresenterNotesStorageKey(), JSON.stringify(state.presenterNotes));
+}
+
+function loadPresenterNotes() {
+    try {
+        const storage = getBrowserStorage();
+        if (!storage) return;
+        const raw = storage.getItem(getPresenterNotesStorageKey());
+        if (!raw) return;
+        state.presenterNotes = normalizePresenterNotes(JSON.parse(raw));
+    } catch (err) {
+        addConsoleLog('[NOTES] Saved notes could not be read; starting empty.', 'warning');
+    }
+}
+
 function updatePresenterNotesPanel() {
     const status = document.getElementById('presenter-notes-status');
     if (status) status.textContent = `${state.presenterNotes.length} NOTES`;
@@ -11416,10 +11441,13 @@ function savePresenterNote() {
     };
     state.presenterNotes.push(note);
     input.value = '';
+    const persisted = persistPresenterNotes();
     updatePresenterNotesPanel();
     showNotification(
         state.language === 'ko' ? '발표자 노트 저장' : 'Presenter Note Saved',
-        state.language === 'ko' ? '현재 장면 메모를 공유 링크와 패키지에 포함합니다.' : 'This scene note will be included in share links and packages.'
+        persisted
+            ? (state.language === 'ko' ? '이 브라우저에 저장했습니다. 공유 링크와 패키지에도 함께 담깁니다.' : 'Saved in this browser, and included in share links and packages.')
+            : (state.language === 'ko' ? '이 브라우저가 저장을 거부해 이번 세션에서만 유지됩니다. 창을 닫기 전에 노트를 내보내세요.' : 'This browser refused to store it, so it lasts only for this session. Export your notes before closing the window.')
     );
     addConsoleLog(`[NOTES] Presenter note saved for ${context.preset}/${context.demoPreset}.`, 'success');
 }
