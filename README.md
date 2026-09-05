@@ -7,15 +7,21 @@
 
 **[Live Demo](https://tatao4503.github.io/holosyn-3d-studio/)** · [User Guide](USER_GUIDE.md) · [Demo Script](DEMO_SCRIPT.md)
 
-> Import a 3D model or image, present it as a clean hologram, walk through its
-> parts, measure it, and hand off a brief — all in the browser. No install,
-> build step, or backend — a pure static site.
+> **Present the prototype you are not allowed to upload.** Your model is opened
+> by the browser and never leaves it — there is no server to send it to. Walk
+> through its parts, measure it, hand off a brief, and run the whole thing at a
+> booth with the wifi off.
 
 ![HOLOSYN](og-image.png)
 
 **HOLOSYN**은 하드웨어 시제품을 홀로그램 스타일로 띄우고, 부품을 하나씩 짚어가며
 설명하고, 치수를 재고, 발표용 자료까지 내보내는 **브라우저 기반 공간 발표 스튜디오**입니다.
 제작 도구(CAD)도 임베드 뷰어도 아닌, **"발표·시연 전용"** 이라는 빈 자리를 채웁니다.
+
+**모델 파일은 이 브라우저를 떠나지 않습니다.** 업로드할 서버가 없기 때문입니다.
+계정도, 가입도, 수집되는 사용 기록도 없고, 런타임 자산까지 저장소 안에 있어
+망분리 환경이나 인터넷 없는 전시 부스에서도 그대로 동작합니다.
+아직 공개할 수 없는 시제품을 다루는 자리를 위한 도구입니다.
 
 ## HOLOSYN STAGE
 
@@ -106,6 +112,38 @@ Three.js, 아이콘, QR, 폰트와 후처리 모듈을 프로젝트 안에 고�
 - **Export suite** — GLB, spec JSON, HQ PNG, client brief, rehearsal runbook, demo/handoff pack, presenter notes, measurements, beta launch/ops packages
 - **Pepper's Ghost** 4-way split for a physical acrylic-pyramid display
 - Beginner / Pro modes · guided tours · mobile touch gestures · i18n (KO/EN)
+
+## 🔒 Where your model goes
+
+Nowhere. There is no backend, no account and no upload endpoint — the file is
+read by the browser and rendered locally. This is not a policy that could change
+without you noticing; there is simply nothing to send it to.
+
+**Check it yourself.** Open DevTools → Network, load the app, import a model, and
+read the request list. On the hosted demo a cold boot through loading a sample is
+28 requests, all to the site's own origin. Nothing else leaves the tab.
+
+Because the runtime (Three.js, icons, QR, fonts) is vendored into the repository
+rather than pulled from a CDN, the same is true with the network unplugged —
+which is what `HOLOSYN 전시.command` is for.
+
+### The two exceptions, stated plainly
+
+Two optional features do reach outside. Both are Pro-mode only, both are off
+until you switch them on, and neither is used by the Viewer, Exhibition or
+Reveal flows:
+
+| Feature | Where it goes | When |
+|---|---|---|
+| AI assistant | `generativelanguage.googleapis.com` | Only after you paste your own API key |
+| Live collaboration | PeerJS public broker (signalling only) | Only after you start a session |
+
+If your environment cannot allow either, don't enable them — everything else in
+HOLOSYN works without them. For an air-gapped internal build, remove the two
+`pro-only-section` blocks and the PeerJS script tag.
+
+There is no analytics, telemetry or error reporting of any kind. Presenter
+notes, measurements and snapshots stay in this browser's local storage.
 
 ## 🛠 Tech
 Vanilla JavaScript · **Three.js** (WebGL, post-processing bloom, GLTF/OBJ loaders) ·
