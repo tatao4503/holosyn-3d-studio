@@ -844,6 +844,15 @@ async function main() {
   assert(!appJs.includes('const AiAssistantManager'), 'AiAssistantManager should live in scripts/holosyn-pro-managers.js');
   assert(!appJs.includes('const TutorialManager'), 'TutorialManager should live in scripts/holosyn-pro-managers.js');
   assert(!appJs.includes('initSpeechRecognition'), 'Stale speech recognition initializer reference found');
+  // The split modules must stay split: app.js is the engine, not a catch-all.
+  assert(!appCore.includes('const ArchiveDBManager'), 'ArchiveDBManager should live in scripts/holosyn-archive.js');
+  assert(!appCore.includes('function saveCurrentToArchive'), 'Archive save should live in scripts/holosyn-archive.js');
+  assert(!appCore.includes('function initStageTools'), 'Stage tools should live in scripts/holosyn-stage-tools.js');
+  assert(!appCore.includes('function toggleStagePointer'), 'Live pointer should live in scripts/holosyn-stage-tools.js');
+  assert(!appCore.includes('function setStageOnly'), 'Stage-only mode should live in scripts/holosyn-stage-only.js');
+  assert(archiveJs.includes('const ArchiveDBManager'), 'holosyn-archive.js must define ArchiveDBManager');
+  assert(stageToolsJs.includes('function initStageTools'), 'holosyn-stage-tools.js must define initStageTools');
+  assert(stageOnlyJs.includes('function setStageOnly'), 'holosyn-stage-only.js must define setStageOnly');
 
   for (const needle of timelineNeedles) {
     assert(timelineJs.includes(needle), `Missing timeline checkpoint: ${needle}`);

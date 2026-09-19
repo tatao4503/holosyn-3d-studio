@@ -9,21 +9,86 @@
 
 > **Present the prototype you are not allowed to upload.** Your model is opened
 > by the browser and never leaves it — there is no server to send it to. Walk
-> through its parts, measure it, hand off a brief, and run the whole thing at a
-> booth with the wifi off.
+> through its parts, measure it, point at it, and run the whole thing at a booth
+> with the wifi off.
 
 ![HOLOSYN](og-image.png)
 
-**HOLOSYN**은 하드웨어 시제품을 홀로그램 스타일로 띄우고, 부품을 하나씩 짚어가며
-설명하고, 치수를 재고, 발표용 자료까지 내보내는 **브라우저 기반 공간 발표 스튜디오**입니다.
-제작 도구(CAD)도 임베드 뷰어도 아닌, **"발표·시연 전용"** 이라는 빈 자리를 채웁니다.
+**1인 메이커와 하드웨어 개발자를 위한 발표 도구입니다.** 아직 출원 전이거나, 공모전에
+내기 전이거나, 그냥 남한테 안 보여준 시제품 — 그런 걸 클라우드에 올리지 않고
+발표하려고 만들었습니다. 3D 파일을 브라우저에 떨어뜨리면 홀로그램 무대에 서고,
+부품을 하나씩 짚고, 치수를 재고, 관객 폰으로 QR을 쏘고, 프로젝터에는 무대만 띄웁니다.
 
-**모델 파일은 이 브라우저를 떠나지 않습니다.** 업로드할 서버가 없기 때문입니다.
-계정도, 가입도, 수집되는 사용 기록도 없고, 런타임 자산까지 저장소 안에 있어
-망분리 환경이나 인터넷 없는 전시 부스에서도 그대로 동작합니다.
-아직 공개할 수 없는 시제품을 다루는 자리를 위한 도구입니다.
+계정도 가입도 서버도 없습니다. 런타임까지 저장소 안에 들어 있어서 **인터넷이 없는
+부스에서도 그대로 돌아갑니다.**
 
-## HOLOSYN STAGE
+## 3분 안에 해보기
+
+1. **[라이브](https://tatao4503.github.io/holosyn-3d-studio/)** 를 열고 `엔진 기동` → 샘플 하나 클릭
+2. 내 `.glb` / `.obj` 파일을 화면에 드롭 — 크기는 자동으로 맞춰집니다
+3. 헤더의 `무대만` — 조작 화면이 사라지고 제품만 남습니다. `Esc`로 복귀
+4. `EXPORT SUITE → QR` — 관객이 폰으로 스캔하면 같은 장면이 열립니다
+
+그 다음은 [USER_GUIDE.md](USER_GUIDE.md)의 "비기너 3단계"면 충분합니다.
+
+## 어떤 자리에서 쓰나
+
+| 상황 | 쓰는 것 |
+|---|---|
+| 공모전·데모데이 5분 발표 | `30s PITCH` 로 순서 잡고, `무대만` 으로 프로젝터에 |
+| 부스에서 지나가는 사람에게 | `전시 링크` — 무인 루프, 유휴 시 조작 숨김, 오프라인 |
+| 심사위원이 직접 돌려보게 | `관람 링크` 또는 QR — 읽기 전용, 편집 패널 없음 |
+| 발표 며칠 뒤 다시 찾기 | 보관함 — 모델·썸네일·날짜가 이 브라우저에 남음 |
+| 다른 노트북으로 옮기기 | `휴대용 프로젝트` — 모델까지 한 파일로 |
+
+## 🔒 내 모델은 어디로 가나
+
+**아무 데도 안 갑니다.** 백엔드도, 계정도, 업로드 엔드포인트도 없습니다 — 파일은
+브라우저가 읽어서 로컬에서 그립니다. 이건 "바뀔 수 있는 정책"이 아닙니다. 보낼 데가
+없습니다.
+
+**직접 확인하세요.** 개발자도구 → Network를 열고 앱을 부팅해 샘플을 불러오면
+**요청 31개, 전부 이 사이트 자기 주소**입니다. 탭 밖으로 나가는 게 없습니다.
+(2026-09-19 라이브에서 재측정.)
+
+Three.js·아이콘·QR·폰트가 CDN이 아니라 저장소 안에 있어서, 랜선을 뽑아도 똑같습니다 —
+`HOLOSYN 전시.command`가 그 용도입니다.
+
+### 밖으로 나가는 건 딱 둘
+
+둘 다 프로 모드에만 있고, 기본으로 꺼져 있고, 관람·전시·리빌 화면에서는 쓰이지
+않습니다.
+
+| 기능 | 어디로 | 언제 |
+|---|---|---|
+| AI 어시스턴트 | `generativelanguage.googleapis.com` | 본인 API 키를 직접 넣었을 때만 |
+| 실시간 협업 | PeerJS 공개 브로커 (연결 중개만) | 세션을 시작했을 때만 |
+
+허용되지 않는 환경이면 켜지 않으면 됩니다. 나머지는 전부 그대로 동작합니다.
+분석·텔레메트리·에러 리포팅 코드는 없습니다. 발표자 노트·치수·스냅샷·보관함은 이
+브라우저의 로컬 저장소에만 있습니다.
+
+## 무엇이 들어 있나
+
+**무대에 세우기** — `.glb` / `.gltf` / `.obj`, 또는 평면 이미지를 홀로그램 릴리프로.
+자동 크기 맞춤, 부품 자동 매핑, 원본 PBR 재질 보존, HOLO / PRODUCT / HYBRID 전환.
+
+**설명하기** — Part Scan으로 부품 하나씩, 분해도, 조립 순서, 두 점 클릭 치수 측정,
+타임라인 키프레임, 30초 피치 런.
+
+**발표 현장** — `무대만` 프로젝터 화면, 라이브 포인터(레이저·드로잉·화살표),
+30초/3분/5분 타이머, QR 공유, 발표자 노트 음성 낭독.
+
+**관객에게 주기** — 관람 링크(읽기 전용), 오프라인 전시 루프, 시네마틱 리빌 링크,
+A/B 장면 비교 링크.
+
+**남기고 옮기기** — 보관함(모델·썸네일·날짜), 휴대용 `.holosyn` 프로젝트(SHA-256 검증),
+GLB / PNG / JSON / 클라이언트 브리프 / 리허설 런북 / 데모 팩, 3·5초 클립(WebM 또는 MP4).
+
+Pepper's Ghost 4분할 · 비기너/프로 모드 · 가이드 투어 · 모바일 터치 · 한/영.
+
+<details>
+<summary>STAGE 릴리즈 — 무대와 백스테이지를 나눈 이유</summary>
 
 무대와 백스테이지를 나눈 릴리즈입니다. 지금까지 HOLOSYN은 만드는 사람의 화면 하나였고,
 공유 링크를 받은 사람도 편집 패널이 가득한 제작 화면을 열어야 했습니다. STAGE는 그 둘을
@@ -92,74 +157,21 @@ Three.js, 아이콘, QR, 폰트와 후처리 모듈을 프로젝트 안에 고�
 - 모델 원본, 연락처, 전체 URL, 전체 브라우저 정보는 리포트에서 제외
 - 테스트 중 만든 공유·전시·리빌 링크에는 `test=1`이 포함되지 않음
 
-## ✨ Highlights
-- **Import anything** — `.glb` / `.gltf` / `.obj`, or a flat image projected as a 3D holographic relief
-- **Part Scan** — step through each component with auto-generated talking points
-- **Material Reveal** — switch between hologram structure, original product PBR/color, and focused-part hybrid reveal
-- **3D Measure** — click two points for a real-world dimension readout
-- **Exploded view · Assembly steps · Timeline director** for staged walkthroughs
-- **Showcase mode** — hide all HUD, product only; Play Show for an auto cinematic pass
-- **Audience Viewer link** — pack model, lighting, color, camera, timeline, notes, and saved dimensions into a clean read-only URL
-- **A/B Scene Compare** — capture two camera, lighting, material, exploded, and part-focus states and switch between them in Viewer
-- **Offline Exhibition Mode** — bundled runtime assets, unattended looping, A/B auto-cycle, and idle control hiding
-- **Cinematic Reveal Mode** — one link stages blackout, geometry, exploded parts, material color, hero shot, and a HOLOSYN signature
-- **Live Beta Session** — track five real user tasks, completion time, friction, satisfaction, and sanitized runtime errors
-- **Portable project** — pack the actual model, camera, timeline, notes, and dimensions into one `.holosyn` file
-- **Clip recorder** — export 3-second or 5-second rotating/exploded WebM clips from the viewport
-- **30s Pitch Run** — one button stages hero view, exploded structure, Part Scan, Showcase, Final Pass, and a share URL
-- **Quick styles** — minimal blue, tactical silver, matrix green, and a warm gold/crimson armor-lab skin
-- **Stage tools** — show a scannable QR, point or draw over the viewport, rehearse to a 30s/3m/5m timer, and narrate saved presenter notes
-- **Export suite** — GLB, spec JSON, HQ PNG, client brief, rehearsal runbook, demo/handoff pack, presenter notes, measurements, beta launch/ops packages
-- **Pepper's Ghost** 4-way split for a physical acrylic-pyramid display
-- Beginner / Pro modes · guided tours · mobile touch gestures · i18n (KO/EN)
-
-## 🔒 Where your model goes
-
-Nowhere. There is no backend, no account and no upload endpoint — the file is
-read by the browser and rendered locally. This is not a policy that could change
-without you noticing; there is simply nothing to send it to.
-
-**Check it yourself.** Open DevTools → Network, load the app, import a model, and
-read the request list. On the hosted demo a cold boot through loading a sample is
-28 requests, all to the site's own origin. Nothing else leaves the tab.
-
-Because the runtime (Three.js, icons, QR, fonts) is vendored into the repository
-rather than pulled from a CDN, the same is true with the network unplugged —
-which is what `HOLOSYN 전시.command` is for.
-
-### The two exceptions, stated plainly
-
-Two optional features do reach outside. Both are Pro-mode only, both are off
-until you switch them on, and neither is used by the Viewer, Exhibition or
-Reveal flows:
-
-| Feature | Where it goes | When |
-|---|---|---|
-| AI assistant | `generativelanguage.googleapis.com` | Only after you paste your own API key |
-| Live collaboration | PeerJS public broker (signalling only) | Only after you start a session |
-
-If your environment cannot allow either, don't enable them — everything else in
-HOLOSYN works without them. For an air-gapped internal build, remove the two
-`pro-only-section` blocks and the PeerJS script tag.
-
-There is no analytics, telemetry or error reporting of any kind. Presenter
-notes, measurements and snapshots stay in this browser's local storage.
+</details>
 
 ## 🛠 Tech
-Vanilla JavaScript · **Three.js** (WebGL, post-processing bloom, GLTF/OBJ loaders) ·
-Web Audio API · IndexedDB · PeerJS (optional live collaboration) — no framework,
-no build step, no backend.
+Vanilla JavaScript · **Three.js** r128 (WebGL, bloom post-processing, GLTF/OBJ loaders) ·
+Web Audio API · IndexedDB · PeerJS (optional) — no framework, no build step, no backend.
+`app.js` holds the engine; the archive, stage tools and projector view are classic-script
+modules under `scripts/` sharing one global scope.
 
 ## 📌 About
-A solo project exploring how far a single person can take an idea by directing AI
-coding tools (concept, direction, review, and iteration by the author; implementation
-via AI pair-programming). It started as the presentation tool for one real hardware
-prototype — the need was a way to show a physical object convincingly without
-shipping it — and grew from a weekend experiment into a full spatial presentation
-studio. See [`USER_GUIDE.md`](USER_GUIDE.md) for the full manual.
-
-The hosted demo includes the complete local-first presentation workflow, and
-runs entirely in the browser with no backend.
+A solo project exploring how far one person can take an idea by directing AI coding
+tools — concept, direction, review and iteration by the author; implementation via AI
+pair-programming. It began as the presentation tool for one real hardware prototype,
+because there was no way to show the physical object convincingly without shipping it,
+and grew from a weekend experiment into a full spatial presentation studio.
+See [`USER_GUIDE.md`](USER_GUIDE.md) for the manual.
 
 ## Quick Start
 
@@ -242,11 +254,17 @@ Use this after leaving the project alone for a few days:
 - `index.html` wires the static app shell and bundled runtime libraries.
 - `index.css` owns the full responsive HUD and hologram presentation styling.
 - `app.js` owns the core 3D engine, viewport state, imports, exports, and mobile shell.
+- `scripts/holosyn-archive.js` owns the prototype archive: IndexedDB records with the model as GLB, stage thumbnail, and date.
+- `scripts/holosyn-stage-tools.js` owns the QR share, live pointer, pitch timer, and note narration.
+- `scripts/holosyn-stage-only.js` owns the `무대만` projector view.
 - `scripts/holosyn-timeline.js` owns Timeline Keyframe Director playback, keyframes, export/import, and remote timeline sync.
 - `scripts/holosyn-pro-managers.js` owns Pro interaction layers: collaboration, AI assistant, and tutorial flow.
 - `scripts/smoke-check.mjs` verifies the handoff-critical hooks after edits.
 
 ## Demo Flow
+
+<details>
+<summary>19-step full walkthrough</summary>
 
 1. Click `HOLOSYN 엔진 기동`.
 2. Choose a sample model or drop in your own 3D file.
@@ -261,14 +279,19 @@ Use this after leaving the project alone for a few days:
 11. Use `Timeline` or `Showcase` for a cleaner audience-facing presentation pass.
 12. Edit the product name or part labels if needed.
 13. Save presenter notes or multiple 3D dimensions if the demo needs exact talking points.
-14. Copy a Share Link or record a short WebM clip when you need to send the same angle or motion pass.
+14. Copy a Share Link or record a short clip when you need to send the same angle or motion pass.
 15. Save two states in `A/B SCENE COMPARE` and copy its link when a client should compare color, structure, lighting, or exploded views.
 16. Copy a `리빌 링크` when the first impression should progress from structure to full product color before handing control to the audience.
 17. Use `PORTABLE PROJECT` when the custom model itself must travel with the presentation state.
 18. Review Beta Preflight, Beta Launch Pack, and Beta Ops Pack, then export the Rehearsal Runbook or click `시연 패키지 생성` for the one-click Demo Pack.
 19. Export PNG, JSON, GLB, Client Brief Markdown, or the Handoff Manifest separately when needed.
 
+</details>
+
 ## Main Features
+
+<details>
+<summary>Complete list</summary>
 
 - 3D model and image import
 - Sample Prototype Gallery for fast demos, including Drone, Ring, EV, Core Cell, and Forge Exo Suit concepts
@@ -291,7 +314,7 @@ Use this after leaving the project alone for a few days:
 - URL Share Link for restoring the same presentation state from one copied link
 - A/B Scene Compare link with studio capture, preview, and audience-side A/B switching
 - Cinematic Reveal link with a one-shot structure-to-material product opening
-- Viewport Clip Recorder for short rotating/exploded WebM exports
+- Viewport Clip Recorder for short rotating/exploded clips (WebM, or MP4 where the browser has no WebM)
 - QR Share for opening the current presentation scene from an audience phone
 - Live viewport pointer with laser, fading freehand, and arrow modes
 - Pitch timer with 30-second, 3-minute, and 5-minute pacing targets
@@ -302,7 +325,7 @@ Use this after leaving the project alone for a few days:
 - Beta Launch Pack for onboarding availability, import risk, FPS floor, snapshot, export, and docs/package readiness
 - Beta Ops Pack for user-test scripts, performance benchmark, error report, example project pack, deploy checklist, and release package
 - Timeline Keyframe Director for staged prototype presentations
-- Showcase / cinematic camera modes with automatic presentation-focused Part Scan
+- `무대만` projector view (chrome hidden, camera untouched, Esc to return) and Showcase cinematic camera pass
 - HQ Boost render path with 2.5x DPR cap, bloom tuning, and 1.5x spec card PNG export
 - Optional AI assistant and collaboration controls for pro-mode demos
 - Safer AI key handling with session-only, local-save, and clear controls
@@ -313,6 +336,8 @@ Use this after leaving the project alone for a few days:
 - One-click Demo Pack export with client brief, handoff manifest, project snapshot, readiness state, and recommended deliverables
 - Handoff Manifest export with final readiness score, clickable readiness jumps, visible Part Map readiness, clickable next-step guidance, demo setup, quality state, and recommended asset list
 - Mobile-friendly drawer controls
+
+</details>
 
 ## Supported Inputs
 
@@ -333,3 +358,5 @@ Multi-part 3D models work best for exploded views and part labels. HOLOSYN reads
 - Offline Exhibition links restore built-in models and URL state. For a custom model, prepare the booth computer with a Portable Project before going offline.
 - For a clean presentation, start with a Demo Scene Preset or `데모 런`, run Final Pass to lock HQ Boost and a fresh snapshot, then export the Rehearsal Runbook or one-click Demo Pack when Final Readiness reaches Demo Ready or better.
 - Project Snapshots store presentation settings and timeline state in this browser. Custom model files are not embedded; drop the file again if a restored custom setup needs its original GLB/OBJ/image.
+- The Archive (Pro mode drawer) does embed the imported model, as a binary GLB, along with a stage thumbnail and the save date. It lives in this browser's IndexedDB only — use `PORTABLE PROJECT` to get it out as a file.
+- Presenter notes and saved dimensions persist in this browser across reloads. If the browser refuses storage (private mode, full quota) the app says so instead of claiming a save.
