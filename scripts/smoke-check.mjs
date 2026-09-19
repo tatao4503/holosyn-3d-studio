@@ -49,7 +49,11 @@ async function verifyDeployBundle(root) {
 }
 
 const requiredFiles = [
+  'scripts/holosyn-sample-models.js',
+  'scripts/holosyn-portable-project.js',
   'scripts/holosyn-archive.js',
+  'scripts/holosyn-handoff-docs.js',
+  'scripts/holosyn-beta-ops.js',
   'scripts/holosyn-stage-tools.js',
   'scripts/holosyn-stage-only.js',
   'index.html',
@@ -734,11 +738,15 @@ async function main() {
     await access(file);
   }
 
-  const [html, css, appCore, archiveJs, stageToolsJs, stageOnlyJs, timelineJs, managerJs] = await Promise.all([
+  const [html, css, appCore, sampleModelsJs, portableJs, archiveJs, handoffJs, betaOpsJs, stageToolsJs, stageOnlyJs, timelineJs, managerJs] = await Promise.all([
     readFile('index.html', 'utf8'),
     readFile('index.css', 'utf8'),
     readFile('app.js', 'utf8'),
+    readFile('scripts/holosyn-sample-models.js', 'utf8'),
+    readFile('scripts/holosyn-portable-project.js', 'utf8'),
     readFile('scripts/holosyn-archive.js', 'utf8'),
+    readFile('scripts/holosyn-handoff-docs.js', 'utf8'),
+    readFile('scripts/holosyn-beta-ops.js', 'utf8'),
     readFile('scripts/holosyn-stage-tools.js', 'utf8'),
     readFile('scripts/holosyn-stage-only.js', 'utf8'),
     readFile('scripts/holosyn-timeline.js', 'utf8'),
@@ -747,7 +755,7 @@ async function main() {
 
   // app.js was split into classic scripts that share one global scope, so the
   // checkpoints below are about the app as a whole, not about one file.
-  const appJs = [appCore, archiveJs, stageToolsJs, stageOnlyJs].join('\n');
+  const appJs = [appCore, sampleModelsJs, portableJs, archiveJs, handoffJs, betaOpsJs, stageToolsJs, stageOnlyJs].join('\n');
 
   await assertLocalAssetsExist(html);
 
@@ -771,10 +779,10 @@ async function main() {
   }
   assert(html.includes('data-action="timeline"'), 'Missing mobile timeline action');
   assert(html.includes('라이브 포인터 / 화면에 표시 (Shift+P)'), 'Live pointer shortcut label is stale');
-  assert(html.includes('index.css?v=20260905-honest'), 'CSS cache version is stale');
-  assert(html.includes('app.js?v=20260905-honest'), 'Core JS cache version is stale');
-  assert(html.includes('scripts/holosyn-timeline.js?v=20260905-honest'), 'Timeline script tag is missing or stale');
-  assert(html.includes('scripts/holosyn-pro-managers.js?v=20260905-honest'), 'Pro managers script tag is missing or stale');
+  assert(html.includes('index.css?v=20260919-split'), 'CSS cache version is stale');
+  assert(html.includes('app.js?v=20260919-split'), 'Core JS cache version is stale');
+  assert(html.includes('scripts/holosyn-timeline.js?v=20260919-split'), 'Timeline script tag is missing or stale');
+  assert(html.includes('scripts/holosyn-pro-managers.js?v=20260919-split'), 'Pro managers script tag is missing or stale');
   assert(html.includes('vendor/three/three.min.js'), 'Bundled Three.js runtime is missing');
   assert(html.includes('vendor/lucide/lucide.min.js'), 'Bundled Lucide runtime is missing');
   assert(html.includes('vendor/qrcode/qrcode.js'), 'Bundled QR runtime is missing');
@@ -816,8 +824,61 @@ async function main() {
 
   // Every browser script the page loads must actually be referenced by it — a
   // module that exists but is never included is worse than one that is missing.
-  for (const module of ['holosyn-archive', 'holosyn-stage-tools', 'holosyn-stage-only', 'holosyn-timeline', 'holosyn-pro-managers']) {
+  for (const module of ['holosyn-sample-models', 'holosyn-portable-project', 'holosyn-archive', 'holosyn-handoff-docs', 'holosyn-beta-ops', 'holosyn-stage-tools', 'holosyn-stage-only', 'holosyn-timeline', 'holosyn-pro-managers']) {
     assert(html.includes(`scripts/${module}.js?v=`), `index.html does not load scripts/${module}.js`);
+  }
+
+  // Load-order guard. The browser scripts share one global scope, but a
+  // statement that runs at load time — `if (...) { window.x = fn }` at column
+  // 0 — can only see declarations from files loaded before it. Referencing a
+  // function from a later file throws there and aborts the rest of that file,
+  // leaving every later `let` in its temporal dead zone. Syntax checks pass;
+  // the app dies on boot. This caught nothing until it was written, then
+  // caught exactly that.
+  const loadOrder = [
+    ['app.js', appCore],
+    ['scripts/holosyn-sample-models.js', sampleModelsJs],
+    ['scripts/holosyn-portable-project.js', portableJs],
+    ['scripts/holosyn-archive.js', archiveJs],
+    ['scripts/holosyn-handoff-docs.js', handoffJs],
+    ['scripts/holosyn-beta-ops.js', betaOpsJs],
+    ['scripts/holosyn-stage-tools.js', stageToolsJs],
+    ['scripts/holosyn-stage-only.js', stageOnlyJs],
+    ['scripts/holosyn-timeline.js', timelineJs],
+    ['scripts/holosyn-pro-managers.js', managerJs],
+  ];
+  const declaredIn = (src) => new Set(
+    [...src.matchAll(/^(?:async\s+)?function\s+([A-Za-z_$][\w$]*)|^(?:const|let|var)\s+([A-Za-z_$][\w$]*)/gm)]
+      .map(m => m[1] || m[2])
+  );
+  const topLevelStatements = (src) => {
+    const lines = src.split('\n');
+    const blocks = [];
+    for (let i = 0; i < lines.length; i++) {
+      if (!/^(?:if\s*\(|window\.|document\.)/.test(lines[i])) continue;
+      let j = i;
+      if (/\{\s*$/.test(lines[i]) || /=\s*\{\s*$/.test(lines[i])) {
+        while (j < lines.length && !/^[}\]]\s*;?\s*$/.test(lines[j])) j++;
+      }
+      blocks.push({ line: i + 1, text: lines.slice(i, j + 1).join('\n') });
+      i = j;
+    }
+    return blocks;
+  };
+  for (let i = 0; i < loadOrder.length; i++) {
+    const [file, src] = loadOrder[i];
+    const laterNames = new Map();
+    for (let k = i + 1; k < loadOrder.length; k++) {
+      for (const name of declaredIn(loadOrder[k][1])) laterNames.set(name, loadOrder[k][0]);
+    }
+    for (const block of topLevelStatements(src)) {
+      // DOMContentLoaded / visibilitychange handlers run later, after every script has loaded.
+      if (/^document\.addEventListener\(/.test(block.text)) continue;
+      for (const [name, owner] of laterNames) {
+        const used = new RegExp(`(?<![\\w$.])${name}(?![\\w$])`).test(block.text);
+        assert(!used, `${file}:${block.line} runs at load time and references ${name}, which is declared in ${owner} (loaded later) — the file would abort there`);
+      }
+    }
   }
 
   for (const needle of appNeedles) {
@@ -853,6 +914,14 @@ async function main() {
   assert(archiveJs.includes('const ArchiveDBManager'), 'holosyn-archive.js must define ArchiveDBManager');
   assert(stageToolsJs.includes('function initStageTools'), 'holosyn-stage-tools.js must define initStageTools');
   assert(stageOnlyJs.includes('function setStageOnly'), 'holosyn-stage-only.js must define setStageOnly');
+  assert(!appCore.includes('function createAeroDroneGeometry'), 'Sample builders should live in scripts/holosyn-sample-models.js');
+  assert(!appCore.includes('function exportPortableProjectBundle'), 'Portable project should live in scripts/holosyn-portable-project.js');
+  assert(!appCore.includes('function buildClientBriefMarkdown'), 'Handoff docs should live in scripts/holosyn-handoff-docs.js');
+  assert(!appCore.includes('function startBetaTestSession'), 'Beta session should live in scripts/holosyn-beta-ops.js');
+  assert(sampleModelsJs.includes('function createForgeExoSuitGeometry'), 'holosyn-sample-models.js must define the exo suit');
+  assert(portableJs.includes('function parseGltfExport'), 'holosyn-portable-project.js must define parseGltfExport');
+  assert(handoffJs.includes('function buildDemoPackData'), 'holosyn-handoff-docs.js must define buildDemoPackData');
+  assert(betaOpsJs.includes('function initBetaTestSession'), 'holosyn-beta-ops.js must define initBetaTestSession');
 
   for (const needle of timelineNeedles) {
     assert(timelineJs.includes(needle), `Missing timeline checkpoint: ${needle}`);

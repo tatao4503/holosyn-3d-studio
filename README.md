@@ -254,7 +254,11 @@ Use this after leaving the project alone for a few days:
 - `index.html` wires the static app shell and bundled runtime libraries.
 - `index.css` owns the full responsive HUD and hologram presentation styling.
 - `app.js` owns the core 3D engine, viewport state, imports, exports, and mobile shell.
+- `scripts/holosyn-sample-models.js` owns the five procedural sample prototypes.
+- `scripts/holosyn-portable-project.js` owns `.holosyn` export/import and the GLB re-export it is built on.
 - `scripts/holosyn-archive.js` owns the prototype archive: IndexedDB records with the model as GLB, stage thumbnail, and date.
+- `scripts/holosyn-handoff-docs.js` owns the client brief, rehearsal runbook, handoff manifest, and demo pack.
+- `scripts/holosyn-beta-ops.js` owns the timed beta session and the ops exports (test plan, benchmark, error report, deploy checklist, release package).
 - `scripts/holosyn-stage-tools.js` owns the QR share, live pointer, pitch timer, and note narration.
 - `scripts/holosyn-stage-only.js` owns the `무대만` projector view.
 - `scripts/holosyn-timeline.js` owns Timeline Keyframe Director playback, keyframes, export/import, and remote timeline sync.
