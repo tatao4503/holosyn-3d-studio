@@ -24,9 +24,14 @@ jobs:
 
       - name: Check JavaScript syntax
         run: |
-          node --check app.js
-          node --check scripts/holosyn-timeline.js
-          node --check scripts/holosyn-pro-managers.js
+          # every browser script, by glob — a new module must not be able to
+          # skip this the way it could when the files were named one by one
+          for f in app.js scripts/holosyn-*.js scripts/smoke-check.mjs eslint.config.mjs; do
+            node --check "$f"
+          done
+
+      - name: Lint for undeclared identifiers
+        run: npx --yes eslint@9 .
 
       - name: Run smoke check
         run: node scripts/smoke-check.mjs

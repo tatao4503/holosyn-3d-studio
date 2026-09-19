@@ -226,6 +226,18 @@ Cinematic Reveal:
 http://127.0.0.1:4173/index.html?viewer=1&reveal=1
 ```
 
+## Lint
+
+```bash
+npx --yes eslint@9 .
+```
+
+`no-undef` only, across every browser script, with each script's top-level
+declarations treated as shared globals — which is what the browser does. It
+exists because a function can name a variable that is declared nowhere (a
+local from some other function) and throw on first use with every other check
+green. CI runs it.
+
 ## Smoke Check
 
 Run this after editing the app:
@@ -254,6 +266,9 @@ Use this after leaving the project alone for a few days:
 - `index.html` wires the static app shell and bundled runtime libraries.
 - `index.css` owns the full responsive HUD and hologram presentation styling.
 - `app.js` owns the core 3D engine, viewport state, imports, exports, and mobile shell.
+- `scripts/holosyn-audio.js` owns the Web Audio synthesiser (ambient hum, clicks, sweeps, chime).
+- `scripts/holosyn-voice.js` owns speech-to-intent and the assistant voice.
+- `scripts/holosyn-pyramid.js` owns the Pepper's Ghost four-way render.
 - `scripts/holosyn-sample-models.js` owns the five procedural sample prototypes.
 - `scripts/holosyn-portable-project.js` owns `.holosyn` export/import and the GLB re-export it is built on.
 - `scripts/holosyn-archive.js` owns the prototype archive: IndexedDB records with the model as GLB, stage thumbnail, and date.
