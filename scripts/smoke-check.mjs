@@ -55,6 +55,9 @@ const requiredFiles = [
   'scripts/holosyn-sample-models.js',
   'scripts/holosyn-portable-project.js',
   'scripts/holosyn-archive.js',
+  'scripts/holosyn-share-links.js',
+  'scripts/holosyn-presenter-records.js',
+  'scripts/holosyn-media-exports.js',
   'scripts/holosyn-handoff-docs.js',
   'scripts/holosyn-beta-ops.js',
   'scripts/holosyn-stage-tools.js',
@@ -741,7 +744,7 @@ async function main() {
     await access(file);
   }
 
-  const [html, css, appCore, audioJs, voiceJs, pyramidJs, sampleModelsJs, portableJs, archiveJs, handoffJs, betaOpsJs, stageToolsJs, stageOnlyJs, timelineJs, managerJs] = await Promise.all([
+  const [html, css, appCore, audioJs, voiceJs, pyramidJs, sampleModelsJs, portableJs, archiveJs, shareLinksJs, recordsJs, mediaJs, handoffJs, betaOpsJs, stageToolsJs, stageOnlyJs, timelineJs, managerJs] = await Promise.all([
     readFile('index.html', 'utf8'),
     readFile('index.css', 'utf8'),
     readFile('app.js', 'utf8'),
@@ -751,6 +754,9 @@ async function main() {
     readFile('scripts/holosyn-sample-models.js', 'utf8'),
     readFile('scripts/holosyn-portable-project.js', 'utf8'),
     readFile('scripts/holosyn-archive.js', 'utf8'),
+    readFile('scripts/holosyn-share-links.js', 'utf8'),
+    readFile('scripts/holosyn-presenter-records.js', 'utf8'),
+    readFile('scripts/holosyn-media-exports.js', 'utf8'),
     readFile('scripts/holosyn-handoff-docs.js', 'utf8'),
     readFile('scripts/holosyn-beta-ops.js', 'utf8'),
     readFile('scripts/holosyn-stage-tools.js', 'utf8'),
@@ -761,7 +767,7 @@ async function main() {
 
   // app.js was split into classic scripts that share one global scope, so the
   // checkpoints below are about the app as a whole, not about one file.
-  const appJs = [appCore, audioJs, voiceJs, pyramidJs, sampleModelsJs, portableJs, archiveJs, handoffJs, betaOpsJs, stageToolsJs, stageOnlyJs].join('\n');
+  const appJs = [appCore, audioJs, voiceJs, pyramidJs, sampleModelsJs, portableJs, archiveJs, shareLinksJs, recordsJs, mediaJs, handoffJs, betaOpsJs, stageToolsJs, stageOnlyJs].join('\n');
 
   await assertLocalAssetsExist(html);
 
@@ -785,10 +791,10 @@ async function main() {
   }
   assert(html.includes('data-action="timeline"'), 'Missing mobile timeline action');
   assert(html.includes('라이브 포인터 / 화면에 표시 (Shift+P)'), 'Live pointer shortcut label is stale');
-  assert(html.includes('index.css?v=20260920-split'), 'CSS cache version is stale');
-  assert(html.includes('app.js?v=20260920-split'), 'Core JS cache version is stale');
-  assert(html.includes('scripts/holosyn-timeline.js?v=20260920-split'), 'Timeline script tag is missing or stale');
-  assert(html.includes('scripts/holosyn-pro-managers.js?v=20260920-split'), 'Pro managers script tag is missing or stale');
+  assert(html.includes('index.css?v=20260920-split2'), 'CSS cache version is stale');
+  assert(html.includes('app.js?v=20260920-split2'), 'Core JS cache version is stale');
+  assert(html.includes('scripts/holosyn-timeline.js?v=20260920-split2'), 'Timeline script tag is missing or stale');
+  assert(html.includes('scripts/holosyn-pro-managers.js?v=20260920-split2'), 'Pro managers script tag is missing or stale');
   assert(html.includes('vendor/three/three.min.js'), 'Bundled Three.js runtime is missing');
   assert(html.includes('vendor/lucide/lucide.min.js'), 'Bundled Lucide runtime is missing');
   assert(html.includes('vendor/qrcode/qrcode.js'), 'Bundled QR runtime is missing');
@@ -830,7 +836,7 @@ async function main() {
 
   // Every browser script the page loads must actually be referenced by it — a
   // module that exists but is never included is worse than one that is missing.
-  for (const module of ['holosyn-audio', 'holosyn-voice', 'holosyn-pyramid', 'holosyn-sample-models', 'holosyn-portable-project', 'holosyn-archive', 'holosyn-handoff-docs', 'holosyn-beta-ops', 'holosyn-stage-tools', 'holosyn-stage-only', 'holosyn-timeline', 'holosyn-pro-managers']) {
+  for (const module of ['holosyn-audio', 'holosyn-voice', 'holosyn-pyramid', 'holosyn-sample-models', 'holosyn-portable-project', 'holosyn-archive', 'holosyn-share-links', 'holosyn-presenter-records', 'holosyn-media-exports', 'holosyn-handoff-docs', 'holosyn-beta-ops', 'holosyn-stage-tools', 'holosyn-stage-only', 'holosyn-timeline', 'holosyn-pro-managers']) {
     assert(html.includes(`scripts/${module}.js?v=`), `index.html does not load scripts/${module}.js`);
   }
 
@@ -849,6 +855,9 @@ async function main() {
     ['scripts/holosyn-sample-models.js', sampleModelsJs],
     ['scripts/holosyn-portable-project.js', portableJs],
     ['scripts/holosyn-archive.js', archiveJs],
+    ['scripts/holosyn-share-links.js', shareLinksJs],
+    ['scripts/holosyn-presenter-records.js', recordsJs],
+    ['scripts/holosyn-media-exports.js', mediaJs],
     ['scripts/holosyn-handoff-docs.js', handoffJs],
     ['scripts/holosyn-beta-ops.js', betaOpsJs],
     ['scripts/holosyn-stage-tools.js', stageToolsJs],
@@ -937,6 +946,12 @@ async function main() {
   assert(audioJs.includes('function playSynthClick'), 'holosyn-audio.js must define playSynthClick');
   assert(voiceJs.includes('function initVoiceRecognition'), 'holosyn-voice.js must define initVoiceRecognition');
   assert(pyramidJs.includes('function renderPepperGhost'), 'holosyn-pyramid.js must define renderPepperGhost');
+  assert(!appCore.includes('function buildShareUrl'), 'Share links should live in scripts/holosyn-share-links.js');
+  assert(!appCore.includes('function savePresenterNote'), 'Presenter records should live in scripts/holosyn-presenter-records.js');
+  assert(!appCore.includes('function exportSnapshotPNG'), 'Media exports should live in scripts/holosyn-media-exports.js');
+  assert(shareLinksJs.includes('function applyShareState'), 'holosyn-share-links.js must define applyShareState');
+  assert(recordsJs.includes('function persistSavedMeasurements'), 'holosyn-presenter-records.js must define persistSavedMeasurements');
+  assert(mediaJs.includes('async function recordViewportClip'), 'holosyn-media-exports.js must define recordViewportClip');
 
   for (const needle of timelineNeedles) {
     assert(timelineJs.includes(needle), `Missing timeline checkpoint: ${needle}`);

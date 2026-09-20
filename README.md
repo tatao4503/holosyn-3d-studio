@@ -272,6 +272,9 @@ Use this after leaving the project alone for a few days:
 - `scripts/holosyn-sample-models.js` owns the five procedural sample prototypes.
 - `scripts/holosyn-portable-project.js` owns `.holosyn` export/import and the GLB re-export it is built on.
 - `scripts/holosyn-archive.js` owns the prototype archive: IndexedDB records with the model as GLB, stage thumbnail, and date.
+- `scripts/holosyn-share-links.js` owns the URL-hash share state and the viewer / exhibition / reveal links built from it.
+- `scripts/holosyn-presenter-records.js` owns presenter notes and saved dimensions: persistence, panels, Markdown/JSON export.
+- `scripts/holosyn-media-exports.js` owns the viewport clip, GLB, spec JSON, and spec-card PNG.
 - `scripts/holosyn-handoff-docs.js` owns the client brief, rehearsal runbook, handoff manifest, and demo pack.
 - `scripts/holosyn-beta-ops.js` owns the timed beta session and the ops exports (test plan, benchmark, error report, deploy checklist, release package).
 - `scripts/holosyn-stage-tools.js` owns the QR share, live pointer, pitch timer, and note narration.
