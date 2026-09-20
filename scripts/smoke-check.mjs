@@ -49,6 +49,7 @@ async function verifyDeployBundle(root) {
 }
 
 const requiredFiles = [
+  'bench/index.html',
   'scripts/holosyn-audio.js',
   'scripts/holosyn-voice.js',
   'scripts/holosyn-pyramid.js',
@@ -334,6 +335,9 @@ const appNeedles = [
   'function applyArchiveDrawerCopy',
   'function captureArchiveThumbnail',
   'function initStageOnlyMode',
+  'function isBenchModeRequested',
+  'function applyBenchCopy',
+  "classList.toggle('bench-mode', state.benchMode)",
   // Persisting a setting must never block applying it.
   'function rememberSetting',
   'function persistPresenterNotes',
@@ -587,6 +591,7 @@ const cssNeedles = [
   // Hiding the panels alone left the stage in the first grid cell, and the
   // hidden attribute does nothing without this override.
   'body.stage-only #app-container',
+  'body.bench-mode #btn-header-share-link,',
   'body.stage-only #hud-center-stage',
   '[hidden] {',
   '.timeline-editor-panel.panel-open',
@@ -791,10 +796,10 @@ async function main() {
   }
   assert(html.includes('data-action="timeline"'), 'Missing mobile timeline action');
   assert(html.includes('라이브 포인터 / 화면에 표시 (Shift+P)'), 'Live pointer shortcut label is stale');
-  assert(html.includes('index.css?v=20260920-split2'), 'CSS cache version is stale');
-  assert(html.includes('app.js?v=20260920-split2'), 'Core JS cache version is stale');
-  assert(html.includes('scripts/holosyn-timeline.js?v=20260920-split2'), 'Timeline script tag is missing or stale');
-  assert(html.includes('scripts/holosyn-pro-managers.js?v=20260920-split2'), 'Pro managers script tag is missing or stale');
+  assert(html.includes('index.css?v=20260920-bench'), 'CSS cache version is stale');
+  assert(html.includes('app.js?v=20260920-bench'), 'Core JS cache version is stale');
+  assert(html.includes('scripts/holosyn-timeline.js?v=20260920-bench'), 'Timeline script tag is missing or stale');
+  assert(html.includes('scripts/holosyn-pro-managers.js?v=20260920-bench'), 'Pro managers script tag is missing or stale');
   assert(html.includes('vendor/three/three.min.js'), 'Bundled Three.js runtime is missing');
   assert(html.includes('vendor/lucide/lucide.min.js'), 'Bundled Lucide runtime is missing');
   assert(html.includes('vendor/qrcode/qrcode.js'), 'Bundled QR runtime is missing');

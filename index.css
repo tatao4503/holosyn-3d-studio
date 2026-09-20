@@ -8294,3 +8294,38 @@ body.stage-only #stage-only-exit.is-idle {
 [hidden] {
     display: none !important;
 }
+
+/* ==========================================================================
+   BENCH — the everyday door (?bench=1)
+   Same app, presentation layer folded. What stays is what a maker does
+   between talks: open, auto-fit, parts, exploded view, measure, A/B compare,
+   archive, portable project, GLB/JSON/PNG out. What folds is everything
+   addressed to an audience or a handoff.
+   ========================================================================== */
+body.bench-mode #btn-header-share-link,
+body.bench-mode #btn-stage-only,
+body.bench-mode #btn-showcase-toggle,
+body.bench-mode #demo-presets-panel,
+body.bench-mode #beginner-flow,
+body.bench-mode #flow-coach,
+body.bench-mode #stage-tools,
+body.bench-mode #pointer-hud,
+body.bench-mode #pitch-timer,
+body.bench-mode #demo-pack-panel,
+body.bench-mode #rehearsal-pack-panel,
+body.bench-mode #share-link-panel,
+body.bench-mode #clip-export-panel,
+body.bench-mode .handoff-pack-panel,
+body.bench-mode #final-pass-panel,
+body.bench-mode #final-readiness-panel,
+body.bench-mode #launch-readiness-panel,
+body.bench-mode #beta-readiness-panel,
+body.bench-mode #beta-ops-panel,
+body.bench-mode #beta-session-panel,
+body.bench-mode #btn-toggle-timeline,
+body.bench-mode #timeline-editor,
+body.bench-mode #btn-narrate-notes,
+body.bench-mode #btn-narrate-stop,
+body.bench-mode #btn-trigger-shockwave {
+    display: none !important;
+}

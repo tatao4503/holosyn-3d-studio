@@ -293,6 +293,7 @@ const state = {
     uiMode: 'beginner',           // 'beginner' or 'pro' - Beginner is default clean mode
     viewerMode: false,            // V2 audience-facing, read-only shared scene
     stageOnly: false,             // presenter's own screen, projected: chrome hidden, camera still theirs
+    benchMode: false,             // BENCH: the everyday door — open, inspect, measure; presentation UI folded away
     exhibitionMode: false,        // V2 offline-ready, unattended viewer loop
     exhibitionPaused: false,
     revealMode: false,            // V2 one-shot cinematic product reveal
@@ -2408,6 +2409,10 @@ function initPartScanControls() {
     updatePartScanPanel();
 }
 
+function isBenchModeRequested() {
+    return new URLSearchParams(window.location.search).get('bench') === '1';
+}
+
 function isViewerModeRequested() {
     return new URLSearchParams(window.location.search).get('viewer') === '1';
 }
@@ -2511,10 +2516,45 @@ function refreshViewerModeUi() {
     }
 }
 
+function applyBenchCopy() {
+    const ko = state.language === 'ko';
+    document.querySelectorAll('.edition-tag').forEach(tag => {
+        tag.textContent = 'BENCH';
+        tag.setAttribute('aria-label', 'BENCH edition');
+    });
+    const title = document.querySelector('[data-i18n="welcome_title"]');
+    if (title) title.textContent = 'HOLOSYN BENCH';
+    const intro = document.querySelector('[data-i18n="welcome_intro"]');
+    if (intro) intro.textContent = ko
+        ? '3D 파일을 올리지 않고 열어보는 작업대입니다. 출력 전 확인, 받은 모델 검토, 두 버전 비교, 치수 재기 — 파일은 이 브라우저를 떠나지 않습니다. 발표할 때는 STAGE로.'
+        : 'A bench for opening 3D files without uploading them. Check a print, review a model you were sent, compare two versions, measure — the file never leaves this browser. When it is time to present, use STAGE.';
+    const f2t = document.querySelector('[data-i18n="intro_feature2_title"]');
+    const f2d = document.querySelector('[data-i18n="intro_feature2_desc"]');
+    if (f2t) f2t.textContent = ko ? '부품 · 치수 · 비교' : 'Parts · Dimensions · Compare';
+    if (f2d) f2d.textContent = ko
+        ? '부품을 하나씩 짚고, 두 점을 찍어 치수를 재고, A/B로 두 상태를 나란히 봅니다.'
+        : 'Step through parts, click two points for a dimension, and hold two states side by side.';
+    const boot = document.querySelector('[data-i18n="boot_btn"]');
+    if (boot) boot.textContent = ko ? '열기' : 'Open';
+    document.title = ko ? 'HOLOSYN BENCH — 3D 파일 작업대' : 'HOLOSYN BENCH — 3D file workbench';
+}
+
 function initViewerMode() {
     state.viewerMode = isViewerModeRequested();
     state.exhibitionMode = isExhibitionModeRequested();
     state.revealMode = isRevealModeRequested();
+    // BENCH is the same app with the presentation layer folded away. It is
+    // a body class and a few strings, not a second codebase — the split
+    // modules are what made "the presentation layer" a thing that can fold.
+    state.benchMode = !state.viewerMode && isBenchModeRequested();
+    document.documentElement.classList.toggle('bench-requested', state.benchMode);
+    document.body.classList.toggle('bench-mode', state.benchMode);
+    if (state.benchMode) {
+        applyBenchCopy();
+        // The measuring, comparing and exporting panels live in Pro. A bench
+        // with no tools on it is not a bench.
+        state.uiMode = 'pro';
+    }
     document.documentElement.classList.toggle('viewer-requested', state.viewerMode);
     document.documentElement.classList.toggle('exhibit-requested', state.exhibitionMode);
     document.documentElement.classList.toggle('reveal-requested', state.revealMode);
@@ -2753,6 +2793,7 @@ function updateLanguageHTML(lang) {
     }
     if (typeof applyArchiveDrawerCopy === 'function') applyArchiveDrawerCopy();
     if (typeof applyStageOnlyCopy === 'function') applyStageOnlyCopy();
+    if (state.benchMode) applyBenchCopy();
 }
 
 function updateTelemetryBarText() {
