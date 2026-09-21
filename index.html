@@ -16,7 +16,7 @@
         }
     </script>
     <title>HOLOSYN — 3D 시제품 공간 발표 스튜디오</title>
-    <meta name="description" content="올릴 수 없는 시제품을 발표하는 도구. 모델 파일은 브라우저를 떠나지 않고, 서버도 계정도 없으며, 인터넷 없는 전시 부스에서도 동작합니다. 분해도·치수 측정·발표 모드·GLB 내보내기. Present the prototype you cannot upload — the model never leaves your browser.">
+    <meta name="description" content="3D 파일을 올리지 않고 열어보고(BENCH), 발표한다(STAGE). 모델 파일은 브라우저를 떠나지 않습니다 — 서버·계정 없음, 오프라인 동작.">
     <meta name="theme-color" content="#0a84ff">
 
     <!-- Favicon -->
@@ -25,7 +25,7 @@
     <!-- Open Graph (link previews) -->
     <meta property="og:type" content="website">
     <meta property="og:title" content="HOLOSYN — 3D 시제품 공간 발표 스튜디오">
-    <meta property="og:description" content="모델 파일이 브라우저를 떠나지 않는 3D 시제품 발표 스튜디오. 서버·계정 없음, 오프라인 동작.">
+    <meta property="og:description" content="모델 파일이 브라우저를 떠나지 않는 3D 작업대 + 발표 스튜디오. 서버·계정 없음, 오프라인 동작.">
     <!-- Absolute: KakaoTalk, Slack and most crawlers drop relative og:image and
          then render no preview at all — and a shared link is the whole point. -->
     <meta property="og:url" content="https://tatao4503.github.io/holosyn-3d-studio/">
@@ -36,14 +36,14 @@
     <!-- Twitter card -->
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="HOLOSYN — 3D 시제품 공간 발표 스튜디오">
-    <meta name="twitter:description" content="모델 파일이 브라우저를 떠나지 않는 3D 시제품 발표 스튜디오. 서버·계정 없음, 오프라인 동작.">
+    <meta name="twitter:description" content="모델 파일이 브라우저를 떠나지 않는 3D 작업대 + 발표 스튜디오. 서버·계정 없음, 오프라인 동작.">
     <meta name="twitter:image" content="https://tatao4503.github.io/holosyn-3d-studio/og-image.png">
 
     <!-- Bundled fonts and icons keep local exhibition mode offline-ready. -->
     <link rel="stylesheet" href="vendor/fonts/fonts.css">
     <script src="vendor/lucide/lucide.min.js"></script>
     <!-- Stylesheet -->
-    <link rel="stylesheet" href="index.css?v=20260920-bench">
+    <link rel="stylesheet" href="index.css?v=20260921-doors">
 </head>
 <body class="theme-blue">
     <!-- Ambient Vignette Background -->
@@ -116,6 +116,14 @@
                 <button id="btn-help-tour" class="hud-btn icon-btn" title="가이드 투어 / Guide Tour (현재 모드 기준)">
                     <i data-lucide="graduation-cap"></i>
                 </button>
+                <a id="btn-go-stage" class="hud-btn outline-btn door-link" href="?stage=1" title="발표하러 가기 — 지금 장면 그대로 STAGE에서 엽니다">
+                    <i data-lucide="presentation"></i>
+                    <span>STAGE</span>
+                </a>
+                <a id="btn-go-bench" class="hud-btn outline-btn door-link" href="./" title="작업대로 — 지금 장면 그대로 BENCH에서 엽니다">
+                    <i data-lucide="wrench"></i>
+                    <span>BENCH</span>
+                </a>
                 <button id="btn-header-share-link" class="hud-btn outline-btn" title="현재 발표 장면 공유 링크 복사 / Copy Share Link">
                     <i data-lucide="link"></i>
                     <span>SHARE</span>
@@ -1931,22 +1939,22 @@
     <!-- app.js declares the shared state and the engine; the modules below are
          classic scripts in the same global scope, so order only matters in that
          app.js must come first. -->
-    <script src="app.js?v=20260920-bench"></script>
-    <script src="scripts/holosyn-audio.js?v=20260920-bench"></script>
-    <script src="scripts/holosyn-voice.js?v=20260920-bench"></script>
-    <script src="scripts/holosyn-pyramid.js?v=20260920-bench"></script>
-    <script src="scripts/holosyn-sample-models.js?v=20260920-bench"></script>
-    <script src="scripts/holosyn-portable-project.js?v=20260920-bench"></script>
-    <script src="scripts/holosyn-archive.js?v=20260920-bench"></script>
-    <script src="scripts/holosyn-share-links.js?v=20260920-bench"></script>
-    <script src="scripts/holosyn-presenter-records.js?v=20260920-bench"></script>
-    <script src="scripts/holosyn-media-exports.js?v=20260920-bench"></script>
-    <script src="scripts/holosyn-handoff-docs.js?v=20260920-bench"></script>
-    <script src="scripts/holosyn-beta-ops.js?v=20260920-bench"></script>
-    <script src="scripts/holosyn-stage-tools.js?v=20260920-bench"></script>
-    <script src="scripts/holosyn-stage-only.js?v=20260920-bench"></script>
-    <script src="scripts/holosyn-timeline.js?v=20260920-bench"></script>
-    <script src="scripts/holosyn-pro-managers.js?v=20260920-bench"></script>
+    <script src="app.js?v=20260921-doors"></script>
+    <script src="scripts/holosyn-audio.js?v=20260921-doors"></script>
+    <script src="scripts/holosyn-voice.js?v=20260921-doors"></script>
+    <script src="scripts/holosyn-pyramid.js?v=20260921-doors"></script>
+    <script src="scripts/holosyn-sample-models.js?v=20260921-doors"></script>
+    <script src="scripts/holosyn-portable-project.js?v=20260921-doors"></script>
+    <script src="scripts/holosyn-archive.js?v=20260921-doors"></script>
+    <script src="scripts/holosyn-share-links.js?v=20260921-doors"></script>
+    <script src="scripts/holosyn-presenter-records.js?v=20260921-doors"></script>
+    <script src="scripts/holosyn-media-exports.js?v=20260921-doors"></script>
+    <script src="scripts/holosyn-handoff-docs.js?v=20260921-doors"></script>
+    <script src="scripts/holosyn-beta-ops.js?v=20260921-doors"></script>
+    <script src="scripts/holosyn-stage-tools.js?v=20260921-doors"></script>
+    <script src="scripts/holosyn-stage-only.js?v=20260921-doors"></script>
+    <script src="scripts/holosyn-timeline.js?v=20260921-doors"></script>
+    <script src="scripts/holosyn-pro-managers.js?v=20260921-doors"></script>
     <script>
         if (window.lucide) lucide.createIcons();
     </script>

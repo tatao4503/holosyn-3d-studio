@@ -35,7 +35,7 @@ jobs:
           mkdir -p _site/scripts
           cp index.html index.css app.js favicon.svg og-image.png og-image.svg _site/
           cp scripts/holosyn-*.js _site/scripts/
-          mkdir -p _site/bench && cp bench/index.html _site/bench/
+          mkdir -p _site/bench _site/stage && cp bench/index.html _site/bench/ && cp stage/index.html _site/stage/
           cp -R vendor _site/
           touch _site/.nojekyll
 

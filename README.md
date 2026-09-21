@@ -1,45 +1,50 @@
-# HOLOSYN — 3D 시제품 공간 발표 스튜디오
+# HOLOSYN — 3D 파일 작업대 · 시제품 발표 스튜디오
 
 [![CI](https://github.com/tatao4503/holosyn-3d-studio/actions/workflows/ci.yml/badge.svg)](https://github.com/tatao4503/holosyn-3d-studio/actions/workflows/ci.yml)
 [![Deploy](https://github.com/tatao4503/holosyn-3d-studio/actions/workflows/pages.yml/badge.svg)](https://github.com/tatao4503/holosyn-3d-studio/actions/workflows/pages.yml)
 [![Release](https://img.shields.io/github/v/release/tatao4503/holosyn-3d-studio)](https://github.com/tatao4503/holosyn-3d-studio/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-30d158.svg)](LICENSE)
 
-**[Live Demo](https://tatao4503.github.io/holosyn-3d-studio/)** · [User Guide](USER_GUIDE.md) · [Demo Script](DEMO_SCRIPT.md)
+**[BENCH](https://tatao4503.github.io/holosyn-3d-studio/)** · **[STAGE](https://tatao4503.github.io/holosyn-3d-studio/stage/)** · [User Guide](USER_GUIDE.md) · [Demo Script](DEMO_SCRIPT.md)
 
-> **Present the prototype you are not allowed to upload.** Your model is opened
-> by the browser and never leaves it — there is no server to send it to. Walk
-> through its parts, measure it, point at it, and run the whole thing at a booth
-> with the wifi off.
+> **Open the 3D file you are not allowed to upload.** Then present it. The
+> model is read by the browser and never leaves it — there is no server to
+> send it to. Check a print, review a model you were sent, measure it, walk
+> an audience through its parts, and run the whole thing with the wifi off.
 
 ![HOLOSYN](og-image.png)
 
-**1인 메이커와 하드웨어 개발자를 위한 발표 도구입니다.** 아직 출원 전이거나, 공모전에
-내기 전이거나, 그냥 남한테 안 보여준 시제품 — 그런 걸 클라우드에 올리지 않고
-발표하려고 만들었습니다. 3D 파일을 브라우저에 떨어뜨리면 홀로그램 무대에 서고,
-부품을 하나씩 짚고, 치수를 재고, 관객 폰으로 QR을 쏘고, 프로젝터에는 무대만 띄웁니다.
+**1인 메이커와 하드웨어 개발자를 위한 도구입니다.** 두 개의 문이 있습니다:
 
-계정도 가입도 서버도 없습니다. 런타임까지 저장소 안에 들어 있어서 **인터넷이 없는
-부스에서도 그대로 돌아갑니다.**
+| | 언제 | 주소 |
+|---|---|---|
+| **BENCH** | 매주. 출력 전 확인, 받은 모델 검토, 두 버전 비교, 치수 재기 | [`/`](https://tatao4503.github.io/holosyn-3d-studio/) |
+| **STAGE** | 발표 날. 프로젝터, 관객 QR, 포인터, 타이머, 관람 링크 | [`/stage/`](https://tatao4503.github.io/holosyn-3d-studio/stage/) |
+
+같은 앱입니다. BENCH는 발표용 레이어가 접혀 있을 뿐이고, 헤더의 `STAGE` / `BENCH`
+단추로 **지금 보고 있는 장면 그대로** 건너갑니다. 계정도 가입도 서버도 없고, 런타임까지
+저장소 안에 들어 있어서 **인터넷이 없는 부스에서도 그대로 돌아갑니다.**
 
 ## 3분 안에 해보기
 
-1. **[라이브](https://tatao4503.github.io/holosyn-3d-studio/)** 를 열고 `엔진 기동` → 샘플 하나 클릭
-2. 내 `.glb` / `.obj` 파일을 화면에 드롭 — 크기는 자동으로 맞춰집니다
-3. 헤더의 `무대만` — 조작 화면이 사라지고 제품만 남습니다. `Esc`로 복귀
-4. `EXPORT SUITE → QR` — 관객이 폰으로 스캔하면 같은 장면이 열립니다
+1. **[BENCH](https://tatao4503.github.io/holosyn-3d-studio/)** 를 열고 `열기` → 샘플 하나 클릭
+2. 내 `.glb` / `.gltf` / `.obj` 파일을 화면에 드롭 — 크기는 자동으로 맞춰집니다
+3. `3D 측정` 으로 두 점 클릭 → 치수. `보관함에 저장` 으로 남겨두기
+4. 발표할 때: 헤더 `STAGE` → `무대만` 으로 프로젝터에, `QR` 로 관객 폰에
 
-그 다음은 [USER_GUIDE.md](USER_GUIDE.md)의 "비기너 3단계"면 충분합니다.
+그 다음은 [USER_GUIDE.md](USER_GUIDE.md)면 충분합니다.
 
 ## 어떤 자리에서 쓰나
 
-| 상황 | 쓰는 것 |
-|---|---|
-| 공모전·데모데이 5분 발표 | `30s PITCH` 로 순서 잡고, `무대만` 으로 프로젝터에 |
-| 부스에서 지나가는 사람에게 | `전시 링크` — 무인 루프, 유휴 시 조작 숨김, 오프라인 |
-| 심사위원이 직접 돌려보게 | `관람 링크` 또는 QR — 읽기 전용, 편집 패널 없음 |
-| 발표 며칠 뒤 다시 찾기 | 보관함 — 모델·썸네일·날짜가 이 브라우저에 남음 |
-| 다른 노트북으로 옮기기 | `휴대용 프로젝트` — 모델까지 한 파일로 |
+| 상황 | 문 | 쓰는 것 |
+|---|---|---|
+| 출력 걸기 전에 모델 한 번 보기 | BENCH | 드롭 → 자동 맞춤 → 부품 스캔 |
+| 클라이언트가 보낸 파일 검토 | BENCH | 치수, 분해도, A/B 비교 |
+| 몇 달 뒤 다시 찾기 | BENCH | 보관함 — 모델·썸네일·날짜가 이 브라우저에 남음 |
+| 다른 노트북으로 옮기기 | 둘 다 | `휴대용 프로젝트` — 모델까지 한 파일로 |
+| 공모전·데모데이 5분 발표 | STAGE | `30s PITCH` 로 순서 잡고, `무대만` 으로 프로젝터에 |
+| 부스에서 지나가는 사람에게 | STAGE | `전시 링크` — 무인 루프, 유휴 시 조작 숨김, 오프라인 |
+| 심사위원이 직접 돌려보게 | STAGE | `관람 링크` 또는 QR — 읽기 전용 |
 
 ## 🔒 내 모델은 어디로 가나
 
@@ -49,7 +54,7 @@
 
 **직접 확인하세요.** 개발자도구 → Network를 열고 앱을 부팅해 샘플을 불러오면
 **요청 31개, 전부 이 사이트 자기 주소**입니다. 탭 밖으로 나가는 게 없습니다.
-(2026-09-19 라이브에서 재측정.)
+(2026-09-19 라이브에서 재측정. BENCH와 STAGE는 같은 파일을 읽습니다.)
 
 Three.js·아이콘·QR·폰트가 CDN이 아니라 저장소 안에 있어서, 랜선을 뽑아도 똑같습니다 —
 `HOLOSYN 전시.command`가 그 용도입니다.
@@ -69,6 +74,8 @@ Three.js·아이콘·QR·폰트가 CDN이 아니라 저장소 안에 있어서, 
 브라우저의 로컬 저장소에만 있습니다.
 
 ## 무엇이 들어 있나
+
+앞의 둘은 BENCH·STAGE 공통, 뒤의 셋은 STAGE에서만 보입니다.
 
 **무대에 세우기** — `.glb` / `.gltf` / `.obj`, 또는 평면 이미지를 홀로그램 릴리프로.
 자동 크기 맞춤, 부품 자동 매핑, 원본 PBR 재질 보존, HOLO / PRODUCT / HYBRID 전환.
@@ -264,6 +271,7 @@ Use this after leaving the project alone for a few days:
 ## File Map
 
 - `index.html` wires the static app shell and bundled runtime libraries.
+- `stage/index.html` and `bench/index.html` are the two front doors — each redirects into `index.html` with the right flag, carrying the scene hash.
 - `index.css` owns the full responsive HUD and hologram presentation styling.
 - `app.js` owns the core 3D engine, viewport state, imports, exports, and mobile shell.
 - `scripts/holosyn-audio.js` owns the Web Audio synthesiser (ambient hum, clicks, sweeps, chime).

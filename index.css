@@ -8329,3 +8329,10 @@ body.bench-mode #btn-narrate-stop,
 body.bench-mode #btn-trigger-shockwave {
     display: none !important;
 }
+
+/* Two doors, one header: each door shows the link to the other. */
+.door-link { text-decoration: none; }
+body:not(.bench-mode) #btn-go-stage { display: none !important; }
+body.bench-mode #btn-go-bench { display: none !important; }
+body.viewer-mode #btn-go-stage,
+body.viewer-mode #btn-go-bench { display: none !important; }

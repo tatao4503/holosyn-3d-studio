@@ -2409,8 +2409,12 @@ function initPartScanControls() {
     updatePartScanPanel();
 }
 
-function isBenchModeRequested() {
-    return new URLSearchParams(window.location.search).get('bench') === '1';
+// Two doors, one app. BENCH is the everyday one and lives at /: open a
+// file, look, measure. STAGE is for presenting and is asked for explicitly.
+// Audience links (?viewer=1) are neither — they were made from a STAGE and
+// only ever show the stage.
+function isStageModeRequested() {
+    return new URLSearchParams(window.location.search).get('stage') === '1';
 }
 
 function isViewerModeRequested() {
@@ -2422,6 +2426,7 @@ function getStudioUrlFromViewer() {
     url.searchParams.delete('viewer');
     url.searchParams.delete('exhibit');
     url.searchParams.delete('reveal');
+    url.searchParams.set('stage', '1');
     if (hasCompleteComparison() && ['a', 'b'].includes(state.comparison.activeSlot)) {
         url.searchParams.set('compare', state.comparison.activeSlot);
     } else {
@@ -2516,6 +2521,26 @@ function refreshViewerModeUi() {
     }
 }
 
+function initDoorLinks() {
+    // "지금 장면 그대로" means the scene as it is when the link is clicked,
+    // not as it was when the page loaded — the presenter drops a file in
+    // BENCH and then walks over to STAGE with it.
+    const bind = (id, base) => {
+        const link = document.getElementById(id);
+        if (!link) return;
+        link.addEventListener('click', event => {
+            event.preventDefault();
+            let hash = window.location.hash || '';
+            if (state.engineBooted && typeof buildShareUrl === 'function') {
+                try { hash = new URL(buildShareUrl({ viewer: false }).url).hash; } catch (err) { /* keep the current hash */ }
+            }
+            window.location.assign(`${base}${hash}`);
+        });
+    };
+    bind('btn-go-stage', '?stage=1');
+    bind('btn-go-bench', './');
+}
+
 function applyBenchCopy() {
     const ko = state.language === 'ko';
     document.querySelectorAll('.edition-tag').forEach(tag => {
@@ -2546,9 +2571,10 @@ function initViewerMode() {
     // BENCH is the same app with the presentation layer folded away. It is
     // a body class and a few strings, not a second codebase — the split
     // modules are what made "the presentation layer" a thing that can fold.
-    state.benchMode = !state.viewerMode && isBenchModeRequested();
+    state.benchMode = !state.viewerMode && !isStageModeRequested();
     document.documentElement.classList.toggle('bench-requested', state.benchMode);
     document.body.classList.toggle('bench-mode', state.benchMode);
+    initDoorLinks();
     if (state.benchMode) {
         applyBenchCopy();
         // The measuring, comparing and exporting panels live in Pro. A bench

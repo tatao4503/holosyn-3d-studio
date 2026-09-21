@@ -50,6 +50,7 @@ async function verifyDeployBundle(root) {
 
 const requiredFiles = [
   'bench/index.html',
+  'stage/index.html',
   'scripts/holosyn-audio.js',
   'scripts/holosyn-voice.js',
   'scripts/holosyn-pyramid.js',
@@ -112,6 +113,8 @@ const htmlSelectors = [
   'btn-archive-backup',
   'btn-stage-only',
   'stage-only-exit',
+  'btn-go-stage',
+  'btn-go-bench',
   'archive-storage-note',
   'btn-demo-run',
   'btn-pitch-run',
@@ -335,7 +338,9 @@ const appNeedles = [
   'function applyArchiveDrawerCopy',
   'function captureArchiveThumbnail',
   'function initStageOnlyMode',
-  'function isBenchModeRequested',
+  'function isStageModeRequested',
+  'function initDoorLinks',
+  "url.searchParams.set('stage', '1');",
   'function applyBenchCopy',
   "classList.toggle('bench-mode', state.benchMode)",
   // Persisting a setting must never block applying it.
@@ -361,6 +366,7 @@ const appNeedles = [
   'exportPortableProjectBundle();',
   'if (proto.modelGlb) {',
   'parsePortableGlb(proto.modelGlb.slice(0))',
+  "url.searchParams.delete('stage');",
   "customImageBase64: state.imageUploaded ? state.customImageBase64 : null,",
   'const samplePrototypeCatalog',
   'const demoPresetScenarios',
@@ -796,10 +802,10 @@ async function main() {
   }
   assert(html.includes('data-action="timeline"'), 'Missing mobile timeline action');
   assert(html.includes('라이브 포인터 / 화면에 표시 (Shift+P)'), 'Live pointer shortcut label is stale');
-  assert(html.includes('index.css?v=20260920-bench'), 'CSS cache version is stale');
-  assert(html.includes('app.js?v=20260920-bench'), 'Core JS cache version is stale');
-  assert(html.includes('scripts/holosyn-timeline.js?v=20260920-bench'), 'Timeline script tag is missing or stale');
-  assert(html.includes('scripts/holosyn-pro-managers.js?v=20260920-bench'), 'Pro managers script tag is missing or stale');
+  assert(html.includes('index.css?v=20260921-doors'), 'CSS cache version is stale');
+  assert(html.includes('app.js?v=20260921-doors'), 'Core JS cache version is stale');
+  assert(html.includes('scripts/holosyn-timeline.js?v=20260921-doors'), 'Timeline script tag is missing or stale');
+  assert(html.includes('scripts/holosyn-pro-managers.js?v=20260921-doors'), 'Pro managers script tag is missing or stale');
   assert(html.includes('vendor/three/three.min.js'), 'Bundled Three.js runtime is missing');
   assert(html.includes('vendor/lucide/lucide.min.js'), 'Bundled Lucide runtime is missing');
   assert(html.includes('vendor/qrcode/qrcode.js'), 'Bundled QR runtime is missing');

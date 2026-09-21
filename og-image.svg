@@ -35,11 +35,11 @@
     <text x="92" y="46" font-family="Outfit, Inter, system-ui, sans-serif" font-size="58" font-weight="800" fill="#ffffff" letter-spacing="4">HOLOSYN</text>
     <!-- edition mark: matches the in-app .edition-tag chip -->
     <g transform="translate(428 8)">
-      <rect x="0" y="0" width="118" height="34" rx="6" fill="#0a84ff" fill-opacity="0.16" stroke="#4da3ff" stroke-opacity="0.6" stroke-width="1.5"/>
-      <text x="62" y="24" text-anchor="middle" font-family="'Share Tech Mono', ui-monospace, SFMono-Regular, Menlo, monospace" font-size="17" font-weight="700" fill="#8fc9ff" letter-spacing="7">STAGE</text>
+      <rect x="0" y="0" width="226" height="34" rx="6" fill="#0a84ff" fill-opacity="0.16" stroke="#4da3ff" stroke-opacity="0.6" stroke-width="1.5"/>
+      <text x="113" y="24" text-anchor="middle" font-family="'Share Tech Mono', ui-monospace, SFMono-Regular, Menlo, monospace" font-size="17" font-weight="700" fill="#8fc9ff" letter-spacing="5">BENCH · STAGE</text>
     </g>
   </g>
   <!-- tagline -->
-  <text x="92" y="540" font-family="Inter, system-ui, sans-serif" font-size="34" font-weight="600" fill="#cfe3ff">3D 시제품 공간 발표 스튜디오</text>
-  <text x="92" y="585" font-family="Inter, system-ui, sans-serif" font-size="22" font-weight="400" fill="#7d9cc4">Import · Exploded view · Measure · Showcase · Export — all in the browser</text>
+  <text x="92" y="540" font-family="Inter, system-ui, sans-serif" font-size="34" font-weight="600" fill="#cfe3ff">3D 파일 작업대 · 시제품 발표 스튜디오</text>
+  <text x="92" y="585" font-family="Inter, system-ui, sans-serif" font-size="22" font-weight="400" fill="#7d9cc4">Open · Parts · Measure · Compare · Present — nothing leaves the browser</text>
 </svg>

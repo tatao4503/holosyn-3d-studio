@@ -2,25 +2,10 @@
 <html lang="ko">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>HOLOSYN BENCH — 3D 파일 작업대</title>
-    <meta name="description" content="3D 파일을 올리지 않고 열어보는 작업대. 출력 전 확인, 받은 모델 검토, 두 버전 비교, 치수 재기 — 파일은 브라우저를 떠나지 않습니다.">
     <meta name="robots" content="noindex">
-    <!-- BENCH is the same app as STAGE with the presentation layer folded.
-         This page is the front door for it: one URL to remember, one bookmark.
-         The hash (a share link's scene state) is carried across. -->
-    <script>
-        (function () {
-            var target = '../?bench=1' + (window.location.hash || '');
-            window.location.replace(target);
-        })();
-    </script>
-    <style>
-        body { margin: 0; background: #0c0e12; color: #9aa3b2; font: 14px system-ui, sans-serif; display: grid; place-items: center; min-height: 100vh; }
-        a { color: #7fb2ff; }
-    </style>
+    <title>HOLOSYN BENCH</title>
+    <!-- BENCH moved to the front door. Kept so yesterday's link still opens. -->
+    <script>window.location.replace('../' + (window.location.hash || ''));</script>
 </head>
-<body>
-    <p>HOLOSYN BENCH 여는 중… 자동으로 열리지 않으면 <a href="../?bench=1">여기</a>.</p>
-</body>
+<body><p><a href="../">HOLOSYN BENCH</a></p></body>
 </html>

@@ -51,6 +51,8 @@ function buildShareUrl(options = {}) {
     const url = new URL(window.location.href);
     url.searchParams.delete('test');
     url.searchParams.delete('compare');
+    url.searchParams.delete('stage');
+    url.searchParams.delete('bench');
     if (viewer) url.searchParams.set('viewer', '1');
     else url.searchParams.delete('viewer');
     if (viewer && exhibit) url.searchParams.set('exhibit', '1');
