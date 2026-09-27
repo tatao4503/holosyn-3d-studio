@@ -8336,3 +8336,22 @@ body:not(.bench-mode) #btn-go-stage { display: none !important; }
 body.bench-mode #btn-go-bench { display: none !important; }
 body.viewer-mode #btn-go-stage,
 body.viewer-mode #btn-go-bench { display: none !important; }
+
+/* BENCH on a phone: the front door is now the everyday one, so it is also
+   the first thing a maker opens on a phone. Three things there were written
+   for a presenter at a desk. */
+
+/* Timeline is a staged-presentation tool; it has no place on the bench. */
+body.bench-mode #mobile-toolbar [data-action="timeline"] {
+    display: none !important;
+}
+
+/* The two features that reach outside the browser sit in prime corners on a
+   375px screen, on the page whose whole claim is that nothing leaves. They
+   stay available from the Pro panels; they are not front-door furniture. */
+@media (max-width: 720px) {
+    body.bench-mode #btn-collab-toggle,
+    body.bench-mode #btn-ai-chat-toggle {
+        display: none !important;
+    }
+}

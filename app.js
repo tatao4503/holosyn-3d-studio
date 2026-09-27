@@ -2541,6 +2541,18 @@ function initDoorLinks() {
     bind('btn-go-bench', './');
 }
 
+// Which gesture the hint names depends on the pointer, not on the door —
+// a presenter on a phone cannot double-click either.
+function applyPointerHintCopy() {
+    const hint = document.getElementById('viewport-annotation-hint-text');
+    if (!hint) return;
+    const ko = state.language === 'ko';
+    const coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+    hint.textContent = coarse
+        ? (ko ? '두 번 탭하면 그 자리에 주석이 붙습니다' : 'Double-tap the model to pin a note')
+        : (ko ? '더블 클릭하면 그 자리에 주석이 붙습니다' : 'Double-click the model to pin a note');
+}
+
 function applyBenchCopy() {
     const ko = state.language === 'ko';
     document.querySelectorAll('.edition-tag').forEach(tag => {
@@ -2559,6 +2571,24 @@ function applyBenchCopy() {
     if (f2d) f2d.textContent = ko
         ? '부품을 하나씩 짚고, 두 점을 찍어 치수를 재고, A/B로 두 상태를 나란히 봅니다.'
         : 'Step through parts, click two points for a dimension, and hold two states side by side.';
+    // A phone has no drag-and-drop and no double click. The front door is
+    // now the everyday one, so it is opened on a phone, and these two lines
+    // told those visitors to do something they cannot do.
+    const coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+    const f1d = document.querySelector('[data-i18n="intro_feature1_desc"]');
+    if (f1d) f1d.textContent = coarse
+        ? (ko ? '.glb, .gltf, .obj 파일을 골라 바로 3D로 엽니다.' : 'Pick a .glb, .gltf or .obj file and it opens in 3D.')
+        : (ko ? '.glb, .gltf, .obj 파일을 드래그 앤 드롭하면 바로 3D로 열립니다.' : 'Drop a .glb, .gltf or .obj file and it opens in 3D.');
+    const f3t = document.querySelector('[data-i18n="intro_feature3_title"]');
+    const f3d = document.querySelector('[data-i18n="intro_feature3_desc"]');
+    if (f3t) f3t.textContent = ko ? '남기고 옮기기' : 'Keep it and move it';
+    if (f3d) f3d.textContent = ko
+        ? '보관함에 모델째 저장하고, 휴대용 프로젝트 한 파일로 다른 컴퓨터에 옮깁니다.'
+        : 'Archive the model itself, and carry it to another machine as one portable project file.';
+    const soundNote = document.querySelector('[data-i18n="welcome_sound_note"]');
+    if (soundNote) soundNote.textContent = ko
+        ? '※ 아래 버튼을 한 번 눌러야 브라우저가 3D와 소리를 시작할 수 있습니다.'
+        : '※ One click below is what lets the browser start 3D and sound.';
     const boot = document.querySelector('[data-i18n="boot_btn"]');
     if (boot) boot.textContent = ko ? '열기' : 'Open';
     document.title = ko ? 'HOLOSYN BENCH — 3D 파일 작업대' : 'HOLOSYN BENCH — 3D file workbench';
@@ -2575,6 +2605,7 @@ function initViewerMode() {
     document.documentElement.classList.toggle('bench-requested', state.benchMode);
     document.body.classList.toggle('bench-mode', state.benchMode);
     initDoorLinks();
+    applyPointerHintCopy();
     if (state.benchMode) {
         applyBenchCopy();
         // The measuring, comparing and exporting panels live in Pro. A bench
@@ -2819,6 +2850,7 @@ function updateLanguageHTML(lang) {
     }
     if (typeof applyArchiveDrawerCopy === 'function') applyArchiveDrawerCopy();
     if (typeof applyStageOnlyCopy === 'function') applyStageOnlyCopy();
+    applyPointerHintCopy();
     if (state.benchMode) applyBenchCopy();
 }
 
