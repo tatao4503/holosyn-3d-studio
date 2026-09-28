@@ -28,7 +28,7 @@
 ## 3분 안에 해보기
 
 1. **[BENCH](https://tatao4503.github.io/holosyn-3d-studio/)** 를 열고 `열기` → 샘플 하나 클릭
-2. 내 `.glb` / `.gltf` / `.obj` 파일을 화면에 드롭 — 크기는 자동으로 맞춰집니다
+2. 내 `.glb` / `.gltf` / `.obj` / `.stl` 파일을 화면에 드롭 — 크기는 자동으로 맞춰집니다
 3. `3D 측정` 으로 두 점 클릭 → 치수. `보관함에 저장` 으로 남겨두기
 4. 발표할 때: 헤더 `STAGE` → `무대만` 으로 프로젝터에, `QR` 로 관객 폰에
 
@@ -77,7 +77,7 @@ Three.js·아이콘·QR·폰트가 CDN이 아니라 저장소 안에 있어서, 
 
 앞의 둘은 BENCH·STAGE 공통, 뒤의 셋은 STAGE에서만 보입니다.
 
-**무대에 세우기** — `.glb` / `.gltf` / `.obj`, 또는 평면 이미지를 홀로그램 릴리프로.
+**무대에 세우기** — `.glb` / `.gltf` / `.obj` / `.stl`, 또는 평면 이미지를 홀로그램 릴리프로.
 자동 크기 맞춤, 부품 자동 매핑, 원본 PBR 재질 보존, HOLO / PRODUCT / HYBRID 전환.
 
 **설명하기** — Part Scan으로 부품 하나씩, 분해도, 조립 순서, 두 점 클릭 치수 측정,
@@ -277,6 +277,7 @@ Use this after leaving the project alone for a few days:
 - `scripts/holosyn-audio.js` owns the Web Audio synthesiser (ambient hum, clicks, sweeps, chime).
 - `scripts/holosyn-voice.js` owns speech-to-intent and the assistant voice.
 - `scripts/holosyn-pyramid.js` owns the Pepper's Ghost four-way render.
+- `scripts/holosyn-stl-parser.js` parses binary and ASCII STL. Written rather than vendored — the format is small, and it keeps the offline bundle free of another dependency.
 - `scripts/holosyn-sample-models.js` owns the five procedural sample prototypes.
 - `scripts/holosyn-portable-project.js` owns `.holosyn` export/import and the GLB re-export it is built on.
 - `scripts/holosyn-archive.js` owns the prototype archive: IndexedDB records with the model as GLB, stage thumbnail, and date.
@@ -374,6 +375,7 @@ Use this after leaving the project alone for a few days:
 - `.glb`
 - `.gltf`
 - `.obj`
+- `.stl` — what a slicer takes, so the bench opens it. STL stores one solid with no part names and no units, so the exploded view and Part Scan have nothing to separate and dimensions read in model units until you set the real size.
 - Common image files
 
 Multi-part 3D models work best for exploded views and part labels. HOLOSYN reads imported mesh names, assigns presentation-friendly component roles, and makes those parts available in Part Scan. Single-mesh models still display well, but their parts cannot be separated automatically.

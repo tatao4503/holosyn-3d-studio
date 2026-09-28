@@ -43,7 +43,7 @@
     <link rel="stylesheet" href="vendor/fonts/fonts.css">
     <script src="vendor/lucide/lucide.min.js"></script>
     <!-- Stylesheet -->
-    <link rel="stylesheet" href="index.css?v=20260928-scale">
+    <link rel="stylesheet" href="index.css?v=20260928-stl">
 </head>
 <body class="theme-blue">
     <!-- Ambient Vignette Background -->
@@ -157,9 +157,9 @@
                 <h2 class="section-title"><i data-lucide="upload-cloud"></i> <span data-i18n="custom_injection">3D 모델 & 이미지 임포트</span></h2>
                 <div id="drop-zone" class="upload-area">
                     <i data-lucide="box" class="upload-icon"></i>
-                    <p class="upload-text" data-i18n="dropzone_text">3D 파일 (.glb, .gltf, .obj) 여러 개를 한 번에 드롭하여 조립</p>
+                    <p class="upload-text" data-i18n="dropzone_text">3D 파일 (.glb, .gltf, .obj, .stl) 여러 개를 한 번에 드롭하여 조립</p>
                     <label for="image-upload" class="upload-label" data-i18n="upload_btn">내 컴퓨터에서 열기</label>
-                    <input type="file" id="image-upload" accept=".glb,.gltf,.obj,image/*" style="display: none;">
+                    <input type="file" id="image-upload" accept=".glb,.gltf,.obj,.stl,image/*" style="display: none;">
                     <p class="upload-subtext" data-i18n="upload_sub">시제품 드롭 투사 자동 가공 지원</p>
                 </div>
                 <div id="import-quality-card" class="import-quality-card import-empty">
@@ -1613,7 +1613,7 @@
                         <i data-lucide="box" class="card-icon"></i>
                         <div class="card-info">
                             <h4 data-i18n="intro_feature1_title">3D 파일 직접 투사</h4>
-                            <p data-i18n="intro_feature1_desc">.glb, .gltf, .obj 파일을 드래그 앤 드롭하여 바로 시제품을 3D 시각화합니다.</p>
+                            <p data-i18n="intro_feature1_desc">.glb, .gltf, .obj, .stl 파일을 드래그 앤 드롭하여 바로 시제품을 3D 시각화합니다.</p>
                         </div>
                     </div>
                     <div class="onboarding-card">
@@ -1948,22 +1948,23 @@
     <!-- app.js declares the shared state and the engine; the modules below are
          classic scripts in the same global scope, so order only matters in that
          app.js must come first. -->
-    <script src="app.js?v=20260928-scale"></script>
-    <script src="scripts/holosyn-audio.js?v=20260928-scale"></script>
-    <script src="scripts/holosyn-voice.js?v=20260928-scale"></script>
-    <script src="scripts/holosyn-pyramid.js?v=20260928-scale"></script>
-    <script src="scripts/holosyn-sample-models.js?v=20260928-scale"></script>
-    <script src="scripts/holosyn-portable-project.js?v=20260928-scale"></script>
-    <script src="scripts/holosyn-archive.js?v=20260928-scale"></script>
-    <script src="scripts/holosyn-share-links.js?v=20260928-scale"></script>
-    <script src="scripts/holosyn-presenter-records.js?v=20260928-scale"></script>
-    <script src="scripts/holosyn-media-exports.js?v=20260928-scale"></script>
-    <script src="scripts/holosyn-handoff-docs.js?v=20260928-scale"></script>
-    <script src="scripts/holosyn-beta-ops.js?v=20260928-scale"></script>
-    <script src="scripts/holosyn-stage-tools.js?v=20260928-scale"></script>
-    <script src="scripts/holosyn-stage-only.js?v=20260928-scale"></script>
-    <script src="scripts/holosyn-timeline.js?v=20260928-scale"></script>
-    <script src="scripts/holosyn-pro-managers.js?v=20260928-scale"></script>
+    <script src="app.js?v=20260928-stl"></script>
+    <script src="scripts/holosyn-audio.js?v=20260928-stl"></script>
+    <script src="scripts/holosyn-voice.js?v=20260928-stl"></script>
+    <script src="scripts/holosyn-pyramid.js?v=20260928-stl"></script>
+    <script src="scripts/holosyn-stl-parser.js?v=20260928-stl"></script>
+    <script src="scripts/holosyn-sample-models.js?v=20260928-stl"></script>
+    <script src="scripts/holosyn-portable-project.js?v=20260928-stl"></script>
+    <script src="scripts/holosyn-archive.js?v=20260928-stl"></script>
+    <script src="scripts/holosyn-share-links.js?v=20260928-stl"></script>
+    <script src="scripts/holosyn-presenter-records.js?v=20260928-stl"></script>
+    <script src="scripts/holosyn-media-exports.js?v=20260928-stl"></script>
+    <script src="scripts/holosyn-handoff-docs.js?v=20260928-stl"></script>
+    <script src="scripts/holosyn-beta-ops.js?v=20260928-stl"></script>
+    <script src="scripts/holosyn-stage-tools.js?v=20260928-stl"></script>
+    <script src="scripts/holosyn-stage-only.js?v=20260928-stl"></script>
+    <script src="scripts/holosyn-timeline.js?v=20260928-stl"></script>
+    <script src="scripts/holosyn-pro-managers.js?v=20260928-stl"></script>
     <script>
         if (window.lucide) lucide.createIcons();
     </script>

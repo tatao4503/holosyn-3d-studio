@@ -54,6 +54,7 @@ const requiredFiles = [
   'scripts/holosyn-audio.js',
   'scripts/holosyn-voice.js',
   'scripts/holosyn-pyramid.js',
+  'scripts/holosyn-stl-parser.js',
   'scripts/holosyn-sample-models.js',
   'scripts/holosyn-portable-project.js',
   'scripts/holosyn-archive.js',
@@ -352,6 +353,9 @@ const appNeedles = [
   'function formatMeasurementDistance',
   'function deriveMeasurementScaleFromImport',
   'function applyMeasurementScaleFromInput',
+  'function parseStl',
+  'function isBinaryStl',
+  "} else if (ext === 'stl') {",
   "setMeasurementScale(1000, 'gltf');",
   'viewport-annotation-hint-text',
   "url.searchParams.set('stage', '1');",
@@ -770,13 +774,14 @@ async function main() {
     await access(file);
   }
 
-  const [html, css, appCore, audioJs, voiceJs, pyramidJs, sampleModelsJs, portableJs, archiveJs, shareLinksJs, recordsJs, mediaJs, handoffJs, betaOpsJs, stageToolsJs, stageOnlyJs, timelineJs, managerJs] = await Promise.all([
+  const [html, css, appCore, audioJs, voiceJs, pyramidJs, stlJs, sampleModelsJs, portableJs, archiveJs, shareLinksJs, recordsJs, mediaJs, handoffJs, betaOpsJs, stageToolsJs, stageOnlyJs, timelineJs, managerJs] = await Promise.all([
     readFile('index.html', 'utf8'),
     readFile('index.css', 'utf8'),
     readFile('app.js', 'utf8'),
     readFile('scripts/holosyn-audio.js', 'utf8'),
     readFile('scripts/holosyn-voice.js', 'utf8'),
     readFile('scripts/holosyn-pyramid.js', 'utf8'),
+    readFile('scripts/holosyn-stl-parser.js', 'utf8'),
     readFile('scripts/holosyn-sample-models.js', 'utf8'),
     readFile('scripts/holosyn-portable-project.js', 'utf8'),
     readFile('scripts/holosyn-archive.js', 'utf8'),
@@ -793,7 +798,7 @@ async function main() {
 
   // app.js was split into classic scripts that share one global scope, so the
   // checkpoints below are about the app as a whole, not about one file.
-  const appJs = [appCore, audioJs, voiceJs, pyramidJs, sampleModelsJs, portableJs, archiveJs, shareLinksJs, recordsJs, mediaJs, handoffJs, betaOpsJs, stageToolsJs, stageOnlyJs].join('\n');
+  const appJs = [appCore, audioJs, voiceJs, pyramidJs, stlJs, sampleModelsJs, portableJs, archiveJs, shareLinksJs, recordsJs, mediaJs, handoffJs, betaOpsJs, stageToolsJs, stageOnlyJs].join('\n');
 
   await assertLocalAssetsExist(html);
 
@@ -817,10 +822,10 @@ async function main() {
   }
   assert(html.includes('data-action="timeline"'), 'Missing mobile timeline action');
   assert(html.includes('라이브 포인터 / 화면에 표시 (Shift+P)'), 'Live pointer shortcut label is stale');
-  assert(html.includes('index.css?v=20260928-scale'), 'CSS cache version is stale');
-  assert(html.includes('app.js?v=20260928-scale'), 'Core JS cache version is stale');
-  assert(html.includes('scripts/holosyn-timeline.js?v=20260928-scale'), 'Timeline script tag is missing or stale');
-  assert(html.includes('scripts/holosyn-pro-managers.js?v=20260928-scale'), 'Pro managers script tag is missing or stale');
+  assert(html.includes('index.css?v=20260928-stl'), 'CSS cache version is stale');
+  assert(html.includes('app.js?v=20260928-stl'), 'Core JS cache version is stale');
+  assert(html.includes('scripts/holosyn-timeline.js?v=20260928-stl'), 'Timeline script tag is missing or stale');
+  assert(html.includes('scripts/holosyn-pro-managers.js?v=20260928-stl'), 'Pro managers script tag is missing or stale');
   assert(html.includes('vendor/three/three.min.js'), 'Bundled Three.js runtime is missing');
   assert(html.includes('vendor/lucide/lucide.min.js'), 'Bundled Lucide runtime is missing');
   assert(html.includes('vendor/qrcode/qrcode.js'), 'Bundled QR runtime is missing');
@@ -862,7 +867,7 @@ async function main() {
 
   // Every browser script the page loads must actually be referenced by it — a
   // module that exists but is never included is worse than one that is missing.
-  for (const module of ['holosyn-audio', 'holosyn-voice', 'holosyn-pyramid', 'holosyn-sample-models', 'holosyn-portable-project', 'holosyn-archive', 'holosyn-share-links', 'holosyn-presenter-records', 'holosyn-media-exports', 'holosyn-handoff-docs', 'holosyn-beta-ops', 'holosyn-stage-tools', 'holosyn-stage-only', 'holosyn-timeline', 'holosyn-pro-managers']) {
+  for (const module of ['holosyn-audio', 'holosyn-voice', 'holosyn-pyramid', 'holosyn-stl-parser', 'holosyn-sample-models', 'holosyn-portable-project', 'holosyn-archive', 'holosyn-share-links', 'holosyn-presenter-records', 'holosyn-media-exports', 'holosyn-handoff-docs', 'holosyn-beta-ops', 'holosyn-stage-tools', 'holosyn-stage-only', 'holosyn-timeline', 'holosyn-pro-managers']) {
     assert(html.includes(`scripts/${module}.js?v=`), `index.html does not load scripts/${module}.js`);
   }
 
@@ -878,6 +883,7 @@ async function main() {
     ['scripts/holosyn-audio.js', audioJs],
     ['scripts/holosyn-voice.js', voiceJs],
     ['scripts/holosyn-pyramid.js', pyramidJs],
+    ['scripts/holosyn-stl-parser.js', stlJs],
     ['scripts/holosyn-sample-models.js', sampleModelsJs],
     ['scripts/holosyn-portable-project.js', portableJs],
     ['scripts/holosyn-archive.js', archiveJs],

@@ -17,7 +17,7 @@ const translations = {
         pyramid_mode: "PYRAMID",
         presets_title: "샘플 모델로 시도하기",
         custom_injection: "3D 모델 & 이미지 임포트",
-        dropzone_text: "3D 파일 (.glb, .gltf, .obj) 또는 이미지를 여기에 드롭",
+        dropzone_text: "3D 파일 (.glb, .gltf, .obj, .stl) 또는 이미지를 여기에 드롭",
         upload_btn: "내 컴퓨터에서 열기",
         upload_sub: "모델 크기 자동 보정 및 중앙 정렬 지원",
         tuning_title: "홀로그램 튜닝",
@@ -51,7 +51,7 @@ const translations = {
         welcome_title: "HOLOSYN — 시작하기",
         welcome_intro: "홀로신은 1인 메이커와 하드웨어 개발자를 위한 3D 시제품 발표 도구입니다. 모델 파일은 이 브라우저를 떠나지 않습니다 — 올릴 서버가 없기 때문입니다. 인터넷 없는 전시 부스에서도 그대로 동작합니다.",
         intro_feature1_title: "3D 파일 직접 투사",
-        intro_feature1_desc: ".glb, .gltf, .obj 파일을 드래그 앤 드롭하여 바로 시제품을 3D 시각화합니다.",
+        intro_feature1_desc: ".glb, .gltf, .obj, .stl 파일을 드래그 앤 드롭하여 바로 시제품을 3D 시각화합니다.",
         intro_feature2_title: "시네마틱 Showcase",
         intro_feature2_desc: "HUD를 완벽히 숨긴 채 3D 분해도 및 파트 라벨링으로 제품에만 완벽히 집중시킵니다.",
         intro_feature3_title: "프로페셔널 포맷 내보내기",
@@ -155,7 +155,7 @@ const translations = {
         pyramid_mode: "PYRAMID",
         presets_title: "Try with sample",
         custom_injection: "3D Model & Image Import",
-        dropzone_text: "Drag & drop 3D files (.glb, .gltf, .obj) or images here",
+        dropzone_text: "Drag & drop 3D files (.glb, .gltf, .obj, .stl) or images here",
         upload_btn: "Open File Browser",
         upload_sub: "Auto-fit and center models for presentation",
         tuning_title: "HOLOGRAM TUNING",
@@ -189,7 +189,7 @@ const translations = {
         welcome_title: "HOLOSYN — START",
         welcome_intro: "Holosyn is a 3D prototype presentation suite for 1-person makers and hardware developers. Your model never leaves this browser — there is no server to send it to. It runs at a booth with the wifi off.",
         intro_feature1_title: "Direct 3D Projection",
-        intro_feature1_desc: "Drag & drop .glb, .gltf, or .obj files to visualize your hardware concept instantly in 3D.",
+        intro_feature1_desc: "Drag & drop .glb, .gltf, .obj or .stl files to visualize your hardware concept instantly in 3D.",
         intro_feature2_title: "Cinematic Showcase",
         intro_feature2_desc: "Completely mute all HUD layers to focus purely on the 3D product with exploded view and spatial labels.",
         intro_feature3_title: "Professional Exports Suite",
@@ -2582,8 +2582,8 @@ function applyBenchCopy() {
     const coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
     const f1d = document.querySelector('[data-i18n="intro_feature1_desc"]');
     if (f1d) f1d.textContent = coarse
-        ? (ko ? '.glb, .gltf, .obj 파일을 골라 바로 3D로 엽니다.' : 'Pick a .glb, .gltf or .obj file and it opens in 3D.')
-        : (ko ? '.glb, .gltf, .obj 파일을 드래그 앤 드롭하면 바로 3D로 열립니다.' : 'Drop a .glb, .gltf or .obj file and it opens in 3D.');
+        ? (ko ? '.glb, .gltf, .obj, .stl 파일을 골라 바로 3D로 엽니다.' : 'Pick a .glb, .gltf, .obj or .stl file and it opens in 3D.')
+        : (ko ? '.glb, .gltf, .obj, .stl 파일을 드래그 앤 드롭하면 바로 3D로 열립니다.' : 'Drop a .glb, .gltf, .obj or .stl file and it opens in 3D.');
     const f3t = document.querySelector('[data-i18n="intro_feature3_title"]');
     const f3d = document.querySelector('[data-i18n="intro_feature3_desc"]');
     if (f3t) f3t.textContent = ko ? '남기고 옮기기' : 'Keep it and move it';
@@ -6330,7 +6330,7 @@ function initWindowDropUpload() {
         overlay.innerHTML = `<div class="global-drop-inner">
             <i data-lucide="upload-cloud"></i>
             <div class="global-drop-title"></div>
-            <div class="global-drop-sub">.glb · .gltf · .obj · image</div>
+            <div class="global-drop-sub">.glb · .gltf · .obj · .stl · image</div>
         </div>`;
         document.body.appendChild(overlay);
         if (typeof lucide !== 'undefined') lucide.createIcons();
@@ -6518,6 +6518,67 @@ function processCustomUpload(file, merge = false) {
                     state.language === 'ko' ? "임포트 오류" : "Load Error",
                     message
                 );
+            }
+        };
+    } else if (ext === 'stl') {
+        if (state.language === 'ko') {
+            addConsoleLog("[시스템] 주입된 STL 메쉬를 로드 중입니다...", "info");
+        } else {
+            addConsoleLog("[SYS] Loading injected STL mesh...", "info");
+        }
+
+        showNotification(
+            state.language === 'ko' ? "3D 모델 불러오기 시작" : "Loading 3D Model",
+            state.language === 'ko' ? "STL 삼각형 데이터를 해독 중입니다..." : "Parsing STL triangle data..."
+        );
+
+        const reader = new FileReader();
+        reader.onerror = function() {
+            const message = state.language === 'ko' ? "파일을 읽지 못했습니다." : "Could not read the file.";
+            setImportQualityError(file, message);
+            showNotification(state.language === 'ko' ? "읽기 오류" : "Read Error", message);
+        };
+        reader.readAsArrayBuffer(file);
+        reader.onload = function(e) {
+            try {
+                uploadedMeshGroup = parseStl(e.target.result);
+                applyWorkspaceMaterialsToLoadedMesh(uploadedMeshGroup);
+
+                state.imageUploaded = false;
+                state.customImageParticles = null;
+                state.customImageBase64 = null;
+                state.activePreset = 'custom';
+
+                const cleanName = file.name.replace(/\.[^/.]+$/, "");
+                const specNameInput = document.getElementById('spec-name');
+                if (specNameInput) specNameInput.value = cleanName;
+
+                loadPresetModel('custom');
+                updateImportQualityFromModel(uploadedMeshGroup, {
+                    source: `${cleanName} · ${formatFileSize(file.size)}`,
+                    type: '3d',
+                    extension: ext,
+                    fileSize: file.size
+                });
+
+                const triangles = uploadedMeshGroup.userData.stlTriangleCount || 0;
+                addConsoleLog(`[STL] ${uploadedMeshGroup.userData.stlBinary ? 'Binary' : 'ASCII'} STL, ${triangles.toLocaleString()} triangles.`, 'success');
+                // STL is one solid with no named parts and no units. Saying so
+                // now is better than the presenter discovering it mid-demo,
+                // when Part Scan and the exploded view have nothing to show.
+                showNotification(
+                    state.language === 'ko' ? "STL 불러왔습니다" : "STL Loaded",
+                    state.language === 'ko'
+                        ? "STL은 부품 이름도 단위도 담지 않는 형식이라, 분해도·Part Scan은 쓸 수 없고 치수는 단위(u)로 나옵니다. 치수 패널에서 실제 크기를 넣으면 mm로 바뀝니다."
+                        : "STL carries no part names and no units, so the exploded view and Part Scan have nothing to work with and dimensions read in units. Enter the real size in the dimensions panel to get millimetres."
+                );
+            } catch (error) {
+                console.error("STL parse error:", error);
+                const message = state.language === 'ko'
+                    ? "STL 파일을 읽지 못했습니다. 손상되었거나 STL이 아닐 수 있습니다."
+                    : "Could not read this STL. It may be corrupt, or not an STL.";
+                setImportQualityError(file, message);
+                showNotification(state.language === 'ko' ? "임포트 오류" : "Load Error", message);
             }
         };
     } else if (file.type.startsWith('image/')) {
