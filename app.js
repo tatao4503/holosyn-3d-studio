@@ -345,6 +345,11 @@ const state = {
         touchStartDistance: null,
         touchStartExplodedLevel: 0
     },
+    // What one model unit is worth in millimetres, and how we know.
+    // 'gltf'  — the glTF spec defines units as metres, so this is exact.
+    // 'user'  — the maker typed the model's real overall size.
+    // 'none'  — unknown (OBJ has no unit convention; presets are procedural).
+    measurementScale: { mmPerUnit: 0, basis: 'none' },
     importQuality: {
         status: 'ready',
         statusLabel: 'READY',
@@ -2730,6 +2735,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initProductizationControls();
     initBetaTestSession();
     initStageOnlyMode();
+    initMeasurementScaleControls();
     initRadar();
     
     // Boot button on Welcome Modal
@@ -2850,6 +2856,7 @@ function updateLanguageHTML(lang) {
     }
     if (typeof applyArchiveDrawerCopy === 'function') applyArchiveDrawerCopy();
     if (typeof applyStageOnlyCopy === 'function') applyStageOnlyCopy();
+    if (typeof updateMeasurementScaleUi === 'function') updateMeasurementScaleUi();
     applyPointerHintCopy();
     if (state.benchMode) applyBenchCopy();
 }
@@ -3676,6 +3683,9 @@ function loadPresetModel(presetName) {
         invalidateFinalPassLock();
     }
     state.activePreset = presetName; // Track active preset locally (v3.9)
+    // The built-in samples are procedural: there is no real object behind them,
+    // so there is no millimetre to report.
+    if (presetName !== 'custom') setMeasurementScale(0, 'none');
     // Selecting any built-in preset exits image-projection mode (so image-only
     // tweaks like the softened bloom don't linger on 3D models).
     if (presetName !== 'custom') {
@@ -4212,7 +4222,48 @@ function setImportQualityError(file, message) {
     });
 }
 
+// A dimension the maker cannot trust is worse than no dimension. The caliper
+// measures the model's own units correctly; turning those into millimetres
+// used to be a hardcoded `mmPerUnit = 250`, so a 100 mm cube read 25 mm. Only
+// glTF defines a unit (the metre); OBJ does not, and the built-in samples are
+// procedural and have no real size at all. Say which case we are in.
+function setMeasurementScale(mmPerUnit, basis) {
+    state.measurementScale = { mmPerUnit: Number(mmPerUnit) || 0, basis };
+    if (typeof updateMeasurementScaleUi === 'function') updateMeasurementScaleUi();
+    if (typeof rebuildSavedMeasurementVisuals === 'function' && state.savedMeasurements.length) {
+        state.savedMeasurements.forEach(m => {
+            if (!m.baseUnits) return;
+            m.mmPerUnit = state.measurementScale.mmPerUnit;
+            m.distanceMm = Number((m.baseUnits * m.mmPerUnit).toFixed(1));
+            m.distanceText = formatMeasurementDistance(m.baseUnits);
+        });
+        if (typeof persistSavedMeasurements === 'function') persistSavedMeasurements();
+        if (typeof updateMeasurementsPanel === 'function') updateMeasurementsPanel();
+    }
+}
+
+function formatMeasurementDistance(baseUnits) {
+    const { mmPerUnit, basis } = state.measurementScale;
+    if (!mmPerUnit || basis === 'none') {
+        return `${baseUnits.toFixed(3)} u`;
+    }
+    const mm = baseUnits * mmPerUnit;
+    const text = mm >= 1000 ? `${(mm / 1000).toFixed(2)} m` : `${mm.toFixed(1)} mm`;
+    return basis === 'gltf' ? text : `${text}*`;
+}
+
+function deriveMeasurementScaleFromImport(meta = {}) {
+    const ext = String(meta.extension || '').toLowerCase();
+    if (ext === 'glb' || ext === 'gltf') {
+        // glTF 2.0 §3.3: "The units for all linear distances are meters."
+        setMeasurementScale(1000, 'gltf');
+    } else {
+        setMeasurementScale(0, 'none');
+    }
+}
+
 function updateImportQualityFromModel(modelGroup, meta = {}) {
+    if (meta.type === '3d') deriveMeasurementScaleFromImport(meta);
     const stats = getModelQualityStats(modelGroup);
     const isImage = meta.type === 'image';
     const customPartCount = meta.customPartCount ?? (state.activePreset === 'custom' ? getPartScanList('custom').length : 0);
@@ -6504,6 +6555,10 @@ function autoFitAndCenter(group, targetSize = 2.0) {
     // replacing it — the spawn animation used to overwrite this outright,
     // which handed imported CAD models straight back their raw units.
     group.userData.autoFitScale = scale;
+    // The model's own longest side, measured before any hologram shell or
+    // point cloud is built around it. Those overlays sit outside the mesh, so
+    // measuring later reports a size the file does not have.
+    group.userData.sourceMaxDim = maxDim;
 
     // Re-measure after scaling so the recenter accounts for the new bounds
     group.updateMatrixWorld(true);
@@ -9544,14 +9599,14 @@ function initSpatialDrawingEngine() {
                     // converting via the preset root removes BOTH so the real-world dimension
                     // never drifts with zoom. Sample models use the studio
                     // (panel 1.6u = 150mm → 93.75 mm/u); others use a generic factor.
-                    const mmPerUnit = 250;
                     const modelRoot = (activeModelGroup.children[0] || activeModelGroup);
                     modelRoot.updateMatrixWorld(true);
                     const localA = modelRoot.worldToLocal(caliperStartPoint.clone());
                     const localB = modelRoot.worldToLocal(caliperEndPoint.clone());
                     const baseUnits = localA.distanceTo(localB);
-                    const distMM = (baseUnits * mmPerUnit).toFixed(1);
-                    const distanceText = `${distMM} mm`;
+                    const mmPerUnit = state.measurementScale.mmPerUnit;
+                    const distMM = mmPerUnit ? Number((baseUnits * mmPerUnit).toFixed(1)) : 0;
+                    const distanceText = formatMeasurementDistance(baseUnits);
                     
                     const lineGeo = new THREE.BufferGeometry().setFromPoints([caliperStartPoint, caliperEndPoint]);
                     const lineMat = new THREE.LineDashedMaterial({
@@ -9576,12 +9631,15 @@ function initSpatialDrawingEngine() {
                     
                     playAiComplete();
                     
+                    const spoken = state.measurementScale.mmPerUnit
+                        ? `${distMM}`
+                        : null;
                     if (state.language === 'ko') {
-                        addConsoleLog(`[성공] 3D 치수 측정 완료: L [${distMM} mm]`, "success");
-                        speakAssistant(`측정 완료. 거리는 ${distMM} 밀리미터입니다.`);
+                        addConsoleLog(`[성공] 3D 치수 측정 완료: L [${distanceText}]`, "success");
+                        if (spoken) speakAssistant(`측정 완료. 거리는 ${spoken} 밀리미터입니다.`);
                     } else {
-                        addConsoleLog(`[SUCCESS] 3D Caliper locked: Distance L: [${distMM} mm]`, "success");
-                        speakAssistant(`Measurement complete. Distance is ${distMM} millimeters.`);
+                        addConsoleLog(`[SUCCESS] 3D Caliper locked: Distance L: [${distanceText}]`, "success");
+                        if (spoken) speakAssistant(`Measurement complete. Distance is ${spoken} millimeters.`);
                     }
                     
                     calipersList.push({
@@ -9600,7 +9658,8 @@ function initSpatialDrawingEngine() {
                         productName: getProductName(),
                         mmPerUnit,
                         baseUnits: Number(baseUnits.toFixed(4)),
-                        distanceMm: Number(distMM),
+                        distanceMm: distMM,
+                        scaleBasis: state.measurementScale.basis,
                         distanceText,
                         points: {
                             start: getVectorPlain(caliperStartPoint),

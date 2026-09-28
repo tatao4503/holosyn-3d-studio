@@ -349,7 +349,7 @@ Use this after leaving the project alone for a few days:
 - Live viewport pointer with laser, fading freehand, and arrow modes
 - Pitch timer with 30-second, 3-minute, and 5-minute pacing targets
 - Browser TTS narration for saved presenter notes
-- Multi-measurement 3D caliper with saved dimension list and JSON export
+- Multi-measurement 3D caliper with saved dimension list and JSON export. Millimetres come from the file where the format defines a unit (glTF is metres by spec); OBJ has no unit convention and the built-in samples are procedural, so those read in model units until you enter the model's real longest side
 - Presenter Notes for scene-by-scene rehearsal copy and Markdown export
 - Beta Preflight panel for WebGL, CDN, storage, model, and snapshot readiness
 - Beta Launch Pack for onboarding availability, import risk, FPS floor, snapshot, export, and docs/package readiness

@@ -8355,3 +8355,62 @@ body.bench-mode #mobile-toolbar [data-action="timeline"] {
         display: none !important;
     }
 }
+
+/* Measurement scale — what one model unit is worth, and how we know. */
+.measurement-scale-row {
+    margin: 8px 0 10px;
+    padding: 8px 10px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.measurement-scale-row p {
+    margin: 0 0 8px;
+    font-family: var(--font-ui);
+    font-size: 10px;
+    line-height: 1.5;
+    color: var(--text-muted);
+}
+
+.measurement-scale-row.is-exact p { color: var(--green, #30d158); }
+.measurement-scale-row.is-unknown p { color: var(--orange, #ff9f0a); }
+
+.measurement-scale-row label {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+}
+
+.measurement-scale-input-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.measurement-scale-input-row input {
+    flex: 1;
+    min-width: 0;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    padding: 6px 8px;
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: 11px;
+}
+
+.measurement-scale-input-row span {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-muted);
+}
+
+.measurement-scale-input-row .hud-btn {
+    min-height: 28px;
+    padding: 0 10px;
+    flex-shrink: 0;
+}

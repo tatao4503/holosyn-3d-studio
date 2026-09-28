@@ -191,6 +191,82 @@ function loadSavedMeasurements() {
     }
 }
 
+function getModelBaseMaxDimension() {
+    const root = uploadedMeshGroup || activeModelGroup?.children?.[0];
+    if (!root) return 0;
+    // Recorded by autoFitAndCenter from the raw geometry. Re-measuring here
+    // would include the hologram shells drawn around the model.
+    const recorded = Number(root.userData?.sourceMaxDim);
+    if (Number.isFinite(recorded) && recorded > 0) return recorded;
+    root.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(root);
+    if (box.isEmpty()) return 0;
+    const size = new THREE.Vector3();
+    box.getSize(size);
+    const scale = root.getWorldScale(new THREE.Vector3()).x || 1;
+    return Math.max(size.x, size.y, size.z) / scale;
+}
+
+function updateMeasurementScaleUi() {
+    const row = document.getElementById('measurement-scale-row');
+    const note = document.getElementById('measurement-scale-note');
+    const label = document.getElementById('measurement-scale-label');
+    const input = document.getElementById('measurement-scale-input');
+    if (!row || !note) return;
+    const ko = state.language === 'ko';
+    const { mmPerUnit, basis } = state.measurementScale;
+    row.classList.toggle('is-exact', basis === 'gltf');
+    row.classList.toggle('is-unknown', basis === 'none');
+    if (basis === 'gltf') {
+        note.textContent = ko
+            ? 'glTF 규격상 1단위 = 1m 이므로 치수는 파일 그대로입니다. 파일이 다른 단위로 저장됐다면 아래에서 실제 크기를 지정하세요.'
+            : 'glTF defines one unit as one metre, so these dimensions come straight from the file. If it was exported in other units, set the real size below.';
+    } else if (basis === 'user') {
+        note.textContent = ko
+            ? `직접 지정한 크기 기준입니다 (1단위 = ${mmPerUnit.toFixed(2)}mm). 치수 뒤 *는 지정값이라는 뜻입니다.`
+            : `Based on the size you set (1 unit = ${mmPerUnit.toFixed(2)}mm). The * after a dimension means it came from that.`;
+    } else {
+        note.textContent = ko
+            ? '이 모델의 실제 크기를 알 수 없어 치수를 단위(u)로만 보여줍니다. OBJ에는 단위 규약이 없고 샘플은 실물이 없습니다. 아는 치수를 넣으면 mm로 바뀝니다.'
+            : 'The real size of this model is unknown, so dimensions are shown in units. OBJ has no unit convention and the samples are procedural. Enter a size you know and they become millimetres.';
+    }
+    if (label) label.textContent = ko ? '모델 최대 치수' : "Model's longest side";
+    if (input && document.activeElement !== input) {
+        const base = getModelBaseMaxDimension();
+        input.value = mmPerUnit && base ? Number((base * mmPerUnit).toFixed(1)) : '';
+    }
+}
+
+function applyMeasurementScaleFromInput() {
+    const input = document.getElementById('measurement-scale-input');
+    if (!input) return;
+    const mm = Number(input.value);
+    const base = getModelBaseMaxDimension();
+    const ko = state.language === 'ko';
+    if (!Number.isFinite(mm) || mm <= 0 || !base) {
+        showNotification(
+            ko ? '크기를 읽지 못했습니다' : 'Could Not Read That Size',
+            ko ? '모델을 먼저 불러오고, 가장 긴 변의 실제 길이를 mm로 넣어 주세요.' : 'Load a model first, then enter the real length of its longest side in millimetres.'
+        );
+        return;
+    }
+    setMeasurementScale(mm / base, 'user');
+    showNotification(
+        ko ? '치수 기준을 맞췄습니다' : 'Scale Set',
+        ko ? `가장 긴 변을 ${mm}mm로 잡았습니다. 저장된 치수도 함께 갱신했습니다.` : `Longest side set to ${mm}mm. Saved dimensions were updated too.`
+    );
+}
+
+function initMeasurementScaleControls() {
+    const btn = document.getElementById('btn-measurement-scale-apply');
+    if (btn) btn.addEventListener('click', applyMeasurementScaleFromInput);
+    const input = document.getElementById('measurement-scale-input');
+    if (input) input.addEventListener('keydown', event => {
+        if (event.key === 'Enter') { event.preventDefault(); applyMeasurementScaleFromInput(); }
+    });
+    updateMeasurementScaleUi();
+}
+
 function updateMeasurementsPanel() {
     const status = document.getElementById('measurements-status');
     const list = document.getElementById('measurements-list');
