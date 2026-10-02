@@ -17,13 +17,13 @@ while lsof -iTCP:"$PORT" -sTCP:LISTEN >/dev/null 2>&1; do
   PORT=$((PORT + 1))
 done
 
-URL="http://$HOST:$PORT/index.html"
+URL="http://$HOST:$PORT/index.html?stage=1"
 
-echo "Starting HOLOSYN BENCH (open a file, inspect, measure)..."
+echo "Starting HOLOSYN STAGE (present: projector, pointer, timer, QR)..."
 echo "Folder: $(pwd)"
 echo "URL: $URL"
 echo
-echo "To present instead, use 'HOLOSYN 발표.command' — or the STAGE button in the header."
+echo "This runs from the bundled copy, so it works with the wifi off."
 echo
 echo "Keep this window open while using HOLOSYN."
 echo "Press Control+C to stop the local server."

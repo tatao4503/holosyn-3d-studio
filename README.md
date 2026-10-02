@@ -184,15 +184,19 @@ See [`USER_GUIDE.md`](USER_GUIDE.md) for the manual.
 
 ### Recommended
 
-Double-click:
+Double-click the launcher for what you are doing. Each starts a local server
+from this folder and opens the matching door, so all three work with the wifi
+off:
 
 ```text
-HOLOSYN 실행.command
+HOLOSYN 실행.command    BENCH  — open a file, inspect it, measure it
+HOLOSYN 발표.command    STAGE  — present: projector view, pointer, timer, QR
+HOLOSYN 전시.command    booth  — unattended audience loop
 ```
 
-The launcher starts a local server and opens HOLOSYN in your browser.
+You can also switch doors from the header once open; the scene comes with you.
 
-In Beginner mode, use the three controls over the viewport:
+In STAGE's Beginner mode, use the three controls over the viewport:
 
 ```text
 1 IMPORT -> 2 REVEAL (HOLO / COLOR / PART) -> 3 PITCH & SHARE

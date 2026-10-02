@@ -74,6 +74,7 @@ const requiredFiles = [
   'USER_GUIDE.md',
   'DEMO_SCRIPT.md',
   'HOLOSYN 실행.command',
+  'HOLOSYN 발표.command',
   'HOLOSYN 전시.command',
 ];
 
@@ -932,6 +933,20 @@ async function main() {
         assert(!used, `${file}:${block.line} runs at load time and references ${name}, which is declared in ${owner} (loaded later) — the file would abort there`);
       }
     }
+  }
+
+  // Each launcher must open the door it says it opens. The web app grew a
+  // second door and the offline launchers did not follow, so BENCH opened
+  // under instructions written for STAGE.
+  const launchers = {
+    'HOLOSYN 실행.command': '/index.html"',
+    'HOLOSYN 발표.command': '/index.html?stage=1"',
+    'HOLOSYN 전시.command': '/index.html?viewer=1&exhibit=1"',
+  };
+  for (const [file, urlTail] of Object.entries(launchers)) {
+    const script = await readFile(file, 'utf8');
+    assert(script.includes(urlTail), `${file} should open ${urlTail}`);
+    assert(script.includes('python3 -m http.server'), `${file} should serve this folder locally`);
   }
 
   for (const needle of appNeedles) {
