@@ -4289,12 +4289,19 @@ function formatMeasurementDistance(baseUnits) {
 
 function deriveMeasurementScaleFromImport(meta = {}) {
     const ext = String(meta.extension || '').toLowerCase();
-    if (ext === 'glb' || ext === 'gltf') {
-        // glTF 2.0 §3.3: "The units for all linear distances are meters."
-        setMeasurementScale(1000, 'gltf');
-    } else {
-        setMeasurementScale(0, 'none');
+    // glTF 2.0 §3.3: "The units for all linear distances are meters."
+    const known = (ext === 'glb' || ext === 'gltf') ? 1000 : 0;
+    if (meta.merge && state.measurementScale.basis !== 'none') {
+        // Mixing a format that states its units with one that does not means
+        // the parts are not even to the same scale as each other. Claiming
+        // the known one would put a confident millimetre on a guess.
+        if (!known) {
+            setMeasurementScale(0, 'none');
+            return;
+        }
+        return; // already glTF-based and still is
     }
+    setMeasurementScale(known, known ? 'gltf' : 'none');
 }
 
 function updateImportQualityFromModel(modelGroup, meta = {}) {
@@ -6350,10 +6357,34 @@ function buildHologramNode(geometry, isChrome = false) {
 const MAX_UPLOAD_MB = 300;
 
 // Route a FileList/array through the importer (first file replaces, rest merge).
-function handleUploadFiles(files) {
+// Keeping a merged import under one named child per file is what lets Part
+// Scan and the exploded view see the pieces. Without a wrapper the first
+// file's own root becomes the parent and later parts hang off it unevenly.
+function mergeOrReplaceImport(parsed, merge) {
+    if (!merge || !uploadedMeshGroup) {
+        const root = new THREE.Group();
+        root.name = 'import-root';
+        root.add(parsed);
+        return root;
+    }
+    uploadedMeshGroup.add(parsed);
+    return uploadedMeshGroup;
+}
+
+async function handleUploadFiles(files) {
     const list = Array.from(files || []);
     if (!list.length) return;
-    list.forEach((file, index) => processCustomUpload(file, index > 0));
+    // One at a time. These all finish inside async reader callbacks, so firing
+    // them together made the one that happened to parse fastest the "first"
+    // file — and before merge reached OBJ and STL, the last writer simply won
+    // and the rest of a dropped assembly vanished without a word.
+    for (let index = 0; index < list.length; index++) {
+        await processCustomUpload(list[index], index > 0);
+    }
+    if (list.length > 1) {
+        const parts = getPartScanList('custom').length;
+        addConsoleLog(`[IMPORT] Merged ${list.length} files into one model (${parts} part${parts === 1 ? '' : 's'} mapped).`, 'success');
+    }
 }
 
 // Accept a dropped model/image anywhere on the window, with a fullscreen cue.
@@ -6406,6 +6437,13 @@ function initWindowDropUpload() {
 function processCustomUpload(file, merge = false) {
     const filename = file.name.toLowerCase();
     const ext = filename.split('.').pop();
+    // Every branch below finishes inside an async FileReader callback. Without
+    // a signal the caller cannot tell when one import is done, so a multi-file
+    // drop raced: three readers ran at once and whichever finished first won
+    // the "replace" slot. Resolve on every exit, success or not.
+    let settle = () => {};
+    const done = new Promise(resolve => { settle = resolve; });
+    processCustomUpload.lastImport = done;
 
     // Guard against oversized files that would freeze the browser during parse.
     if (file.size > MAX_UPLOAD_MB * 1024 * 1024) {
@@ -6414,7 +6452,8 @@ function processCustomUpload(file, merge = false) {
             : `File too large (${formatFileSize(file.size)}). Maximum supported size is ${MAX_UPLOAD_MB}MB.`;
         setImportQualityError(file, message);
         showNotification(state.language === 'ko' ? "파일 용량 초과" : "File Too Large", message);
-        return;
+        settle();
+        return done;
     }
 
     playSynthClick(580, 0.08);
@@ -6437,6 +6476,7 @@ function processCustomUpload(file, merge = false) {
             const message = state.language === 'ko' ? "파일을 읽지 못했습니다." : "Could not read the file.";
             setImportQualityError(file, message);
             showNotification(state.language === 'ko' ? "읽기 오류" : "Read Error", message);
+            settle();
         };
         reader.readAsArrayBuffer(file);
         reader.onload = function(e) {
@@ -6467,7 +6507,8 @@ function processCustomUpload(file, merge = false) {
                     source: `${cleanName} · ${formatFileSize(file.size)}`,
                     type: '3d',
                     extension: ext,
-                    fileSize: file.size
+                    fileSize: file.size,
+                    merge
                 });
 
                 // Count meshes for diagnostic logging
@@ -6484,6 +6525,7 @@ function processCustomUpload(file, merge = false) {
                 } else {
                     addConsoleLog(`[SYS] 3D Model file imported successfully: [${cleanName}] (${meshCount} mesh${meshCount === 1 ? '' : 'es'})`, "success");
                 }
+                settle();
             }, function(error) {
                 console.error("GLTFLoader error:", error);
                 const message = state.language === 'ko' ? "GLB/GLTF 파일 파싱 도중 오류가 발생했습니다." : "Error occurred parsing standard GLB/GLTF nodes.";
@@ -6492,6 +6534,7 @@ function processCustomUpload(file, merge = false) {
                     state.language === 'ko' ? "임포트 오류" : "Load Error",
                     message
                 );
+                settle();
             });
         };
     } else if (ext === 'obj') {
@@ -6511,6 +6554,7 @@ function processCustomUpload(file, merge = false) {
             const message = state.language === 'ko' ? "파일을 읽지 못했습니다." : "Could not read the file.";
             setImportQualityError(file, message);
             showNotification(state.language === 'ko' ? "읽기 오류" : "Read Error", message);
+            settle();
         };
         reader.readAsArrayBuffer(file);
         reader.onload = function(e) {
@@ -6521,7 +6565,13 @@ function processCustomUpload(file, merge = false) {
                 const decoder = new TextDecoder("utf-8");
                 const text = decoder.decode(contents);
                 
-                uploadedMeshGroup = loader.parse(text);
+                const parsedObj = loader.parse(text);
+                const objPartName = file.name.replace(/\.[^/.]+$/, '');
+                parsedObj.name = objPartName;
+                // OBJ can carry its own group names; only fall back to the
+                // file name when it does not.
+                parsedObj.traverse(node => { if (node.isMesh && !node.name) node.name = objPartName; });
+                uploadedMeshGroup = mergeOrReplaceImport(parsedObj, merge);
                 applyWorkspaceMaterialsToLoadedMesh(uploadedMeshGroup);
                 
                 state.imageUploaded = false;
@@ -6538,7 +6588,8 @@ function processCustomUpload(file, merge = false) {
                     source: `${cleanName} · ${formatFileSize(file.size)}`,
                     type: '3d',
                     extension: ext,
-                    fileSize: file.size
+                    fileSize: file.size,
+                    merge
                 });
                 
                 showNotification(
@@ -6554,6 +6605,7 @@ function processCustomUpload(file, merge = false) {
                     message
                 );
             }
+            settle();
         };
     } else if (ext === 'stl') {
         if (state.language === 'ko') {
@@ -6572,11 +6624,23 @@ function processCustomUpload(file, merge = false) {
             const message = state.language === 'ko' ? "파일을 읽지 못했습니다." : "Could not read the file.";
             setImportQualityError(file, message);
             showNotification(state.language === 'ko' ? "읽기 오류" : "Read Error", message);
+            settle();
         };
         reader.readAsArrayBuffer(file);
         reader.onload = function(e) {
             try {
-                uploadedMeshGroup = parseStl(e.target.result);
+                const parsedStl = parseStl(e.target.result);
+                // One STL is one solid, so the filename is the only part name
+                // there will ever be. Dropping an assembly's parts together is
+                // how a maker gets a multi-part model out of a format that
+                // cannot carry one.
+                const stlPartName = file.name.replace(/\.[^/.]+$/, '');
+                parsedStl.name = stlPartName;
+                // Part Scan reads mesh names, so the file name has to reach
+                // the mesh — otherwise a dropped assembly lists as
+                // stl-solid, stl-solid-2, stl-solid-3.
+                parsedStl.traverse(node => { if (node.isMesh) node.name = stlPartName; });
+                uploadedMeshGroup = mergeOrReplaceImport(parsedStl, merge);
                 applyWorkspaceMaterialsToLoadedMesh(uploadedMeshGroup);
 
                 state.imageUploaded = false;
@@ -6593,7 +6657,8 @@ function processCustomUpload(file, merge = false) {
                     source: `${cleanName} · ${formatFileSize(file.size)}`,
                     type: '3d',
                     extension: ext,
-                    fileSize: file.size
+                    fileSize: file.size,
+                    merge
                 });
 
                 const triangles = uploadedMeshGroup.userData.stlTriangleCount || 0;
@@ -6615,10 +6680,12 @@ function processCustomUpload(file, merge = false) {
                 setImportQualityError(file, message);
                 showNotification(state.language === 'ko' ? "임포트 오류" : "Load Error", message);
             }
+            settle();
         };
     } else if (file.type.startsWith('image/')) {
         // Run standard pixel point cloud parser
         processCustomImage(file);
+        settle();
     } else {
         const message = state.language === 'ko' ? "3D 파일(.glb, .gltf, .obj) 또는 이미지만 지원됩니다." : "Only 3D models (.glb, .gltf, .obj) or images are supported.";
         setImportQualityError(file, message);
@@ -6626,7 +6693,9 @@ function processCustomUpload(file, merge = false) {
             state.language === 'ko' ? "지원되지 않는 파일" : "Unsupported File",
             message
         );
+        settle();
     }
+    return done;
 }
 
 function autoFitAndCenter(group, targetSize = 2.0) {

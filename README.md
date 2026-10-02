@@ -379,6 +379,7 @@ Use this after leaving the project alone for a few days:
 - `.glb`
 - `.gltf`
 - `.obj`
+- Several files at once — a printed assembly usually exports one STL per part, so dropping them together merges them into one model with the file names as part names, which is what gives STL an exploded view at all
 - `.stl` — what a slicer takes, so the bench opens it. STL stores one solid with no part names and no units, so the exploded view and Part Scan have nothing to separate and dimensions read in model units until you set the real size.
 - Common image files
 
