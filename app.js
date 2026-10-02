@@ -4024,6 +4024,35 @@ function getModelQualityStats(modelGroup) {
     return stats;
 }
 
+// Vertex count was standing in for "will this be slow", and it is a poor
+// stand-in: in three.js the cost is dominated by draw calls, not triangles.
+// Measured here, a 200k-triangle STL — one mesh, 14 calls — renders in
+// 0.13ms, while the built-in exosuit — 279 objects, 6k triangles — takes
+// 1.86ms. So the bench told a maker their actual print file was HIGH risk
+// while it ran an order of magnitude faster than the demo beside it.
+// The renderer is right here, so measure instead of guessing. The number is
+// also specific to the machine that will do the presenting, which a
+// threshold never is.
+function measureFrameCostMs(frames = 8) {
+    if (!renderer || !scene || !camera) return 0;
+    const draw = () => { if (typeof composer !== 'undefined' && composer) composer.render(); else renderer.render(scene, camera); };
+    try {
+        // WebGL submits asynchronously, so timing render() alone measures how
+        // long it took to queue the work, not to do it — about two thirds of
+        // the truth here. finish() blocks until the GPU has actually drawn.
+        const gl = renderer.getContext();
+        draw(); // warm: shader compile and buffer upload land on this one
+        if (gl) gl.finish();
+        const start = performance.now();
+        for (let i = 0; i < frames; i++) draw();
+        if (gl) gl.finish();
+        return (performance.now() - start) / frames;
+    } catch (err) {
+        console.warn('Frame cost measurement skipped', err);
+        return 0;
+    }
+}
+
 function getImportReliabilityReport(modelGroup, meta = {}, stats = getModelQualityStats(modelGroup)) {
     const isImage = meta.type === 'image';
     const customPartCount = meta.customPartCount ?? (state.activePreset === 'custom' ? getPartScanList('custom').length : 0);
@@ -4039,14 +4068,19 @@ function getImportReliabilityReport(modelGroup, meta = {}, stats = getModelQuali
 
     if (!isImage && stats.meshes === 0) warnings.push('NO_MESH');
     if (!isImage && customPartCount <= 1) warnings.push('SINGLE_PART');
-    if (stats.vertices > 180000) warnings.push('HEAVY_VERTICES');
     if (fileSizeMb > 60) warnings.push('LARGE_FILE');
     if (stats.maxDimension > 6) warnings.push('AUTO_SCALED');
 
+    // 16.7ms is one frame at 60Hz. Past it the stage visibly stutters; under
+    // half of it there is room to spare even on a slower laptop.
+    const frameMs = meta.measureFrames === false ? 0 : measureFrameCostMs();
+    const SLOW_FRAME_MS = 16.7;
+    if (frameMs > SLOW_FRAME_MS) warnings.push('SLOW_FRAME');
+
     let risk = 'LOW';
-    if (warnings.includes('NO_MESH') || warnings.includes('HEAVY_VERTICES') || fileSizeMb > 120) {
+    if (warnings.includes('NO_MESH') || frameMs > SLOW_FRAME_MS * 2 || fileSizeMb > 120) {
         risk = 'HIGH';
-    } else if (warnings.length > 0 || isImage) {
+    } else if (warnings.includes('SLOW_FRAME') || warnings.length > 0 || isImage) {
         risk = 'MED';
     }
 
@@ -4055,7 +4089,8 @@ function getImportReliabilityReport(modelGroup, meta = {}, stats = getModelQuali
         scaleLabel,
         partsLabel,
         risk,
-        warnings
+        warnings,
+        frameMs
     };
 }
 
@@ -4067,9 +4102,9 @@ function describeImportWarnings(warnings = []) {
         NO_MESH: ko
             ? '3D 메쉬를 찾지 못했습니다. 다른 파일로 다시 시도하세요.'
             : 'No 3D mesh was found. Try exporting the file again.',
-        HEAVY_VERTICES: ko
-            ? '정점이 많아 발표용 노트북에서 느려질 수 있습니다. HQ Boost를 끄고 미리 한 번 돌려보세요.'
-            : 'High vertex count may run slowly on a presentation laptop. Turn off HQ Boost and rehearse once.',
+        SLOW_FRAME: ko
+            ? '이 컴퓨터에서 한 프레임이 60Hz 예산을 넘겼습니다. HQ Boost를 끄거나 부품 수를 줄이고, 발표에 쓸 노트북에서 한 번 돌려보세요.'
+            : 'On this machine a frame is over the 60Hz budget. Turn off HQ Boost or reduce part count, and try it once on the laptop you will present from.',
         LARGE_FILE: ko
             ? '파일이 커서 첫 로딩이 오래 걸립니다. 발표 전에 미리 열어두세요.'
             : 'Large file, so the first load is slow. Open it before you present.',
