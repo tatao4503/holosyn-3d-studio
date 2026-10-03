@@ -48,16 +48,26 @@ function normalizeSavedMeasurements(measurements) {
         measurement && measurement.points?.start && measurement.points?.end
     )).map((measurement, index) => {
         const distanceMm = Math.max(0, finiteSnapshotNumber(measurement.distanceMm, 0));
+        const baseUnits = Math.max(0, finiteSnapshotNumber(measurement.baseUnits, 0));
+        // Records written before the scale fix carry millimetres derived from
+        // a hardcoded 250 mm per unit — a 100mm cube measured 25mm. They have
+        // no scaleBasis, and a July share link still has them in its payload.
+        // Recompute where we can, and never show the stored number as fact.
+        const scaleBasis = ['gltf', 'user'].includes(measurement.scaleBasis) ? measurement.scaleBasis : 'legacy';
+        const recomputed = (scaleBasis === 'legacy' && baseUnits)
+            ? formatMeasurementDistance(baseUnits)
+            : null;
         return {
+            scaleBasis,
             id: limitSnapshotText(measurement.id, `m-${index + 1}`, 120),
             label: limitSnapshotText(measurement.label, `M${index + 1}`, 120),
             createdAt: limitSnapshotText(measurement.createdAt, '', 64),
             preset: limitSnapshotText(measurement.preset, state.activePreset, 80),
             productName: limitSnapshotText(measurement.productName, getProductName(), 160),
             mmPerUnit: Math.max(0, finiteSnapshotNumber(measurement.mmPerUnit, 0)),
-            baseUnits: Math.max(0, finiteSnapshotNumber(measurement.baseUnits, 0)),
+            baseUnits,
             distanceMm,
-            distanceText: limitSnapshotText(measurement.distanceText, `${distanceMm} mm`, 80),
+            distanceText: recomputed || limitSnapshotText(measurement.distanceText, `${distanceMm} mm`, 80),
             points: {
                 start: normalizeSnapshotPoint(measurement.points.start),
                 end: normalizeSnapshotPoint(measurement.points.end)
@@ -288,6 +298,13 @@ function updateMeasurementsPanel() {
         label.textContent = `${measurement.label || `M${index + 1}`} · ${measurement.preset || state.activePreset}`;
         const value = document.createElement('strong');
         value.textContent = measurement.distanceText || `${measurement.distanceMm} mm`;
+        if (measurement.scaleBasis === 'legacy') {
+            // Carried in from a link or snapshot made before the scale fix.
+            row.classList.add('is-legacy');
+            value.title = state.language === 'ko'
+                ? '예전 버전에서 저장된 치수입니다. 그때의 mm 환산은 믿을 수 없어 모델 단위로 다시 계산했습니다.'
+                : 'Saved by an older version, whose millimetre conversion was unreliable, so this was recomputed in model units.';
+        }
         row.append(label, value);
         list.appendChild(row);
     });

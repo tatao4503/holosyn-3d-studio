@@ -8414,3 +8414,13 @@ body.bench-mode #mobile-toolbar [data-action="timeline"] {
     padding: 0 10px;
     flex-shrink: 0;
 }
+
+/* A dimension carried in from before the scale fix: shown, but not as fact. */
+.measurement-row.is-legacy strong {
+    color: var(--orange, #ff9f0a);
+}
+
+.measurement-row.is-legacy strong::after {
+    content: ' ·';
+    opacity: 0.6;
+}

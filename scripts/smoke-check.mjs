@@ -357,6 +357,10 @@ const appNeedles = [
   // Import risk is measured on this machine, not guessed from vertex count.
   // A dropped assembly must not lose parts: merge reached only GLTF, and the
   // async readers raced so the last writer won.
+  // Links and snapshots made before the scale fix carry fabricated
+  // millimetres; they must not come back looking measured.
+  "const scaleBasis = ['gltf', 'user'].includes(measurement.scaleBasis) ? measurement.scaleBasis : 'legacy';",
+  "if (measurement.scaleBasis === 'legacy') {",
   'function mergeOrReplaceImport',
   'async function handleUploadFiles',
   'await processCustomUpload(list[index], index > 0);',
@@ -834,10 +838,10 @@ async function main() {
   }
   assert(html.includes('data-action="timeline"'), 'Missing mobile timeline action');
   assert(html.includes('라이브 포인터 / 화면에 표시 (Shift+P)'), 'Live pointer shortcut label is stale');
-  assert(html.includes('index.css?v=20261002-merge3'), 'CSS cache version is stale');
-  assert(html.includes('app.js?v=20261002-merge3'), 'Core JS cache version is stale');
-  assert(html.includes('scripts/holosyn-timeline.js?v=20261002-merge3'), 'Timeline script tag is missing or stale');
-  assert(html.includes('scripts/holosyn-pro-managers.js?v=20261002-merge3'), 'Pro managers script tag is missing or stale');
+  assert(html.includes('index.css?v=20261003-legacy'), 'CSS cache version is stale');
+  assert(html.includes('app.js?v=20261003-legacy'), 'Core JS cache version is stale');
+  assert(html.includes('scripts/holosyn-timeline.js?v=20261003-legacy'), 'Timeline script tag is missing or stale');
+  assert(html.includes('scripts/holosyn-pro-managers.js?v=20261003-legacy'), 'Pro managers script tag is missing or stale');
   assert(html.includes('vendor/three/three.min.js'), 'Bundled Three.js runtime is missing');
   assert(html.includes('vendor/lucide/lucide.min.js'), 'Bundled Lucide runtime is missing');
   assert(html.includes('vendor/qrcode/qrcode.js'), 'Bundled QR runtime is missing');
