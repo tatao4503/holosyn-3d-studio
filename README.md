@@ -182,6 +182,23 @@ See [`USER_GUIDE.md`](USER_GUIDE.md) for the manual.
 
 ## Quick Start
 
+### 받기
+
+브라우저에서 바로 쓸 거라면 받을 게 없습니다 — 위의 **BENCH** 링크를 열면 됩니다.
+
+인터넷 없는 자리(부스·발표장)에서 쓰려면 한 벌 내려받으세요:
+
+```bash
+git clone https://github.com/tatao4503/holosyn-3d-studio.git
+```
+
+Git이 없으면 저장소 상단 **Code → Download ZIP**. 받은 폴더를 풀면 아래 런처가
+들어 있습니다. (Releases 탭의 태그는 그때그때의 스냅샷이라 master보다 뒤처질 수
+있습니다. 최신이 필요하면 위 두 가지 중 하나로 받으세요.)
+
+처음 받은 `.command`는 macOS가 한 번 막습니다 — 파일을 **우클릭 → 열기**로 한 번만
+열어 주면 그다음부터는 더블클릭으로 됩니다.
+
 ### Recommended
 
 Double-click the launcher for what you are doing. Each starts a local server
